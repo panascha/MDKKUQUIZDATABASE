@@ -1,0 +1,3933 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MDKKU Manager Center</title>
+
+    <!-- Google Fonts: Sarabun -->
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <!-- CSS Libraries -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css">
+
+    <style>
+        :root {
+            --primary-color: #4e73df;
+            --secondary-color: #858796;
+            --success-color: #1cc88a;
+            --info-color: #36b9cc;
+            --warning-color: #f6c23e;
+            --danger-color: #e74a3b;
+            --light-bg: #f8f9fc;
+            --dark-text: #5a5c69;
+            --sidebar-width: 250px;
+            --sidebar-hidden-margin: calc(-1 * var(--sidebar-width));
+            --color-primary: #4e73df;
+            /* สำหรับ Vote Modal */
+            --color-dark: #5a5c69;
+            /* สำหรับ Vote Modal */
+        }
+
+        body {
+            font-family: 'Sarabun', sans-serif;
+            background-color: var(--light-bg);
+            color: var(--dark-text);
+            overflow-x: hidden;
+            width: 100%;
+        }
+
+        /* --- Sidebar --- */
+        #sidebar-wrapper {
+            min-height: 100vh;
+            margin-left: var(--sidebar-hidden-margin);
+            transition: margin .25s ease-out;
+            background: linear-gradient(180deg, #4e73df 10%, #224abe 100%);
+            width: var(--sidebar-width);
+            position: fixed;
+            z-index: 1050;
+            /* เพิ่ม z-index ให้สูงกว่าปกติ */
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Mobile: Sidebar เปิดเมื่อมี class 'toggled' (เดิมถูกซ่อน) */
+        #wrapper.toggled #sidebar-wrapper {
+            margin-left: 0;
+        }
+
+        /* Overlay/Backdrop เมื่อ Sidebar เปิดบนมือถือ */
+        @media (max-width: 767.98px) {
+            #wrapper.toggled:before {
+                content: '';
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 1040;
+                pointer-events: auto;
+            }
+        }
+
+        #sidebar-wrapper .sidebar-heading {
+            padding: 1.5rem 1.25rem;
+            font-size: 1.2rem;
+            /* ปรับลดขนาดเล็กน้อยให้พอดีมือถือ */
+            font-weight: 700;
+            color: white;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+            position: relative;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+
+        /* Style สำหรับปุ่มปิด Sidebar บนมือถือ */
+        #sidebar-close-btn {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: white;
+            font-size: 1.25rem;
+            cursor: pointer;
+            text-decoration: none;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        #sidebar-close-btn:hover {
+            opacity: 1;
+        }
+
+        @media (min-width: 768px) {
+
+            /* ซ่อนปุ่มปิดบนหน้าจอ Desktop */
+            #sidebar-close-btn {
+                display: none !important;
+            }
+        }
+
+        #sidebar-wrapper .list-group {
+            width: var(--sidebar-width);
+        }
+
+        #sidebar-wrapper .list-group-item {
+            background-color: transparent;
+            color: rgba(255, 255, 255, 0.8);
+            border: none;
+            padding: 1rem 1.5rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        #sidebar-wrapper .list-group-item:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: white;
+            padding-left: 2rem;
+        }
+
+        #sidebar-wrapper .list-group-item.active {
+            color: white;
+            font-weight: bold;
+            background-color: rgba(255, 255, 255, 0.2);
+            border-left: 4px solid white;
+        }
+
+        #sidebar-wrapper .list-group-item i {
+            margin-right: 10px;
+            width: 20px;
+            text-align: center;
+        }
+
+        /* --- Page Content --- */
+        #page-content-wrapper {
+            min-width: 100vw;
+            transition: margin .25s ease-out;
+            padding-left: 0;
+            margin-left: 0;
+        }
+
+        /* เมื่อถูก toggle บน Mobile (Sidebar เปิด) เนื้อหาไม่ต้องขยับ */
+        #wrapper.toggled #page-content-wrapper {
+            min-width: 100vw;
+            margin-left: 0;
+        }
+
+
+        @media (min-width: 768px) {
+
+            /* Desktop/Tablet: สถานะเริ่มต้นคือแสดง Sidebar */
+            #sidebar-wrapper {
+                margin-left: 0;
+            }
+
+            #page-content-wrapper {
+                min-width: 0;
+                width: 100%;
+                margin-left: var(--sidebar-width);
+            }
+
+            /* Desktop/Tablet: สถานะ Toggled คือซ่อน Sidebar */
+            #wrapper.toggled #sidebar-wrapper {
+                margin-left: var(--sidebar-hidden-margin) !important;
+            }
+
+            #wrapper.toggled #page-content-wrapper {
+                margin-left: 0 !important;
+            }
+        }
+
+        /* --- Topbar --- */
+        .topbar {
+            height: 4.375rem;
+            box-shadow: 0 .15rem 1.75rem 0 rgba(58, 59, 69, .15);
+            background-color: white;
+            display: flex;
+            align-items: center;
+            padding: 0 1rem;
+            justify-content: space-between;
+        }
+
+        /* ปรับแต่งหัวข้อใน Topbar สำหรับมือถือ */
+        #page-title {
+            font-size: 1.1rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 180px;
+        }
+
+        @media (min-width: 576px) {
+            #page-title {
+                font-size: 1.5rem;
+                max-width: none;
+            }
+
+            .topbar {
+                padding: 0 1.5rem;
+            }
+        }
+
+        /* --- Report Modal Specific Styles --- */
+        #report-card {
+            display: none;
+            position: fixed;
+            z-index: 3000;
+            /* ให้สูงกว่า Modal ปกติ */
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.6);
+            justify-content: center;
+            align-items: center;
+        }
+
+        #report-card .modal-body {
+            background-color: #fff;
+            padding: 1.5rem;
+            border-radius: 15px;
+            width: 95%;
+            max-width: 700px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-section {
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        #report-question-details {
+            background-color: #fff3f3;
+            border: 2px solid #dc3545;
+        }
+
+        #report-question-text {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #333;
+            line-height: 1.5;
+        }
+
+        .report-img-preview {
+            max-width: 100%;
+            max-height: 200px;
+            display: block;
+            margin: 10px auto;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .report-choice-img {
+            max-height: 80px;
+            display: block;
+            margin-top: 5px;
+        }
+
+        #report-choices-list {
+            font-size: 0.95rem;
+        }
+
+        #report_text {
+            width: 100%;
+            min-height: 80px;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ced4da;
+        }
+
+        #report-correct-choice-select {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        /* --- Vote Modal Styles --- */
+        .modal-card {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+        }
+
+        .modal-card .modal-body {
+            background-color: #fefefe;
+            padding: 1.2rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 600px;
+            animation: fadeIn 0.3s;
+            max-height: 95vh;
+            overflow-y: auto;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* 1. ปรับขนาด Text และ Layout หลัก */
+        #vote-category-modal .modal-body {
+            padding: 1.5rem !important;
+        }
+
+        #vote-category-modal .modal-title {
+            font-size: 1.5rem !important;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        #vote-category-modal p.small-text {
+            font-size: 1rem;
+            color: #6c757d;
+            margin-bottom: 1rem;
+        }
+
+        /* 2. กล่อง Preview โจทย์ */
+        #vote-question-preview {
+            font-size: 1rem !important;
+            line-height: 1.5;
+            color: #2c3e50;
+            background: #f8f9fa;
+            border: none !important;
+            border-left: 6px solid var(--primary-color) !important;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            padding: 15px !important;
+            transition: transform 0.3s ease;
+        }
+
+        @media (min-width: 768px) {
+            #vote-category-modal .modal-body {
+                padding: 2rem !important;
+            }
+
+            #vote-category-modal .modal-title {
+                font-size: 2rem !important;
+            }
+
+            #vote-category-modal p.small-text {
+                font-size: 1.2rem;
+            }
+
+            #vote-question-preview {
+                font-size: 1.25rem !important;
+                padding: 20px !important;
+            }
+        }
+
+        #vote-question-preview:hover {
+            transform: scale(1.01);
+        }
+
+        /* 3. Container ของ Badge */
+        .category-badge-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            min-height: 40px;
+            align-items: center;
+        }
+
+        /* 4. ตัว Badge (Category) - หัวใจหลัก */
+        .category-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 15px;
+            border-radius: 50px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        @media (min-width: 768px) {
+            .category-badge {
+                font-size: 1.15rem;
+                padding: 10px 20px;
+            }
+
+            .category-badge-container {
+                gap: 12px;
+            }
+        }
+
+        /* 4.1 สไตล์ Approved (สีเขียว) */
+        .category-badge.approved {
+            background: linear-gradient(135deg, #d4fc79 0%, #96e6a1 100%);
+            color: #155724;
+            border: none;
+            box-shadow: 0 4px 6px rgba(150, 230, 161, 0.4);
+        }
+
+        .category-badge.approved i {
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            padding: 4px;
+            font-size: 0.8rem;
+            margin-left: 8px;
+        }
+
+        /* 4.2 สไตล์ Suggested (สีส้ม/เหลือง) - แบบ Interactive */
+        .category-badge.suggested {
+            background-color: #fff;
+            color: #d35400;
+            border: 2px solid #ffcc80;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Effect ตอนเอาเมาส์ชี้ (Hover) */
+        .category-badge.suggested:hover {
+            background-color: #ffe0b2;
+            border-color: #ffb74d;
+            color: #e65100;
+            transform: translateY(-4px) scale(1.05);
+            box-shadow: 0 8px 15px rgba(255, 167, 38, 0.3);
+        }
+
+        /* Effect ตอนกด (Active) */
+        .category-badge.suggested:active {
+            transform: translateY(-1px) scale(0.98);
+            box-shadow: 0 2px 5px rgba(255, 167, 38, 0.3);
+        }
+
+        /* Badge บอกจำนวนคนโหวต */
+        .vote-count-badge {
+            background-color: #e65100;
+            color: white;
+            border-radius: 20px;
+            padding: 2px 8px;
+            font-size: 0.8rem;
+            margin-left: 8px;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        /* 5. ส่วนเพิ่มหัวข้อใหม่ (Dropdowns) */
+        .vote-row {
+            display: grid;
+            grid-template-columns: 35px 1fr;
+            /* ปรับ Grid สำหรับมือถือ */
+            grid-gap: 10px;
+            align-items: center;
+            background: #fff;
+            border: 1px dashed #ced4da;
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            transition: border-color 0.3s;
+        }
+
+        /* บน Desktop ให้แสดงแถวเดียว */
+        @media (min-width: 576px) {
+            .vote-row {
+                grid-template-columns: 35px 1fr 1fr 1fr;
+                padding: 15px;
+            }
+        }
+
+        .vote-row:hover {
+            border-color: var(--primary-color);
+            background: #f8faff;
+        }
+
+        .vote-select {
+            height: 45px;
+            font-size: 1rem;
+            border-radius: 8px;
+            border: 1px solid #dfe1e5;
+            background-color: #fff;
+            padding: 0 10px;
+            cursor: pointer;
+            width: 100%;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        @media (max-width: 575.98px) {
+            .vote-select {
+                grid-column: span 2;
+            }
+
+            .btn-remove-row {
+                grid-column: 1;
+                grid-row: 1;
+            }
+        }
+
+        .vote-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 4px rgba(78, 115, 223, 0.1);
+            outline: none;
+        }
+
+        /* Gallery Styles */
+        .image-gallery-container {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            position: relative;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .gallery-img {
+            max-height: 250px;
+            max-width: 100%;
+            object-fit: contain;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .gallery-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        /* Choice Styles */
+        .choice-item {
+            transition: all 0.2s;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            padding: 4px;
+        }
+
+        .choice-item:hover {
+            background-color: #f8faff;
+            border-color: #e3e6f0;
+        }
+
+        /* สไตล์สำหรับคำตอบที่ถูกเสนอ (สีเขียว) */
+.choice-item.suggested-choice {
+    border: 2px solid #1cc88a; /* สีเขียว */
+    background-color: #eafff5;
+}
+
+/* สไตล์สำหรับคำตอบเดิมใน Database (ถ้าไม่ตรงกับที่เสนอ) */
+.choice-item.original-choice {
+    border: 2px solid #858796; /* สีเทา */
+    background-color: #f8f9fa;
+}
+
+/* สไตล์เมื่อคำตอบเดิม กับ คำตอบที่เสนอ ตรงกัน */
+.choice-item.suggested-choice.original-choice {
+    border: 2px solid #1cc88a;
+    background-color: #eafff5;
+}
+
+        .choice-input-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            width: 100%;
+        }
+
+        .btn-remove-choice {
+            color: #dc3545;
+            cursor: pointer;
+            padding: 5px 10px;
+        }
+
+        .btn-remove-choice:hover {
+            background-color: #ffeef0;
+            border-radius: 4px;
+        }
+
+        .btn-remove-row {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-remove-row:hover {
+            background-color: #c82333;
+            transform: translateY(-2px);
+        }
+
+        /* 6. ปุ่มเพิ่มแถว (Add Row Button) */
+        #btn-add-vote-row {
+            padding: 8px 15px;
+            font-size: 1rem;
+            border-radius: 50px;
+            background-color: #e9f5ff;
+            color: var(--primary-color);
+            border: 2px solid var(--primary-color);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            margin: 0 auto;
+        }
+
+        @media (min-width: 768px) {
+            #btn-add-vote-row {
+                padding: 10px 20px;
+                font-size: 1.2rem;
+            }
+        }
+
+        #btn-add-vote-row:hover {
+            background-color: rgba(78, 115, 223, 0.05);
+            border-style: solid;
+            transform: translateY(-2px);
+        }
+
+        /* 7. ปุ่ม Submit / Close */
+        .controls-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        @media (min-width: 576px) {
+            .controls-container {
+                justify-content: flex-end;
+            }
+        }
+
+        .quiz-button {
+            padding: 10px 20px;
+            font-size: 1.1rem;
+            border-radius: 50px;
+            letter-spacing: 0.5px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            flex: 1;
+            max-width: 200px;
+        }
+
+        @media (min-width: 768px) {
+            .quiz-button {
+                padding: 12px 30px;
+                font-size: 1.3rem;
+            }
+        }
+
+        .btn-light {
+            background-color: #f8f9fa;
+            color: #6c757d;
+        }
+
+        .btn-dark {
+            background: linear-gradient(45deg, #4e73df, #224abe);
+            color: white;
+            box-shadow: 0 4px 10px rgba(78, 115, 223, 0.4);
+        }
+
+        .btn-dark:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(78, 115, 223, 0.6);
+        }
+
+        /* 8. ข้อความ Empty State */
+        .empty-state-text {
+            font-size: 1rem;
+            color: #adb5bd;
+            font-weight: 400;
+            padding: 10px 0;
+        }
+
+        /* --- Other Styles (Remaining from original) --- */
+        .card-dashboard {
+            border: none;
+            border-radius: 0.75rem;
+            box-shadow: 0 .15rem 1.75rem 0 rgba(58, 59, 69, .15);
+            margin-bottom: 1.5rem;
+            transition: transform 0.2s;
+        }
+
+        .card-dashboard:hover {
+            transform: translateY(-3px);
+        }
+
+        .card-header-custom {
+            background-color: white;
+            border-bottom: 1px solid #e3e6f0;
+            padding: 1rem 1.25rem;
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            border-top-left-radius: 0.75rem !important;
+            border-top-right-radius: 0.75rem !important;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+        @media (max-width: 575.98px) {
+            .card-header-custom {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
+        }
+
+        .diff-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #eee;
+        }
+
+        @media (min-width: 768px) {
+            .diff-container {
+                flex-direction: row;
+            }
+        }
+
+        .diff-box {
+            flex: 1;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .diff-original {
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+        }
+
+        .diff-suggest {
+            background-color: #e8f5e9;
+            border: 1px solid #c8e6c9;
+        }
+
+        .diff-label {
+            font-size: 0.85rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #666;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .admin-only {
+            display: none;
+        }
+
+        .badge-pill {
+            border-radius: 50rem;
+            padding: 0.35em 0.6em;
+        }
+
+        table.dataTable thead th {
+            border-bottom: 2px solid #e3e6f0;
+            color: var(--primary-color);
+            white-space: nowrap;
+        }
+
+        table.dataTable tbody td {
+            vertical-align: middle;
+        }
+
+        .img-preview-mini {
+            max-height: 40px;
+            cursor: pointer;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+
+        .img-preview-mini:hover {
+            transform: scale(2.5);
+            transition: transform 0.2s;
+            z-index: 100;
+            position: relative;
+        }
+
+        .converter-area {
+            background: #fff;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        @media (min-width: 768px) {
+            .converter-area {
+                padding: 20px;
+            }
+        }
+
+        .converter-control-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        @media (min-width: 992px) {
+            .converter-control-panel {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .input-field label {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .input-field input,
+        .input-field textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 10px;
+            border-bottom: 2px solid #ddd;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+
+        .tab {
+            padding: 10px 15px;
+            cursor: pointer;
+            font-weight: bold;
+            color: #555;
+            font-size: 0.9rem;
+        }
+
+        .tab.active {
+            color: var(--primary-color);
+            border-bottom: 3px solid var(--primary-color);
+        }
+
+        .table-scroll {
+            max-height: 400px;
+            overflow: auto;
+            font-size: 0.85rem;
+        }
+
+        .editable-cell {
+            background-color: #fff;
+            transition: background-color 0.2s;
+            min-width: 100px;
+        }
+
+        .editable-cell:focus {
+            background-color: #e8f0fe;
+            outline: 2px solid var(--primary-color);
+            padding: 5px;
+        }
+
+        /* Responsive Utility for DataTables */
+        .table-responsive {
+            border: none;
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            /* smooth scrolling on iOS */
+        }
+
+        /* Default table sizing: allow horizontal scroll when necessary */
+        .table-responsive table {
+            width: 100%;
+            min-width: 600px;
+            table-layout: auto;
+        }
+
+            /* --- Structure Tree View --- */
+        .tree-container {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e3e6f0;
+        }
+
+        .tree-view, .tree-view ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            position: relative;
+        }
+
+        .tree-view ul {
+            margin-left: 25px; /* ระยะห่างเยื้องขวา */
+            max-height: 1000px;
+            overflow: hidden;
+            transition: max-height 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.4s ease;
+            opacity: 1;
+        }
+
+        .tree-view li {
+            margin: 0;
+            padding: 5px 0 5px 20px;
+            position: relative;
+            line-height: 24px;
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+            opacity: 0;
+            transform: translateY(-8px);
+            }
+            to {
+            opacity: 1;
+            transform: translateY(0);
+            }
+        }
+
+        /* เส้นแนวตั้ง */
+        .tree-view li::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            border-left: 2px solid #d1d3e2;
+            height: 100%;
+            width: 1px;
+            transition: border-color 0.3s ease;
+        }
+
+        /* เส้นแนวนอนที่เชื่อมกับไอคอน */
+        .tree-view li::after {
+            content: "";
+            position: absolute;
+            top: 15px;
+            left: 0;
+            border-top: 2px solid #d1d3e2;
+            width: 18px;
+            transition: border-color 0.3s ease;
+        }
+
+        /* ลบเส้นแนวตั้งที่เกินออกมาจากข้อสุดท้าย */
+        .tree-view li:last-child::before {
+            height: 15px;
+        }
+
+        /* การจัดการเส้นโยงและปุ่ม CRUD */
+        .tree-node {
+            display: flex;
+            align-items: center;
+            padding: 6px 12px;
+            border-radius: 8px;
+            margin-bottom: 2px;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .tree-node:hover { 
+            background-color: #f1f3f9;
+            transform: translateX(4px);
+        }
+
+        /* ปุ่ม CRUD ที่จะแสดงเมื่อ Hover */
+        .node-actions {
+            margin-left: auto;
+            display: flex;
+            gap: 5px;
+            opacity: 0;
+            transform: translateX(10px);
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            pointer-events: none;
+        }
+
+        .tree-node:hover .node-actions { 
+            opacity: 1;
+            transform: translateX(0);
+            pointer-events: auto;
+        }
+
+        .btn-node {
+            width: 26px;
+            height: 26px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-size: 0.75rem;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .btn-node:hover {
+            transform: scale(1.1);
+        }
+
+        .btn-node:active { 
+            transform: scale(0.9);
+        }
+
+        .btn-add { 
+            background: #e8f5e9; 
+            color: #2e7d32;
+        }
+
+        .btn-add:hover {
+            background: #c8e6c9;
+            box-shadow: 0 2px 8px rgba(46, 125, 50, 0.2);
+        }
+
+        .btn-edit { 
+            background: #e3f2fd; 
+            color: #1565c0;
+        }
+
+        .btn-edit:hover {
+            background: #bbdefb;
+            box-shadow: 0 2px 8px rgba(21, 101, 192, 0.2);
+        }
+
+        .btn-delete { 
+            background: #ffeeee; 
+            color: #c62828;
+        }
+
+        .btn-delete:hover {
+            background: #ffcccc;
+            box-shadow: 0 2px 8px rgba(198, 40, 40, 0.2);
+        }
+
+        /* ระบบเปิด-ปิด (Collapse) */
+        .toggle-icon {
+            cursor: pointer;
+            width: 20px;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .tree-node.collapsed .toggle-icon { 
+            transform: rotate(-90deg);
+        }
+
+        .tree-node.collapsed + ul { 
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+        }
+
+        .node-subject { 
+            background: #eef2ff; 
+            border-left: 4px solid #4e73df;
+            transition: all 0.25s ease;
+        }
+
+        .node-subject:hover {
+            border-left-color: #224abe;
+            background: #e0e7ff;
+        }
+
+        .node-group { 
+            background: #f0fdf4; 
+            border-left: 4px solid #1cc88a; 
+            margin-left: 10px;
+            transition: all 0.25s ease;
+        }
+
+        .node-group:hover {
+            border-left-color: #0d9488;
+            background: #dcfce7;
+        }
+
+        .node-category { 
+            border-bottom: 1px solid #f1f3f9; 
+            margin-left: 20px;
+            transition: border-color 0.25s ease;
+        }
+
+        .node-category:hover {
+            border-bottom-color: #e3e6f0;
+        }
+
+
+.badge-count {
+    font-size: 0.7rem;
+    background: #eaecf4;
+    color: #4e73df;
+    margin-left: 8px;
+    padding: 2px 6px;
+    border-radius: 10px;
+}
+
+        /* General small-device tweaks */
+        @media (max-width: 575.98px) {
+
+            .table-responsive table thead th,
+            .table-responsive table tbody td {
+                font-size: 0.85rem;
+                white-space: nowrap;
+            }
+
+            .img-preview-mini {
+                max-height: 30px;
+            }
+        }
+
+        /* Specific improvements for very narrow devices (<= 430px) */
+        @media (max-width: 430px) {
+
+            /* Allow cells to wrap instead of forcing horizontal scroll,
+               but keep horizontal scroll available if content cannot wrap */
+            .table-responsive table {
+                min-width: 0;
+                table-layout: fixed;
+                /* distribute available width */
+                word-break: break-word;
+            }
+
+            .table-responsive table thead th,
+            .table-responsive table tbody td {
+                white-space: normal;
+                /* allow wrapping of long text */
+                font-size: 0.78rem;
+                padding: 6px 8px;
+                line-height: 1.15;
+            }
+
+            /* Reduce header emphasis to save space */
+            .table-responsive table thead th {
+                font-size: 0.75rem;
+                font-weight: 600;
+            }
+
+            /* Make small preview images compact */
+            .img-preview-mini {
+                max-height: 24px;
+                width: auto;
+            }
+
+            /* Reduce button padding inside tables */
+            .table-responsive .btn {
+                padding: 4px 6px;
+                font-size: 0.78rem;
+            }
+
+            /* Allow long words/URLs to break */
+            .table-responsive td,
+            .table-responsive th {
+                overflow-wrap: anywhere;
+            }
+
+            /* Optional: make action column narrow and center its content */
+            .table-responsive td:last-child,
+            .table-responsive th:last-child {
+                width: 1%;
+                white-space: nowrap;
+                text-align: center;
+            }
+        }
+
+        /* Adjust Modals for small screens */
+        @media (max-width: 576px) {
+            .modal-dialog {
+                margin: 0.5rem;
+            }
+
+            .modal-content {
+                border-radius: 10px;
+            }
+
+            .modal-header,
+            .modal-footer {
+                padding: 0.75rem;
+            }
+
+            .modal-body {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="d-flex" id="wrapper">
+
+        <!-- Sidebar -->
+        <div class="border-right" id="sidebar-wrapper">
+            <div class="sidebar-heading">
+                <i class="fas fa-brain"></i> MDKKUQUIZ
+                <!-- ปุ่มปิด Sidebar สำหรับ Mobile -->
+                <a href="#" id="sidebar-close-btn" class="d-md-none" aria-label="Close Sidebar">
+                    <i class="fas fa-times"></i>
+                </a>
+            </div>
+            <div class="list-group list-group-flush mt-3">
+                <a href="#" class="list-group-item list-group-item-action active" onclick="showSection('dashboard')">
+                    <i class="fas fa-tachometer-alt"></i> ภาพรวม (Dashboard)
+                </a>
+                <a href="#" class="list-group-item list-group-item-action" onclick="showSection('public-search')">
+                    <i class="fas fa-search"></i> ค้นหาข้อสอบ
+                </a>
+
+                <!-- Admin Menu Group -->
+                <div class="admin-only">
+                    <div class="sidebar-heading"
+                        style="font-size: 0.8rem; text-align: left; padding-left: 1.5rem; opacity: 0.7;">
+                        ADMINISTRATION
+                    </div>
+                    <a href="#" class="list-group-item list-group-item-action" onclick="showSection('report-inbox')">
+                        <i class="fas fa-exclamation-triangle"></i> Report Inbox
+                        <span class="badge bg-danger rounded-pill ms-2" id="sidebar-report-count">0</span>
+                    </a>
+                    <a href="#" class="list-group-item list-group-item-action" onclick="showSection('database')">
+                        <i class="fas fa-database"></i> จัดการ Database
+                    </a>
+                    <a href="#" class="list-group-item list-group-item-action" onclick="showSection('structure')">
+                        <i class="fas fa-sitemap"></i> โครงสร้างวิชา
+                    </a>
+                    <a href="#" class="list-group-item list-group-item-action" onclick="showSection('converter')">
+                        <i class="fas fa-file-code"></i> Converter Tool
+                    </a>
+                    <a href="#" class="list-group-item list-group-item-action" onclick="showSection('logs')">
+                        <i class="fas fa-list-ul"></i> Activity Logs
+                    </a>
+                </div>
+            </div>
+
+            <div
+                style="position: absolute; bottom: 20px; width: 100%; text-align: center; color: rgba(255,255,255,0.6); font-size: 0.9rem;">
+                <div id="user-status-display">Guest User</div>
+                <button id="btn-sidebar-login" class="btn btn-sm btn-outline-light mt-2" onclick="toggleLogin()">
+                    <i class="fas fa-sign-in-alt"></i> Admin Login
+                </button>
+            </div>
+        </div>
+        <!-- /#sidebar-wrapper -->
+
+        <!-- Page Content -->
+        <div id="page-content-wrapper">
+
+            <!-- Topbar -->
+            <nav class="topbar mb-4 static-top">
+                <!-- ปุ่มสำหรับ Toggle Sidebar -->
+                <button class="btn btn-link rounded-circle me-3" id="menu-toggle">
+                    <i class="fa fa-bars text-secondary"></i>
+                </button>
+                <h4 class="m-0 font-weight-bold text-primary" id="page-title">Dashboard</h4>
+                <div class="d-flex align-items-center">
+                    <span class="mr-2 d-none d-lg-inline text-gray-600 small me-2" id="topbar-user">Guest</span>
+                    <div class="topbar-divider d-none d-sm-block"></div>
+            
+                    <!-- ✅ เพิ่ม id="topbar-avatar" ตรงนี้ครับ -->
+                    <img id="topbar-avatar" class="img-profile rounded-circle"
+                        style="width: 32px; height: 32px; background-color: #ccc;"
+                        src="https://api.dicebear.com/7.x/avataaars/svg?seed=Guest">
+                </div>
+            </nav>
+
+            <div class="container-fluid">
+                <!-- SECTION: Dashboard (Public) -->
+                <div id="sec-dashboard" class="content-section">
+                    <!-- Stats Cards -->
+                    <div class="row">
+                        <div class="col-xl-3 col-md-6 mb-4">
+                            <div class="card card-dashboard border-left-primary h-100 py-2"
+                                style="border-left: 4px solid var(--primary-color);">
+                                <div class="card-body">
+                                    <div class="row no-gutters align-items-center">
+                                        <div class="col mr-2">
+                                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                                โจทย์ทั้งหมด</div>
+                                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="stat-total-q">...
+                                            </div>
+                                        </div>
+                                        <div class="col-auto"><i class="fas fa-question-circle fa-2x text-gray-300"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-xl-3 col-md-6 mb-4">
+                            <div class="card card-dashboard h-100 py-2"
+                                style="border-left: 4px solid var(--danger-color);">
+                                <div class="card-body">
+                                    <div class="row no-gutters align-items-center">
+                                        <div class="col mr-2">
+                                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                                รอตรวจสอบ (Pending)</div>
+                                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="stat-pending-q">...
+                                            </div>
+                                        </div>
+                                        <div class="col-auto"><i class="fas fa-clipboard-list fa-2x text-gray-300"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-xl-3 col-md-6 mb-4">
+                            <div class="card card-dashboard h-100 py-2"
+                                style="border-left: 4px solid var(--success-color);">
+                                <div class="card-body">
+                                    <div class="row no-gutters align-items-center">
+                                        <div class="col mr-2">
+                                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                                แก้ไขแล้ว (Resolved)</div>
+                                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="stat-resolved-q">...
+                                            </div>
+                                        </div>
+                                        <div class="col-auto"><i class="fas fa-check-double fa-2x text-gray-300"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Activity Table -->
+                    <div class="card card-dashboard">
+                        <div class="card-header-custom">
+                            <span><i class="fas fa-history me-2"></i> การแก้ไขล่าสุด (Recent Updates)</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-bordered" width="100%" cellspacing="0"
+                                    id="dashboardRecentTable">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 15%;">วันที่</th>
+                                            <th style="width: 30%;">ข้อที่แก้ไข (คลิกดู)</th>
+                                            <th style="width: 10%;">เฉลย</th>
+                                            <th>การตอบกลับ (Admin Note)</th>
+                                            <th style="width: 10%;">สถานะ</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- JS จะมาเติมข้อมูลตรงนี้ -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECTION: Public Search -->
+                <div id="sec-public-search" class="content-section hidden">
+                    <div class="card card-dashboard">
+                        <div class="card-header-custom">
+                            <span><i class="fas fa-search me-2"></i> ค้นหาข้อสอบ (Read Only)</span>
+                        </div>
+                        <div class="card-body">
+                            <!-- Filters -->
+                            <div class="row mb-3">
+                                <div class="col-md-3">
+                                    <select class="form-select" id="search-subject-filter">
+                                        <option value="">All Subjects</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <select class="form-select" id="search-category-filter">
+                                        <option value="">All Categories</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="table-responsive">
+                                <table id="publicTable" class="table table-bordered table-striped" style="width:100%">
+                                    <thead>
+                                        <tr>
+                                            <th>Subject</th>
+                                            <th>Category</th>
+                                            <th>Question</th>
+                                            <th>Img</th>
+                                            <th>Answer</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Populated by JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECTION: Report Inbox (Admin) -->
+                <div id="sec-report-inbox" class="content-section hidden">
+                    <div class="card card-dashboard border-left-danger">
+                        <div class="card-header-custom">
+                            <span class="text-danger"><i class="fas fa-inbox me-2"></i>
+                                รายการแจ้งปัญหาที่รอการตรวจสอบ</span>
+                        </div>
+                        <div class="card-body" id="report-list-container">
+                            <!-- Loading State -->
+                            <div class="text-center text-muted py-5">
+                                <i class="fas fa-spinner fa-spin fa-2x"></i> กำลังโหลดข้อมูล...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECTION: Database Manager (Admin) -->
+                <div id="sec-database" class="content-section hidden">
+                    <div class="card card-dashboard">
+                        <div class="card-header-custom">
+                            <span><i class="fas fa-database me-2"></i> จัดการคลังข้อสอบ (Edit Mode)</span>
+                            <button class="btn btn-success btn-sm shadow-sm" onclick="showSection('converter')">
+                                <i class="fas fa-plus"></i> Import New
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <!-- Filters -->
+                            <div class="row mb-3">
+                                <div class="col-md-3">
+                                    <select class="form-select" id="db-subject-filter">
+                                        <option value="">All Subjects</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <select class="form-select" id="db-category-filter">
+                                        <option value="">All Categories</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="table-responsive">
+                                <table id="adminTable" class="table table-bordered table-striped" style="width:100%">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Subject</th> <!-- แยก Subject -->
+                                            <th>Category</th>
+                                            <th>Question</th>
+                                            <th>Img</th>
+                                            <th>Answer</th>
+                                            <th style="width: 100px;">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Data populated by JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECTION: Structure Manager (Admin) -->
+                <div id="sec-structure" class="content-section hidden">
+                    <div class="card card-dashboard">
+                        <div class="card-header-custom">
+                            <span><i class="fas fa-sitemap me-2"></i> โครงสร้างวิชา (Structure & Category)</span>
+                            <button class="btn btn-primary btn-sm" onclick="openAddCategoryModal()">
+                                <i class="fas fa-plus"></i> Add Category
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <!-- Filter -->
+                            <div class="row mb-4">
+                                <div class="col-md-5">
+                                    <label class="form-label small fw-bold">กรองตามรายวิชา (Filter by Subject)</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fas fa-filter"></i></span>
+                                        <select id="struct-subject-filter" class="form-select"
+                                            onchange="renderStructureTree(this.value)">
+                                            <option value="">-- แสดงทุกวิชา --</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                
+                            <!-- Area สำหรับแสดง Tree -->
+                            <div class="tree-container">
+                                <div id="structure-tree-view" class="tree-view">
+                                    <!-- โครงสร้าง Folder จะถูกสร้างที่นี่ -->
+                                    <div class="text-center py-4 text-muted">
+                                        <i class="fas fa-spinner fa-spin"></i> กำลังสร้างโครงสร้าง...
+                                    </div>
+                                </div>
+                            </div>
+                
+                            <!-- (Option) ปุ่มดูแบบตารางเดิมถ้าต้องการ -->
+                            <div class="mt-3 text-end">
+                                <small class="text-muted">หากต้องการแก้ไขรหัสโดยตรง โปรดใช้หน้า <b>จัดการ Database</b></small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECTION: Converter Tool -->
+                <div id="sec-converter" class="content-section hidden">
+                    <div class="converter-area">
+                        <h4><i class="fas fa-file-code text-primary"></i> Quiz & Structure Converter V4</h4>
+                        <p class="text-muted small">เครื่องมือช่วยแปลง Code หรือรายชื่อหัวข้อ ให้เป็น Format
+                            ที่พร้อมนำไปวางใน Google Sheets (Admin Only)</p>
+
+                        <div class="converter-control-panel">
+                            <div>
+                                <label class="mb-2 fw-bold">วาง Code หรือ รายชื่อ CategoryID (บรรทัดละชื่อ)
+                                    ที่นี่</label>
+                                <textarea id="jsonInput" class="form-control" rows="8"
+                                    placeholder="ตัวอย่างแบบที่ 1 (Quiz Code):&#10;var quizdata = { 'GI51MCQ1_Anat': [...] }&#10;&#10;ตัวอย่างแบบที่ 2 (Category List):&#10;GI_Anatomy&#10;GI_Physiology"></textarea>
+                            </div>
+                            <div>
+                                <div class="row g-2">
+                                    <div class="col-md-4">
+                                        <label class="small">ชั้นปี (Year)</label>
+                                        <input type="number" id="yearVal" class="form-control form-control-sm"
+                                            placeholder="1,2,3">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="small">รหัสวิชา (Subject ID)</label>
+                                        <input type="text" id="subjID" class="form-control form-control-sm"
+                                            placeholder="GI, NS">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="small">ชื่อวิชา</label>
+                                        <input type="text" id="subjName" class="form-control form-control-sm"
+                                            placeholder="Full Name">
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="small">กลุ่มคำย่อ (Group Keywords)</label>
+                                        <input type="text" id="groupKeys" class="form-control form-control-sm"
+                                            value="MCQ, FMT, LEC" placeholder="เช่น MCQ, FMT, LEC">
+                                    </div>
+                                    <div class="col-12 mt-3">
+                                        <button class="btn btn-primary w-100" onclick="processAll()"><i
+                                                class="fas fa-bolt"></i> เริ่มประมวลผลข้อมูล</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="tabs">
+                            <div class="tab active" id="tab-struct" onclick="switchTab('struct')">1. Structure</div>
+                            <div class="tab" id="tab-category" onclick="switchTab('category')">2. Category</div>
+                            <div class="tab" id="tab-ques" onclick="switchTab('ques')">3. Questions</div>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                                <span id="previewText" class="small text-muted">รอข้อมูล...</span>
+                                <span class="badge bg-warning text-dark ms-2"><i class="fas fa-pen"></i>
+                                    แก้ไขในตารางได้เลย</span>
+                            </div>
+                            <div>
+                                <button class="btn btn-outline-primary btn-sm me-2" onclick="copyCurrentSheet()"><i
+                                        class="fas fa-copy"></i> Copy to Clipboard</button>
+                                <button class="btn btn-success btn-sm" onclick="importConvertedData()"><i
+                                        class="fas fa-cloud-upload-alt"></i> 💾 บันทึกเข้าระบบ (Import to DB)</button>
+                            </div>
+                        </div>
+
+                        <div class="table-scroll border rounded bg-light p-2">
+                            <table class="table table-sm table-bordered bg-white mb-0" id="dataTable">
+                                <thead>
+                                    <tr id="tableHead"></tr>
+                                </thead>
+                                <tbody id="tableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECTION: Logs (Admin) -->
+                <div id="sec-logs" class="content-section hidden">
+                    <div class="card card-dashboard">
+                        <div class="card-header-custom">
+                            <span><i class="fas fa-history me-2"></i> บันทึกกิจกรรม (Admin Logs)</span>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="fetchData()">
+                                <i class="fas fa-sync"></i> Refresh
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table id="logsTable" class="table table-sm table-hover" style="width:100%">
+                                    <thead>
+                                        <tr>
+                                            <th>เวลา</th>
+                                            <th>ผู้ใช้งาน</th>
+                                            <th>การกระทำ</th>
+                                            <th>เป้าหมาย (ID)</th>
+                                            <th>รายละเอียด</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div> <!-- /container-fluid -->
+        </div> <!-- /#page-content-wrapper -->
+    </div> <!-- /#wrapper -->
+
+    <!-- Modal: Question Detail -->
+    <div class="modal fade" id="questionDetailModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">รายละเอียดข้อสอบ</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Dynamic Content -->
+                    <h5 id="modal-q-header">
+                        <span id="modal-q-subject" class="badge bg-secondary me-1">SUBJ</span>
+                        <span id="modal-q-category" class="badge bg-primary">Category</span>
+                    </h5>
+                    <p id="modal-q-text" class="lead mt-3" style="font-weight: 500;">...</p>
+                    <div id="modal-q-img-container" class="text-center mb-3"></div>
+                    <div id="modal-q-choices" class="list-group mb-3">
+                        <!-- Choices injected here -->
+                    </div>
+                    <div class="alert alert-secondary"><strong>Explanation:</strong> <span id="modal-q-explain"></span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-warning" id="btn-modal-report">
+                        <i class="fas fa-flag"></i> Report
+                    </button>
+                    <!-- ปุ่ม Vote Category ถูกเปลี่ยนเป็น btn-open-vote เพื่อเปิด modal ใหม่ -->
+                    <button type="button" class="btn btn-outline-info" id="btn-open-vote">
+                        <i class="fas fa-tags"></i> Vote Category
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ***** Vote Category Modal (Redesigned) ***** -->
+    <div id="vote-category-modal" class="modal-card">
+        <div class="modal-body">
+            <h5 class="modal-title" style="color: var(--primary-color); margin-bottom: 0.5rem;">
+                <i class="fas fa-tags"></i> จัดหมวดหมู่ข้อสอบ
+            </h5>
+            <p class="small-text" style="margin-bottom: 1rem; color: #666;">
+                ช่วยกันระบุว่าข้อนี้อยู่ในหัวข้อใดได้บ้าง</p>
+
+            <!-- Preview โจทย์ -->
+            <div id="vote-question-preview"
+                style="background:#f8f9fa; padding:12px; border-left: 4px solid var(--primary-color); border-radius:4px; margin-bottom:20px; font-weight:600; font-size: 1rem; color: #333; line-height: 1.4;">
+            </div>
+
+            <!-- Section 1: หัวข้อปัจจุบัน (Approved) -->
+            <div class="vote-section">
+                <h6 style="font-size: 1.1rem; color: #28a745; margin-bottom: 8px;">
+                    <i class="fas fa-check-circle"></i> หัวข้อปัจจุบัน (Approved)
+                </h6>
+                <div id="current-category-container" class="category-badge-container">
+                    <!-- Badges will be injected here -->
+                    <span class="empty-state-text">- ยังไม่มีหัวข้อ -</span>
+                </div>
+            </div>
+
+            <!-- Section 2: สิ่งที่คนอื่นเสนอ (Pending) -->
+            <div class="vote-section" style="margin-top: 15px;">
+                <h6 style="font-size: 1.1rem; color: #fd7e14; margin-bottom: 8px;">
+                    <i class="fas fa-clock"></i> รออนุมัติ (คลิกเพื่อโหวตเห็นด้วย +1)
+                </h6>
+                <div id="suggested-category-container" class="category-badge-container">
+                    <span class="empty-state-text"><i class="fas fa-spinner fa-spin"></i> กำลังโหลดข้อมูล...</span>
+                </div>
+            </div>
+
+            <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+
+            <!-- Section 3: เพิ่มหัวข้อใหม่ -->
+            <h6 style="font-size: 1.1rem; color: var(--color-dark); margin-bottom: 10px;">
+                <i class="fas fa-plus-circle"></i> เสนอหัวข้อเพิ่มเติม
+            </h6>
+
+            <div id="vote-rows-container">
+                <!-- Dynamic Rows Here -->
+            </div>
+
+            <button id="btn-add-vote-row" class="quiz-button"
+                style="width: 100%; justify-content: center; margin-top: 10px;">
+                <i class="fas fa-plus"></i> เพิ่มช่องเลือกหัวข้อ
+            </button>
+
+            <div class="controls-container" style="margin-top: 1.5rem;">
+                <button id="btn-close-vote-modal" class="quiz-button btn-light">ปิด</button>
+                <button id="btn-submit-vote" class="quiz-button btn-dark" style="min-width: 120px;">ยืนยัน</button>
+            </div>
+        </div>
+    </div>
+    <!-- ***** End Vote Category Modal ***** -->
+
+    <!-- Report Modal -->
+    <div id="report-card" class="modal-card">
+        <div class="modal-body">
+            <h4 class="modal-title mb-3" style="color: #dc3545;"><i class="fas fa-flag"></i> แจ้งปัญหาและเสนอแนวทางแก้ไข
+            </h4>
+
+            <!-- Section 1: Question Details -->
+            <div id="report-question-details" class="modal-section">
+                <h6 class="fw-bold" style="color: #dc3545;">โจทย์ที่พบปัญหา:</h6>
+                <p id="report-question-text" class="mb-2"></p>
+                <div id="report-question-images" class="text-center"></div>
+
+                <div class="mt-2 pt-2 border-top border-danger border-opacity-25">
+                    <h6 class="fw-bold small">ตัวเลือกปัจจุบัน (Choices):</h6>
+                    <div id="report-choices-list" class="ps-2"></div>
+                </div>
+            </div>
+
+            <!-- Section 2: Suggested Correction -->
+            <div class="modal-section" style="background-color: #f0fff0; border: 2px solid #28a745;">
+                <h6 class="fw-bold" style="color: #28a745;"><i class="fas fa-check-circle"></i> เสนอคำตอบที่ถูกต้อง /
+                    แก้ไข
+                </h6>
+
+                <label class="small fw-bold mb-1">1. เลือกจากตัวเลือกเดิม:</label>
+                <select id="report-correct-choice-select" class="form-select mb-3 border-success"></select>
+
+                <label class="small fw-bold mb-1">2. หรือ พิมพ์คำตอบใหม่ (กรณีไม่มีในตัวเลือกเดิม):</label>
+                <input type="text" id="report-new-choice-input" class="form-control"
+                    placeholder="พิมพ์คำตอบที่ถูกต้องใหม่ที่นี่...">
+            </div>
+
+            <!-- Section 3: Reason -->
+            <div class="modal-section bg-light border">
+                <h6 class="fw-bold text-primary"><i class="fas fa-comment-alt"></i> รายละเอียด/เหตุผลของปัญหา</h6>
+                <textarea id="report_text" class="form-control"
+                    placeholder="อธิบายว่าผิดตรงไหน เช่น เฉลยผิดข้อ, โจทย์สะกดผิด, หรือข้อมูลล้าสมัย..."></textarea>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2 mt-3">
+                <button id="cancel-report" class="btn btn-light rounded-pill px-4">ยกเลิก</button>
+                <button id="submit-report" class="btn btn-danger rounded-pill px-4">ส่งรายงาน (Submit)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay"
+        style="display:none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.8); z-index:9999; justify-content:center; align-items:center;">
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;"></div>
+            <h5 class="mt-2 text-primary">กำลังเชื่อมต่อฐานข้อมูล...</h5>
+        </div>
+    </div>
+
+    <!-- Edit Question Modal (Admin) -->
+    <div class="modal fade" id="editQuestionModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fas fa-edit"></i> แก้ไขข้อสอบ</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editForm">
+                        <input type="hidden" id="edit-q-id">
+
+                        <!-- Hidden Fields สำหรับเก็บค่าส่งไป Backend (รักษา Logic เดิม) -->
+                        <input type="hidden" id="edit-choices">
+                        <input type="hidden" id="edit-answer">
+
+                        <div class="row g-3">
+                            <!-- Category -->
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold">Category</label>
+                                <select class="form-select" id="edit-category"></select>
+                            </div>
+
+                            <!-- Question -->
+                            <div class="col-12">
+                                <label class="form-label fw-bold">Question Problem</label>
+                                <textarea class="form-control" id="edit-problem" rows="3"
+                                    placeholder="พิมพ์โจทย์ที่นี่..."></textarea>
+                            </div>
+
+                            <!-- Image Gallery Section -->
+                            <div class="col-12">
+                                <label class="form-label fw-bold">Images</label>
+                                <input type="hidden" id="edit-img">
+
+                                <!-- Container สำหรับใส่กล่อง Input รูปภาพ -->
+                                <div id="dynamic-images-container" class="d-flex flex-column gap-2 mb-2">
+                                    <!-- JS จะสร้าง Input มาใส่ตรงนี้ -->
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-primary w-100 dashed-border mb-3"
+                                    onclick="addNewImageRow()">
+                                    <i class="fas fa-plus"></i> เพิ่มรูปภาพ (Add Image)
+                                </button>
+
+                                <!-- Gallery Preview -->
+                                <div id="edit-image-gallery-container" class="image-gallery-container"
+                                    style="display:none;">
+                                    <img src="" id="edit-gallery-img" class="gallery-img">
+                                    <div class="gallery-controls">
+                                        <button type="button" class="btn btn-sm btn-outline-primary rounded-circle"
+                                            id="prev-img-btn">
+                                            <i class="fas fa-chevron-left"></i>
+                                        </button>
+                                        <span id="image-counter" class="badge bg-secondary rounded-pill">1 / 1</span>
+                                        <button type="button" class="btn btn-sm btn-outline-primary rounded-circle"
+                                            id="next-img-btn">
+                                            <i class="fas fa-chevron-right"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Choices & Answer Section (Dynamic) -->
+                            <div class="col-12">
+                                <label class="form-label fw-bold d-flex justify-content-between align-items-center">
+                                    Choices & Correct Answer
+                                    <small class="text-muted fw-normal">(ติ๊กวงกลมเพื่อเลือกเฉลย)</small>
+                                </label>
+
+                                <div id="dynamic-choices-container" class="d-flex flex-column gap-2 mb-2">
+                                    <!-- JS จะสร้าง Input กล่องๆ มาใส่ตรงนี้ -->
+                                </div>
+
+                                <button type="button" class="btn btn-sm btn-outline-success w-100 dashed-border"
+                                    onclick="addNewChoiceRow()">
+                                    <i class="fas fa-plus"></i> เพิ่มตัวเลือก (Add Choice)
+                                </button>
+                            </div>
+
+                            <!-- Explanation -->
+                            <div class="col-12">
+                                <label class="form-label fw-bold">Explanation</label>
+                                <!-- ปรับความสูงเป็น rows="6" -->
+                                <textarea class="form-control" id="edit-explanation" rows="6"
+                                    placeholder="คำอธิบายเฉลย..."></textarea>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-outline-danger me-auto" onclick="deleteQuestion()">
+                        <i class="fas fa-trash-alt"></i> Delete
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary px-4" onclick="saveQuestionChanges()">
+                        <i class="fas fa-save"></i> Save Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Add New Category -->
+    <div class="modal fade" id="addCategoryModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="fas fa-plus-circle"></i> เพิ่มหัวข้อใหม่ (Add Category)</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addCategoryForm">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">1. เลือกวิชา (Subject Reference)</label>
+                            <select class="form-select" id="new-category-subject"
+                                onchange="generateCategoryIDPreview()">
+                                <option value="">-- กรุณาเลือกวิชา --</option>
+                                <!-- Option จะถูกสร้างโดย JS -->
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">2. ชื่อกลุ่ม (Accordion Group)</label>
+                            <input type="text" class="form-control" id="new-category-group"
+                                placeholder="เช่น MCQ1, LEC, LAB" oninput="generateCategoryIDPreview()">
+                            <small class="text-muted">ใช้สำหรับจัดกลุ่มในหน้าเลือกหัวข้อ</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">3. ชื่อหัวข้อ (Display Name)</label>
+                            <input type="text" class="form-control" id="new-category-name"
+                                placeholder="เช่น Anatomy, Physiology" oninput="generateCategoryIDPreview()">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-primary">4. Category ID (Auto Generated)</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control font-monospace" id="new-category-id"
+                                    placeholder="Ex. GI_Anatomy">
+                                <button class="btn btn-outline-secondary" type="button"
+                                    onclick="generateCategoryIDPreview()"><i class="fas fa-sync"></i></button>
+                            </div>
+                            <small class="text-danger" id="category-id-error"></small>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                    <button type="button" class="btn btn-success" onclick="saveNewCategory()">บันทึกหัวข้อ</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script>
+        // --- 1. CONFIGURATION & GLOBAL VARS ---
+        const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxT1vh2RRnVLR8HVFQZcKvhGwIliJNBhxAIWOUEZ7s7m7lOp6JWyn7ASSmgzsxNDzsH/exec';
+
+        let globalData = {
+            questions: [],
+            structure: [],
+            category: [],
+            report: [],
+            votes: []
+        };
+        let isAdmin = false;
+        let current_question = {}; // Global variable to hold data of the currently viewed question
+        let editImageArray = [];
+        let editImageIndex = 0;
+
+        $(document).ready(function () {
+            $('#prev-img-btn').click(() => {
+                if (editImageArray.length > 0) {
+                    editImageIndex = (editImageIndex - 1 + editImageArray.length) % editImageArray.length;
+                    updateEditImageGallery();
+                }
+            });
+            $('#next-img-btn').click(() => {
+                if (editImageArray.length > 0) {
+                    editImageIndex = (editImageIndex + 1) % editImageArray.length;
+                    updateEditImageGallery();
+                }
+            });
+
+            // Responsive Toggle: bind to the menu toggle button
+            $("#menu-toggle").on('click', function (e) {
+                e.preventDefault();
+                $("#wrapper").toggleClass("toggled");
+            });
+
+            // Sidebar Close Button for Mobile
+            $("#sidebar-close-btn").on('click', function (e) {
+                e.preventDefault();
+                $("#wrapper").removeClass("toggled"); // ปิด Sidebar
+            });
+
+            // Click outside to close (Only on Mobile screens)
+            $(document).on('click', '#page-content-wrapper', function (e) {
+                if ($(window).width() < 768 && $("#wrapper").hasClass("toggled")) {
+                    if (!$(e.target).closest('#menu-toggle').length) {
+                        $("#wrapper").removeClass("toggled");
+                    }
+                }
+            });
+
+            // Initial Responsive State (for Desktop view preference)
+            if ($(window).width() < 768) {
+                $("#wrapper").removeClass("toggled"); // Start with Sidebar hidden on small screens
+            }
+
+            // --- Vote Modal Bindings ---
+            $('#btn-open-vote').on('click', () => {
+                // ปิด Question Detail Modal ก่อนเปิด Vote Modal
+                $('#questionDetailModal').modal('hide');
+
+                if (!current_question || !current_question.questionId) {
+                    Swal.fire('Error', 'ไม่พบข้อมูลข้อสอบ กรุณาลองใหม่', 'error');
+                    return;
+                }
+
+                // A. แสดงโจทย์
+                let qText = current_question.problem || '';
+                $('#vote-question-preview').text(qText.substring(0, 150) + (qText.length > 150 ? "..." : ""));
+
+                // B. แสดงหัวข้อปัจจุบัน (Approved)
+                renderCurrentCategory(current_question);
+
+                // C. แสดงหัวข้อที่คนอื่นเสนอ (Pending) - ต้องดึงจาก API
+                // NOTE: Mock function call, assuming your GAS has this endpoint
+                fetchPendingVotes(current_question.questionId);
+
+                // D. รีเซ็ตฟอร์มเลือกหัวข้อ
+                $('#vote-rows-container').empty();
+                addVoteRow(); // เพิ่มแถวแรกไว้เสมอ
+
+                $('#vote-category-modal').css('display', 'flex'); // เปิด Vote Modal
+            });
+
+            $('#btn-close-vote-modal').on('click', () => $('#vote-category-modal').css('display', 'none'));
+            $('#btn-add-vote-row').on('click', addVoteRow);
+            $('#btn-submit-vote').on('click', () => {
+                const votes = [];
+                $('.vote-row').each(function () {
+                    const categoryId = $(this).find('.category-select').val();
+                    if (categoryId) {
+                        // กรองไม่ให้ซ้ำกับหัวข้อปัจจุบัน
+                        const currentCategory = Array.isArray(current_question.category) ? current_question.category : [current_question.category];
+                        if (!currentCategory.includes(categoryId)) {
+                            votes.push(categoryId);
+                        }
+                    }
+                });
+
+                const uniqueVotes = [...new Set(votes)];
+
+                if (uniqueVotes.length === 0) {
+                    Swal.fire('Warning', "กรุณาเลือกหัวข้ออย่างน้อย 1 หัวข้อ (และต้องไม่ซ้ำกับหัวข้อเดิม)", 'warning');
+                    return;
+                }
+
+                submitVoteData(uniqueVotes);
+            });
+            // --- End Vote Modal Bindings ---
+
+            initPublicTable();
+            initAdminTable();
+            initStructureTables();
+
+            fetchData();
+        });
+
+        // --- VOTE FUNCTIONS ---
+        function getCategoryNameById(categoryId) {
+            const category = globalData.category.find(t => t.CategoryID === categoryId);
+            return category ? category.CategoryName : categoryId;
+        }
+
+        function renderCurrentCategory(question) {
+            const $container = $('#current-category-container');
+            $container.empty();
+            const category = Array.isArray(question.category) ? question.category : [question.category];
+
+            if (category.length === 0 || category[0] === '-') {
+                $container.html('<span class="empty-state-text">- ยังไม่มีหัวข้อ -</span>');
+                return;
+            }
+
+            category.forEach(categoryId => {
+                const categoryName = getCategoryNameById(categoryId);
+                const $badge = $(`
+                    <div class="category-badge approved">
+                        <i class="fas fa-check"></i> ${categoryName}
+                    </div>
+                `);
+                $container.append($badge);
+            });
+        }
+
+        // เพิ่ม param: suggestedAnsStr
+            function renderChoicesUI(choicesStr, correctAnsStr, suggestedAnsStr = null) {
+                const $container = $('#dynamic-choices-container');
+                $container.empty();
+
+                let choices = (choicesStr || "").split('///').map(c => c.trim()).filter(c => c !== "");
+                if (choices.length === 0) choices = ["A. ", "B. ", "C. ", "D. "];
+
+                // Clean strings for comparison
+                const cleanCorrect = (correctAnsStr || "").trim();
+                const cleanSuggested = (suggestedAnsStr || "").trim();
+
+                choices.forEach((choiceText) => {
+                    // ตรวจสอบว่าเป็นคำตอบเดิมหรือไม่
+                    const isOriginalCorrect = (choiceText === cleanCorrect);
+
+                    // ตรวจสอบว่าเป็นคำตอบที่ถูกเสนอมาหรือไม่
+                    const isSuggested = (cleanSuggested !== "" && choiceText === cleanSuggested);
+
+                    // ส่งค่า Flag ไปให้ addChoiceRow วาด UI
+                    addChoiceRow(choiceText, isOriginalCorrect, isSuggested);
+                });
+
+                // กรณีพิเศษ: ถ้าคำตอบที่เสนอมา "ไม่มีในตัวเลือก" (User พิมพ์มาเองใหม่)
+                // ให้แจ้งเตือน หรือ แสดง Alert ใน Modal
+                if (suggestedAnsStr && !choices.includes(cleanSuggested)) {
+                    $container.prepend(`
+            <div class="alert alert-warning small py-2 mb-2">
+                <i class="fas fa-exclamation-triangle"></i> 
+                คำตอบที่เสนอมาคือ: <strong>"${cleanSuggested}"</strong> (ไม่มีในตัวเลือกเดิม)
+            </div>
+         `);
+                }
+
+                syncChoicesToHiddenInput();
+            }
+        function renderImagesUI(imgStr) {
+            const $container = $('#dynamic-images-container');
+            $container.empty();
+
+            let images = (imgStr || "").split('///').map(u => u.trim()).filter(u => u !== "");
+
+            // ถ้าไม่มีรูปเลย ให้แสดงแถวว่างๆ 1 แถว เป็น Default
+            if (images.length === 0) {
+                addImageRow("");
+            } else {
+                images.forEach(url => {
+                    addImageRow(url);
+                });
+            }
+
+            syncImagesToHiddenInput(); // Update Gallery ทันที
+        }
+    // --- ฟังก์ชันหลักในการสร้าง Tree ---
+    function renderStructureTree(filterSubjectID = "") {
+        const container = $('#structure-tree-view');
+        container.empty();
+
+        let subjects = globalData.structure;
+        if (filterSubjectID) subjects = subjects.filter(s => s.SubjectID === filterSubjectID);
+
+        // Remove duplicate subjects based on SubjectID
+        const uniqueSubjects = [];
+        const seenSubjectIDs = new Set();
+        
+        subjects.forEach(subj => {
+            if (!seenSubjectIDs.has(subj.SubjectID)) {
+                uniqueSubjects.push(subj);
+                seenSubjectIDs.add(subj.SubjectID);
+            }
+        });
+
+        let treeHtml = '<ul class="tree-view">';
+
+        uniqueSubjects.forEach(subj => {
+            // LEVEL 1: SUBJECT
+            treeHtml += `
+            <li id="node-subj-${subj.SubjectID}">
+                <div class="tree-node node-subject">
+                    <i class="fas fa-chevron-down toggle-icon" onclick="toggleTreeNode(this)"></i>
+                    <i class="fas fa-university me-2 text-primary"></i>
+                    <span class="fw-bold">${subj.SubjectID} - ${subj.SubjectName}</span>
+                    <div class="node-actions">
+                        <button class="btn-node btn-add" onclick="crudAction('addGroup', '${subj.SubjectID}')" title="เพิ่ม Group"><i class="fas fa-plus"></i></button>
+                        <button class="btn-node btn-edit" onclick="crudAction('editSubj', '${subj.SubjectID}')"><i class="fas fa-pen"></i></button>
+                        <button class="btn-node btn-delete" onclick="crudAction('deleteSubj', '${subj.SubjectID}')"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>
+                <ul>`;
+
+            // ดึง Group ทั้งหมดในวิชานี้ (ลบซ้ำ)
+            const groups = [...new Set(globalData.category.filter(c => c.SubjectRef === subj.SubjectID).map(c => c.AccordionGroup))].sort();
+
+            groups.forEach(groupName => {
+                // LEVEL 2: ACCORDION GROUP
+                treeHtml += `
+                <li>
+                    <div class="tree-node node-group">
+                        <i class="fas fa-chevron-down toggle-icon" onclick="toggleTreeNode(this)"></i>
+                        <i class="fas fa-layer-group me-2 text-success"></i>
+                        <span>${groupName || 'GENERAL'}</span>
+                        <div class="node-actions">
+                            <button class="btn-node btn-add" onclick="crudAction('addCat', '${subj.SubjectID}', '${groupName}')" title="เพิ่มหัวข้อ"><i class="fas fa-plus"></i></button>
+                            <button class="btn-node btn-delete" onclick="crudAction('deleteGroup', '${subj.SubjectID}', '${groupName}')"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                    <ul>`;
+
+                // LEVEL 3: CATEGORY (ลบซ้ำ)
+                const seenCategoryIDs = new Set();
+                const categories = globalData.category.filter(c => {
+                    if (c.SubjectRef === subj.SubjectID && c.AccordionGroup === groupName) {
+                        if (!seenCategoryIDs.has(c.CategoryID)) {
+                            seenCategoryIDs.add(c.CategoryID);
+                            return true;
+                        }
+                    }
+                    return false;
+                });
+
+                categories.forEach(cat => {
+                    treeHtml += `
+                    <li>
+                        <div class="tree-node node-category">
+                            <i class="fas fa-tag me-2 text-secondary"></i>
+                            <span class="small"><b>${cat.CategoryID}:</b> ${cat.CategoryName}</span>
+                            <div class="node-actions">
+                                <button class="btn-node btn-edit" onclick="crudAction('editCat', '${cat.CategoryID}')"><i class="fas fa-pen"></i></button>
+                                <button class="btn-node btn-delete" onclick="crudAction('deleteCat', '${cat.CategoryID}')"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </div>
+                    </li>`;
+                });
+
+                treeHtml += '</ul></li>';
+            });
+
+            treeHtml += '</ul></li>';
+        });
+
+        treeHtml += '</ul>';
+        container.html(treeHtml);
+    }
+
+    // --- ฟังก์ชันเปิด-ปิด Folder ---
+    function toggleTreeNode(el) {
+        $(el).closest('.tree-node').toggleClass('collapsed');
+    }
+
+    // --- รวมฟังก์ชัน CRUD ---
+    async function crudAction(type, id1, id2) {
+        if (!isAdmin) return Swal.fire('Admin Only', 'กรุณาล็อกอินก่อนแก้ไขข้อมูล', 'warning');
+
+        let payload = { action: '', data: {} };
+
+        switch (type) {
+            case 'addCat': // เพิ่มหัวข้อใหม่ใน Group
+                const { value: catName } = await Swal.fire({
+                    title: 'เพิ่มหัวข้อใหม่',
+                    input: 'text',
+                    inputLabel: `วิชา ${id1} > กลุ่ม ${id2}`,
+                    showCancelButton: true
+                });
+                if (catName) {
+                    const catID = `${id1}_${catName.replace(/\s+/g, '')}`;
+                    payload.action = 'addCategory';
+                    payload.data = { CategoryID: catID, SubjectRef: id1, AccordionGroup: id2, CategoryName: catName };
+                }
+                break;
+
+            case 'deleteCat': // ลบหัวข้อ
+                if (await confirmDelete(`ลบหัวข้อ ${id1}?`)) {
+                    payload.action = 'deleteCategory';
+                    payload.data = { CategoryID: id1 };
+                }
+                break;
+
+            case 'editCat': // แก้ไขชื่อหัวข้อ
+                const cat = globalData.category.find(c => c.CategoryID === id1);
+                const { value: newName } = await Swal.fire({
+                    title: 'แก้ไขชื่อหัวข้อ',
+                    input: 'text',
+                    inputValue: cat.CategoryName,
+                    showCancelButton: true
+                });
+                if (newName) {
+                    payload.action = 'updateCategory';
+                    payload.data = { CategoryID: id1, CategoryName: newName };
+                }
+                break;
+
+            case 'deleteGroup': // ลบทั้งกลุ่ม (ลบ Categories ทั้งหมดในกลุ่มนั้น)
+                if (await confirmDelete(`ลบกลุ่ม ${id2} ในวิชา ${id1} (หัวข้อทั้งหมดจะหายไป)?`)) {
+                    payload.action = 'deleteGroup';
+                    payload.data = { SubjectRef: id1, AccordionGroup: id2 };
+                }
+                break;
+        }
+
+        if (payload.action) {
+            await sendAdminAction(payload.action, payload.data);
+        }
+    }
+
+    function confirmDelete(text) {
+        return Swal.fire({
+            title: 'ยืนยันการลบ?',
+            text: text,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33'
+        }).then(res => res.isConfirmed);
+    }
+            function editCategoryInline(catID) {
+                    const cat = globalData.category.find(c => c.CategoryID === catID);
+                    if (!cat) return;
+
+                    Swal.fire({
+                        title: 'แก้ไขหัวข้อ',
+                        html: `
+            <input id="swal-cat-name" class="swal2-input" placeholder="Display Name" value="${cat.CategoryName}">
+            <input id="swal-cat-group" class="swal2-input" placeholder="Accordion Group" value="${cat.AccordionGroup}">
+        `,
+                        showCancelButton: true,
+                        confirmButtonText: 'บันทึก',
+                        preConfirm: () => {
+                            return {
+                                CategoryName: document.getElementById('swal-cat-name').value,
+                                AccordionGroup: document.getElementById('swal-cat-group').value
+                            }
+                        }
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            // ส่งไปแก้ไขใน DB (ต้องมี action ใน GAS รองรับ หรือใช้ส่งค่าไปที่แผ่นงานโดยตรง)
+                            Swal.fire('กำลังพัฒนา', 'ระบบบันทึกการแก้ไขหัวข้อกำลังอยู่ในการดำเนินการ', 'info');
+                        }
+                    });
+                }
+
+        function addImageRow(value = "") {
+            const $container = $('#dynamic-images-container');
+
+            const rowHtml = `
+        <div class="image-input-item">
+            <div class="input-group">
+                <span class="input-group-text bg-light"><i class="fas fa-image text-secondary"></i></span>
+                <input type="text" class="form-control image-url-input" value="${value}" placeholder="วาง URL รูปภาพ..." oninput="syncImagesToHiddenInput()">
+                <button class="btn btn-outline-danger" type="button" onclick="removeImageRow(this)" title="ลบรูปนี้">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            </div>
+        </div>
+    `;
+            $container.append(rowHtml);
+        }
+
+        // 3. ฟังก์ชันเพิ่มแถวใหม่ (เมื่อกดปุ่ม +)
+        function addNewImageRow() {
+            addImageRow("");
+        }
+
+        // 4. ฟังก์ชันลบแถว
+        function removeImageRow(btn) {
+            // เช็คว่าเหลือแถวเดียวหรือไม่ ถ้าเหลือแถวเดียวให้แค่เคลียร์ค่า (ไม่ลบ Element) เพื่อให้ User รู้ว่าต้องใส่รูป
+            const rowCount = $('#dynamic-images-container .image-input-item').length;
+            if (rowCount <= 1) {
+                $(btn).closest('.image-input-item').find('input').val('');
+            } else {
+                $(btn).closest('.image-input-item').remove();
+            }
+            syncImagesToHiddenInput();
+        }
+
+        // 5. ฟังก์ชันรวมร่าง (Sync): เอาค่าจากทุกกล่อง มารวมเป็น /// ใส่ Hidden Input และอัปเดต Gallery
+        function syncImagesToHiddenInput() {
+            const imgUrls = [];
+
+            $('#dynamic-images-container .image-url-input').each(function () {
+                const val = $(this).val().trim();
+                if (val !== "") {
+                    imgUrls.push(val);
+                }
+            });
+
+            // 5.1 อัปเดตลง Hidden Input (สำหรับส่งไป Backend)
+            $('#edit-img').val(imgUrls.join('///'));
+
+            // 5.2 อัปเดต Gallery Preview ทันที (ใช้ Logic เดิมที่มีอยู่)
+            // อัปเดตตัวแปร Global ของ Gallery
+            editImageArray = imgUrls;
+            editImageIndex = 0; // รีเซ็ตไปรูปแรก
+            updateEditImageGallery();
+        }
+
+        // รับ flag เพิ่ม: isOriginalCorrect, isSuggested
+            function addChoiceRow(value = "", isOriginalCorrect = false, isSuggested = false) {
+                const $container = $('#dynamic-choices-container');
+
+                // กำหนด Class และ Badge ตามสถานะ
+                let rowClass = "";
+                let badges = "";
+
+                // กรณีเป็นคำตอบที่ Report เสนอมา
+                if (isSuggested) {
+                    rowClass += " suggested-choice";
+                    badges += `<span class="badge bg-success ms-2"><i class="fas fa-star"></i> Suggested</span>`;
+                }
+
+                // กรณีเป็นคำตอบเดิมใน DB (และไม่ใช่ตัวที่ถูกเสนอ หรือ ถ้าตรงกันก็ใส่ Badge เพิ่ม)
+                if (isOriginalCorrect) {
+                    if (!isSuggested) rowClass += " original-choice"; // ถ้าเป็น original อย่างเดียว ให้ใส่สีเทาๆ
+                    badges += `<span class="badge bg-secondary ms-1">Current ans</span>`;
+                }
+
+                // ติ๊ก Radio ถ้าเป็นคำตอบที่เสนอ (เพื่อให้ Admin กด Save ได้เลยถ้าเห็นด้วย)
+                // หรือจะติ๊ก Original ไว้เหมือนเดิมก็ได้ แล้วแต่ Logic ที่ต้องการ
+                // ในที่นี้ขอติ๊กตัว Original ไว้ก่อน เพื่อความปลอดภัย
+                const isChecked = isSuggested;
+
+                const rowHtml = `
+        <div class="choice-item ${rowClass}">
+            <div class="choice-input-group">
+                <div class="form-check d-flex align-items-center">
+                    <input class="form-check-input choice-radio" type="radio" name="correct_answer_group" ${isChecked ? 'checked' : ''}>
+                </div>
+                <input type="text" class="form-control choice-text-input" value="${value}" placeholder="ตัวเลือก..." oninput="syncChoicesToHiddenInput()">
+                
+                <!-- แสดง Badge ตรงนี้ -->
+                <div style="white-space: nowrap;">${badges}</div>
+
+                <i class="fas fa-minus-circle btn-remove-choice ms-2" title="ลบตัวเลือก" onclick="removeChoiceRow(this)"></i>
+            </div>
+        </div>
+    `;
+                $container.append(rowHtml);
+
+                $('.choice-radio').off('change').on('change', syncChoicesToHiddenInput);
+            }
+            
+        function removeChoiceRow(btn) {
+            $(btn).closest('.choice-item').remove();
+            syncChoicesToHiddenInput();
+        }
+
+        function addNewChoiceRow() {
+            // หา Prefix ตัวถัดไป เช่น E. F. (Optional)
+            // หรือแค่เพิ่มว่างๆ
+            addChoiceRow("");
+        }
+
+        // ฟังก์ชันรวมร่าง: เอาค่าจาก Input แยกๆ มารวมเป็น String /// ใส่ Hidden Input
+        function syncChoicesToHiddenInput() {
+            const choices = [];
+            let correctAnswer = "";
+
+            $('#dynamic-choices-container .choice-item').each(function () {
+                const textVal = $(this).find('.choice-text-input').val();
+                const isChecked = $(this).find('.choice-radio').is(':checked');
+
+                if (textVal.trim() !== "") {
+                    choices.push(textVal);
+                    if (isChecked) {
+                        correctAnswer = textVal;
+                    }
+                }
+            });
+            $('#edit-choices').val(choices.join('///'));
+            $('#edit-answer').val(correctAnswer);
+        }
+        function openReportModal(q) {
+            const $reportCard = $('#report-card');
+
+            // ล้างค่าเก่า
+            $('#report_text').val('');
+            $('#report-new-choice-input').val('');
+            $('#report-question-images').empty();
+            $('#report-choices-list').empty();
+            const $select = $('#report-correct-choice-select').empty();
+
+            // 1. แสดงโจทย์
+            $('#report-question-text').html(q.problem.replace(/\n/g, '<br>'));
+
+            // 2. แสดงรูปโจทย์ (ถ้ามี)
+            if (q.img) {
+                q.img.split('///').forEach(url => {
+                    if (url.trim()) {
+                        $('#report-question-images').append(`<img src="${transformUrl(url)}" class="report-img-preview">`);
+                    }
+                });
+            }
+
+            // 3. จัดการตัวเลือก (Choices)
+            const choicesArray = (q.choices || "").split("///").map(s => s.trim()).filter(Boolean);
+
+            let selectOptions = '<option value="newanswer">-- ใช้คำตอบใหม่ (พิมพ์ด้านล่าง) --</option>';
+
+            choicesArray.forEach((choice, index) => {
+                const letter = String.fromCharCode(65 + index); // A, B, C...
+                const isCurrentAns = (choice === q.answer);
+
+                // แสดงในรายการ List
+                let displayContent = choice;
+                if (choice.startsWith('http')) {
+                    displayContent = `<img src="${transformUrl(choice)}" class="report-choice-img">`;
+                }
+                $('#report-choices-list').append(`<p class="mb-1 border-bottom pb-1"><b>${letter}.</b> ${displayContent}</p>`);
+
+                // เพิ่มใน Dropdown
+                let dropText = choice.startsWith('http') ? `[รูปภาพ] ${choice.substring(0, 20)}...` : choice;
+                selectOptions += `<option value="${choice}" ${isCurrentAns ? 'selected' : ''}>
+            ${letter}. ${dropText} ${isCurrentAns ? '(เฉลยปัจจุบัน)' : ''}
+        </option>`;
+            });
+
+            $select.html(selectOptions);
+            $reportCard.css('display', 'flex').hide().fadeIn();
+        }
+
+        // ผูกเหตุการณ์ปุ่ม Submit และ Cancel ใน $(document).ready
+        $(document).ready(function () {
+            // ปุ่มยกเลิก Report
+            $('#cancel-report').on('click', () => $('#report-card').fadeOut());
+
+            // ปุ่มส่ง Report
+            $('#submit-report').on('click', async function () {
+
+                // 1. ดึง Category ID และแปลงเป็น String
+                let currentCategoryIds = current_question.category || [];
+                // ถ้าเป็น Array ให้รวมเป็น string, ถ้าไม่มีให้ว่างไว้
+                let categoryString = Array.isArray(currentCategoryIds) ? currentCategoryIds.join(", ") : currentCategoryIds;
+
+                // 2. หา "Subject" (วิชา) จาก Category ID โดยค้นใน globalData.category
+                let subjectFrom = "Unknown Subject"; // ค่า Default
+
+                if (globalData.category && Array.isArray(currentCategoryIds) && currentCategoryIds.length > 0) {
+                    // เอา Category แรกของข้อนี้ไปค้นหา
+                    let firstCatId = String(currentCategoryIds[0]).trim();
+
+                    // ค้นหาใน globalData.category (ใช้ Key: CategoryID ตามตาราง)
+                    const matchedCategoryInfo = globalData.category.find(t => String(t.CategoryID) === firstCatId);
+
+                    if (matchedCategoryInfo && matchedCategoryInfo.SubjectRef) {
+                        subjectFrom = matchedCategoryInfo.SubjectRef; // ได้ค่า เช่น "GI", "NS"
+                    }
+                }
+
+                // 3. ส่วนตรวจสอบ Input (Validation)
+                const $select = $('#report-correct-choice-select');
+                const $inputNew = $('#report-new-choice-input');
+                const $reason = $('#report_text');
+
+                const selectedVal = $select.val();
+                const newVal = $inputNew.val().trim();
+                const reasonVal = $reason.val().trim();
+
+                if (selectedVal === 'newanswer' && !newVal) {
+                    Swal.fire('แจ้งเตือน', 'กรุณาพิมพ์คำตอบที่ถูกต้องใหม่ในช่องด้านล่าง', 'warning');
+                    setTimeout(() => $inputNew.focus(), 500);
+                    return;
+                }
+
+                if (reasonVal === '') {
+                    Swal.fire('แจ้งเตือน', 'กรุณาระบุเหตุผลของปัญหา', 'warning');
+                    setTimeout(() => $reason.focus(), 500);
+                    return;
+                }
+
+                // --- ส่วนจัดการข้อมูลก่อนส่ง (Data Processing) ---
+
+                // 4. จัดการคำตอบที่เสนอ (Suggested Choice)
+                let suggestedChoice = (selectedVal === 'newanswer') ? newVal : selectedVal;
+                // ถ้าเป็น URL ให้แปลงผ่าน transformUrl (เผื่อ User แปะ Link รูป)
+                if (suggestedChoice && (suggestedChoice.includes('drive.google') || suggestedChoice.startsWith('http'))) {
+                    suggestedChoice = transformUrl(suggestedChoice);
+                }
+
+                // 5. จัดการรูปโจทย์ (Question Images)
+                let questionImagesString = "";
+                if (current_question.img) {
+                    const rawImgs = current_question.img.split("///");
+                    const processedImgs = rawImgs.map(url => transformUrl(url.trim()));
+                    questionImagesString = processedImgs.join("///");
+                }
+
+                // 6. จัดการตัวเลือกทั้งหมด (Format ให้ดูง่ายขึ้น)
+                // ผลลัพธ์: 
+                // A. (answer) ตัวเลือก 1
+                // B. ตัวเลือก 2
+                const allChoices = (current_question.choices || "").split("///").map((s, i) => {
+                    const letter = String.fromCharCode(65 + i);
+                    let choiceText = s.trim();
+                    const isCurrentAnswer = choiceText === (current_question.answer || "").trim();
+                    return `${letter}. ${isCurrentAnswer ? '(เฉลยปัจจุบัน) ' : ''}${choiceText}`;
+                }).join("\n");
+
+                // --- ส่วนการส่งข้อมูล (Fetch) ---
+                const $btn = $(this);
+                $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Sending...');
+
+                const reportData = {
+                    action: 'submitReport',
+                    from: subjectFrom,          // ส่ง Subject ที่หาได้
+                    category: categoryString,
+                    question: current_question.problem,
+                    questionImages: questionImagesString,
+                    allChoices: allChoices,     // ส่งตัวเลือกแบบจัด Format แล้ว
+                    suggestedChoice: suggestedChoice,
+                    report: reasonVal
+                };
+
+                try {
+                    const response = await fetch(APPSCRIPT_URL, {
+                        method: "POST",
+                        redirect: "follow",
+                        headers: { "Content-Type": "text/plain;charset=utf-8" },
+                        body: JSON.stringify(reportData)
+                    });
+
+                    const resJson = await response.json();
+
+                    if (resJson.result === 'success') {
+                        Swal.fire('สำเร็จ', 'ขอบคุณที่แจ้งปัญหา! ข้อมูลจะถูกส่งให้ทีมงานตรวจสอบ', 'success');
+                        $('#report-card').fadeOut();
+                        fetchData(); // โหลดข้อมูลใหม่เพื่ออัปเดตตัวเลข Dashboard
+                    } else {
+                        throw new Error(resJson.error || 'Server reported error');
+                    }
+                } catch (error) {
+                    console.error(error);
+                    Swal.fire('Error', 'ไม่สามารถส่งรายงานได้: ' + error.message, 'error');
+                } finally {
+                    $btn.prop('disabled', false).text('ส่งรายงาน (Submit)');
+                }
+            });
+        });
+
+        function addVoteRow() {
+            // 1. Create Subject Options
+            const subjects = [];
+            globalData.structure.forEach(s => {
+                subjects.push({ id: s.SubjectID, name: s.SubjectName });
+            });
+
+            let subjectOptions = `<option value="">-- เลือกวิชา --</option>`;
+            const uniqueSubjects = {};
+            subjects.forEach(s => {
+                if (!uniqueSubjects[s.id]) {
+                    uniqueSubjects[s.id] = s;
+                    subjectOptions += `<option value="${s.id}">${s.id} - ${s.name}</option>`;
+                }
+            });
+
+            const rowHtml = `
+                <div class="vote-row">
+                    <button class="btn-remove-row"><i class="fas fa-minus"></i></button>
+                    <select class="vote-select subject-select">${subjectOptions}</select>
+                    <select class="vote-select group-select" disabled><option value="">-- เลือกกลุ่ม --</option></select>
+                    <select class="vote-select category-select" disabled><option value="">-- เลือกหัวข้อ --</option></select>
+                </div>
+            `;
+
+            const $row = $(rowHtml);
+            $('#vote-rows-container').append($row);
+
+            // Bind Events for Dependent Dropdowns
+            $row.find('.subject-select').on('change', function () {
+                const subjId = $(this).val();
+                const $groupSelect = $row.find('.group-select');
+                const $categorySelect = $row.find('.category-select');
+
+                $groupSelect.empty().append('<option value="">-- เลือกกลุ่ม --</option>').prop('disabled', true);
+                $categorySelect.empty().append('<option value="">-- เลือกหัวข้อ --</option>').prop('disabled', true);
+
+                if (subjId) {
+                    const relatedCategory = globalData.category.filter(t => t.SubjectRef === subjId);
+                    const groups = [...new Set(relatedCategory.map(t => t.AccordionGroup))];
+
+                    groups.forEach(g => {
+                        if (g) $groupSelect.append(`<option value="${g}">${g}</option>`);
+                    });
+                    $groupSelect.prop('disabled', false);
+                }
+            });
+
+            $row.find('.group-select').on('change', function () {
+                const groupName = $(this).val();
+                const subjId = $row.find('.subject-select').val();
+                const $categorySelect = $row.find('.category-select');
+
+                $categorySelect.empty().append('<option value="">-- เลือกหัวข้อ --</option>').prop('disabled', true);
+
+                if (groupName && subjId) {
+                    const category = globalData.category.filter(t => t.SubjectRef === subjId && t.AccordionGroup === groupName);
+                    category.forEach(t => {
+                        $categorySelect.append(`<option value="${t.CategoryID}">${t.CategoryName}</option>`);
+                    });
+                    $categorySelect.prop('disabled', false);
+                }
+            });
+
+            $row.find('.btn-remove-row').on('click', function () {
+                $(this).parent().remove();
+            });
+        }
+
+        function submitSingleVote(categoryId) {
+            submitVoteData([categoryId], true);
+        }
+
+        function submitVoteData(categoryArray, single = false) {
+            $('#btn-submit-vote').prop('disabled', true).text('กำลังส่ง...');
+            const successMsg = single ? "บันทึกโหวตเห็นด้วยเรียบร้อย! 🙏" : "บันทึกข้อมูลเรียบร้อย ขอบคุณครับ! 🙏";
+
+            const payload = {
+                action: 'submitVote',
+                questionId: current_question.questionId,
+                questionText: current_question.problem,
+                suggestedCategory: categoryArray
+            };
+
+            fetch(APPSCRIPT_URL, {
+                method: 'POST',
+                headers: { "Content-Type": "text/plain;charset=utf-8" },
+                body: JSON.stringify(payload)
+            }).then(() => {
+                Swal.fire('Success', successMsg, 'success');
+                $('#vote-category-modal').css('display', 'none');
+                $('#btn-submit-vote').prop('disabled', false).text('ยืนยัน');
+            }).catch(err => {
+                Swal.fire('Error', 'เกิดข้อผิดพลาดในการส่งข้อมูล: ' + err, 'error');
+                $('#btn-submit-vote').prop('disabled', false).text('ยืนยัน');
+            });
+        }
+
+        function fetchPendingVotes(questionId) {
+            const $container = $('#suggested-category-container');
+
+            // 1. แสดงสถานะกำลังโหลด
+            $container.html('<span class="empty-state-text"><i class="fas fa-spinner fa-spin"></i> กำลังดึงข้อมูลผลโหวต...</span>');
+
+            // 2. เรียก API ไปยัง Google Apps Script
+            // ส่ง action=getPendingVotes และ qid (ID ของข้อสอบ)
+            fetch(`${APPSCRIPT_URL}?action=getPendingVotes&qid=${questionId}`)
+                .then(response => response.json())
+                .then(data => {
+                    $container.empty();
+
+                    // 3. กรองข้อมูล: ไม่แสดงหัวข้อที่ถูก Approved ไปแล้วในข้อนี้
+                    // (เช็คจาก current_question.category ซึ่งเป็น Array ของ CategoryID ปัจจุบัน)
+                    const currentCats = Array.isArray(current_question.category) ? current_question.category : [current_question.category];
+                    const filteredData = data.filter(item => !currentCats.includes(item.categoryId));
+
+                    // 4. ถ้าไม่มีข้อมูลโหวตที่รออนุมัติ
+                    if (!filteredData || filteredData.length === 0) {
+                        $container.html('<span class="empty-state-text">- ยังไม่มีข้อเสนอใหม่ -</span>');
+                        return;
+                    }
+
+                    // 5. แสดงผล Badge สำหรับโหวต
+                    filteredData.forEach(item => {
+                        const categoryName = getCategoryNameById(item.categoryId);
+                        const $badge = $(`
+                    <div class="category-badge suggested" title="คลิกเพื่อโหวตเห็นด้วย (+1)">
+                        ${categoryName}
+                        <span class="vote-count-badge">${item.count} <i class="fas fa-user"></i></span>
+                    </div>
+                `);
+
+                        // 6. เมื่อคลิกที่ Badge ให้ส่งโหวตเห็นด้วยทันที
+                        $badge.on('click', function () {
+                            Swal.fire({
+                                title: 'ยืนยันการโหวต',
+                                text: `คุณเห็นด้วยว่าข้อสอบนี้ควรอยู่ในหัวข้อ "${categoryName}" ใช่หรือไม่?`,
+                                icon: 'question',
+                                showCancelButton: true,
+                                confirmButtonText: 'ใช่, เห็นด้วย',
+                                cancelButtonText: 'ยกเลิก'
+                            }).then((result) => {
+                                if (result.isConfirmed) {
+                                    submitSingleVote(item.categoryId);
+                                }
+                            });
+                        });
+
+                        $container.append($badge);
+                    });
+                })
+                .catch(err => {
+                    console.error('Fetch Pending Votes Error:', err);
+                    $container.html('<span class="text-danger small"><i class="fas fa-exclamation-triangle"></i> โหลดข้อมูลล้มเหลว</span>');
+                });
+        }
+
+        // --- 2. DATA FETCHING ---
+        async function fetchData() {
+            $('#loading-overlay').css('display', 'flex');
+            try {
+                const response = await fetch(`${APPSCRIPT_URL}?action=getAllData`);
+                const data = await response.json();
+
+                // 1. Clean & Fix Questions Data
+                globalData.questions = (data.questions || []).map(q => {
+                    // แก้ปัญหา Category มาเป็น String "['A']" ให้กลายเป็น Array ['A'] จริงๆ
+                    if (typeof q.category === 'string' && q.category.startsWith('[')) {
+                        try {
+                            q.category = JSON.parse(q.category.replace(/'/g, '"'));
+                        } catch (e) {
+                            q.category = [q.category]; // ถ้าแปลงไม่ได้ ให้ใส่ Array ครอบเลย
+                        }
+                    } else if (typeof q.category === 'string') {
+                        q.category = [q.category];
+                    }
+                    return q;
+                });
+
+                // 2. Clean & Fix Report Data
+                globalData.report = (data.report || []).map(r => {
+                    // แก้ปัญหา Done=TRUE แต่ Status=Pending ให้แสดงเป็น Resolved
+                    if (String(r.Done).toUpperCase() === 'TRUE' && r.Status === 'Pending') {
+                        r.Status = 'Resolved';
+                    }
+                    return r;
+                });
+
+                globalData.structure = data.structure || [];
+                globalData.category = data.category || [];
+                globalData.votes = data.votes || [];
+                globalData.logs = data.logs || [];
+
+                updateDashboard();
+                refreshTables();
+                populateFilters();
+                renderReportList();
+
+                console.log("Data Loaded and Sanitized successfully.");
+            } catch (error) {
+                console.error(error);
+                Swal.fire('Error', 'Server Error: ' + error.message, 'error');
+            } finally {
+                $('#loading-overlay').hide();
+            }
+        }
+        function refreshTables() {
+            if ($.fn.DataTable.isDataTable('#publicTable')) {
+                $('#publicTable').DataTable().clear().rows.add(globalData.questions).draw();
+            }
+            if ($.fn.DataTable.isDataTable('#adminTable')) {
+                $('#adminTable').DataTable().clear().rows.add(globalData.questions).draw();
+            }
+            if ($.fn.DataTable.isDataTable('#structSubjectTable')) {
+                renderStructureTree($('#struct-subject-filter').val());
+            }
+            if ($.fn.DataTable.isDataTable('#structCategoryTable')) {
+                $('#structCategoryTable').DataTable().clear().rows.add(globalData.category).draw();
+            }
+
+            if ($.fn.DataTable.isDataTable('#logsTable')) {
+                $('#logsTable').DataTable().clear().rows.add(globalData.logs || []).draw();
+            }
+             else {
+                initLogsTable(); // ถ้าตารางยังไม่ถูกสร้าง ให้สร้างใหม่
+            }
+        }
+
+        function updateDashboard() {
+            // 1. อัปเดตตัวเลข Stats (เหมือนเดิม)
+            $('#stat-total-q').text(globalData.questions.length + " ข้อ");
+            $('#stat-subjects').text(globalData.structure.length + " วิชา");
+
+            // นับ Pending (Done = FALSE หรือ ว่าง)
+            const pendingCount = globalData.report.filter(r => !r.Done || r.Done.toString().toUpperCase() === 'FALSE').length;
+            $('#stat-pending-q').text(pendingCount + " รายการ");
+            $('#sidebar-report-count').text(pendingCount);
+
+            // นับ Resolved (Done = TRUE)
+            const resolvedCount = globalData.report.filter(r => r.Done && r.Done.toString().toUpperCase() === 'TRUE').length;
+            $('#stat-resolved-q').text(resolvedCount + " รายการ");
+
+            // 2. ส่วนตาราง Recent Updates (ดึงเฉพาะที่ Done = TRUE)
+            const recentResolved = globalData.report
+                .filter(r => r.Done && r.Done.toString().toUpperCase() === 'TRUE')
+                .sort((a, b) => new Date(b.Time) - new Date(a.Time)) // เรียงจากใหม่ไปเก่า
+                .slice(0, 5); // เอาแค่ 5 รายการล่าสุด
+
+            let html = '';
+            recentResolved.forEach(r => {
+                // ค้นหาโจทย์ใน DB เพื่อเอา ID และคำตอบ
+                // ใช้การ trim() เพื่อตัดช่องว่างที่อาจไม่ตรงกัน
+                let qDB = globalData.questions.find(q => q.problem.trim() === (r.Question || '').trim());
+
+                // ตัวแปรสำหรับแสดงผล
+                let dateStr = formatDate(r.Time).split(' ')[0]; // เอาแค่วันที่ ไม่เอาเวลา
+                let linkHtml = '<span class="text-muted">ไม่พบข้อมูลโจทย์</span>';
+                let answerDisplay = '-';
+                let statusBadge = '';
+
+                // ถ้าเจอโจทย์ใน DB
+                if (qDB) {
+                    // สร้าง Link ไปยังโจทย์
+                    linkHtml = `<a href="#" onclick="showQuestionDetail('${qDB.questionId}')" class="fw-bold text-decoration-none">${qDB.questionId}</a>`;
+
+                    if (qDB && qDB.answer) {
+                        answerDisplay = qDB.answer.toString().trim().replace(/^[A-Z]\s*[\.\)]\s*/, '');
+                        if (!answerDisplay) answerDisplay = '-';
+                    } else {
+                        answerDisplay = '-';
+                    }
+                } else {
+                    // ถ้าโจทย์ถูกลบไปแล้ว ให้แสดง Category จาก Report แทน
+                    linkHtml = `<span class="text-secondary small">${r.Category} (Deleted)</span>`;
+                }
+
+                // กำหนดสี Badge ตาม Status
+                let statusText = r.Status || 'Resolved';
+                if (statusText === 'Rejected') {
+                    statusBadge = `<span class="badge bg-secondary badge-pill">Rejected</span>`;
+                } else {
+                    statusBadge = `<span class="badge bg-success badge-pill">${statusText}</span>`;
+                }
+
+                html += `<tr>
+                <td>${dateStr}</td>
+                <td>${linkHtml}</td>
+                <td class="text-success fw-bold text-center">${answerDisplay}</td>
+                <td>${r.AdminNote || '-'}</td>
+                <td>${statusBadge}</td>
+            </tr>`;
+            });
+
+            if (html === '') {
+                html = '<tr><td colspan="5" class="text-center text-muted py-3">ยังไม่มีประวัติการแก้ไข</td></tr>';
+            }
+            $('#dashboardRecentTable tbody').html(html);
+        }
+    function populateFilters() {
+        // 1. สร้างตัวเลือกรายวิชา (Subject)
+        // หา Subject ที่ไม่ซ้ำกันจาก Structure
+        const subjects = [...new Set(globalData.structure.map(s => s.SubjectID))].sort();
+
+        let subjOpts = '<option value="">All Subjects</option>';
+        subjects.forEach(s => subjOpts += `<option value="${s}">${s}</option>`);
+
+        // อัปเดต Dropdown วิชาทั้งหมดในหน้าเว็บ
+        $('#search-subject-filter, #db-subject-filter, #struct-subject-filter').html(subjOpts);
+
+        // สำหรับ Modal เพิ่ม Category ใหม่
+        $('#new-category-subject').html('<option value="">-- Select Subject --</option>' + subjOpts.replace('All Subjects', ''));
+
+
+        // 2. สร้างตัวเลือกหัวข้อ (Category) - แบบจัดกลุ่ม (Optgroup) เพื่อให้อ่านง่าย
+        let categoryOpts = '<option value="">All Categories</option>';
+
+        // วนลูปตามวิชาเพื่อให้ Dropdown สวยงามมีหัวข้อวิชาคั่น
+        subjects.forEach(subj => {
+            // หา Category ที่อยู่ในวิชานี้
+            const catsInSubj = globalData.category.filter(c => c.SubjectRef === subj);
+
+            if (catsInSubj.length > 0) {
+                categoryOpts += `<optgroup label="${subj}">`; // เปิดกลุ่มวิชา
+
+                catsInSubj.forEach(t => {
+                    categoryOpts += `<option value="${t.CategoryID}">${t.CategoryName} (${t.CategoryID})</option>`;
+                });
+
+                categoryOpts += `</optgroup>`; // ปิดกลุ่มวิชา
+            }
+        });
+
+        // กรณีมี Category ที่ไม่มีวิชาสังกัด (Orphan)
+        const orphanCats = globalData.category.filter(c => !c.SubjectRef || !subjects.includes(c.SubjectRef));
+        if (orphanCats.length > 0) {
+            categoryOpts += `<optgroup label="Others">`;
+            orphanCats.forEach(t => {
+                categoryOpts += `<option value="${t.CategoryID}">${t.CategoryName} (${t.CategoryID})</option>`;
+            });
+            categoryOpts += `</optgroup>`;
+        }
+
+        // *** สำคัญ: อัปเดต Dropdown Category ทั้งหมด (Search, DB Admin, Edit Modal) ***
+        $('#search-category-filter, #db-category-filter, #edit-category').html(categoryOpts);
+    }
+
+    // ฟังก์ชันสำหรับกรอง Category ตาม Subject ที่เลือก
+        function updateCategoryDropdown(subjectId, targetSelector) {
+            let options = '<option value="">All Categories</option>';
+
+            // กรองข้อมูล: ถ้าเลือกวิชา (subjectId มีค่า) ให้ดึงเฉพาะวิชานั้น, ถ้าไม่เลือก (ค่าว่าง) ให้เอาทั้งหมด
+            const filteredCats = subjectId
+                ? globalData.category.filter(c => c.SubjectRef === subjectId)
+                : globalData.category;
+
+            // เรียงลำดับตามชื่อ (Optional)
+            filteredCats.sort((a, b) => a.CategoryID.localeCompare(b.CategoryID));
+
+            // สร้าง HTML Option
+            filteredCats.forEach(t => {
+                options += `<option value="${t.CategoryID}">${t.CategoryName} (${t.CategoryID})</option>`;
+            });
+
+            // อัปเดตที่หน้าเว็บ
+            $(targetSelector).html(options);
+        }
+
+        function getSubjectFromCategory(categoryId) {
+            if (!categoryId || !globalData.category || globalData.category.length === 0) return '-';
+
+            // แปลงให้เป็น String และเลือกตัวแรกถ้าเป็น Array
+            let tid = Array.isArray(categoryId) ? String(categoryId[0]) : String(categoryId);
+            tid = tid.trim();
+
+            // ค้นหาใน globalData.category
+            let category = globalData.category.find(t =>
+                String(t.CategoryID).trim().toLowerCase() === tid.toLowerCase()
+            );
+
+            return category ? category.SubjectRef : '-';
+        }
+
+        // --- 3. TABLES INITIALIZATION ---
+        function initPublicTable() {
+
+            if ($.fn.DataTable.isDataTable('#publicTable')) return;
+            const table = $('#publicTable').DataTable({
+                data: globalData.questions,
+                columns: [
+                    {
+                        data: 'subject',
+                        defaultContent: '-',
+                        render: function (data, type, row) {
+                            return getSubjectFromCategory(row.category);
+                        }
+                    },
+                    {
+                        data: 'category',
+                        defaultContent: '-',
+                        render: function (data) {
+                            return Array.isArray(data) ? data.join(', ') : data;
+                        }
+                    },
+                    { data: 'problem', defaultContent: '' },
+                    {
+                        data: 'img',
+                        defaultContent: '',
+                        render: function (data) {
+                            if (!data) return '-';
+                            let firstImg = data.split('///')[0];
+                            return `<img src="${transformUrl(firstImg)}" class="img-preview-mini">`;
+                        }
+                    },
+                    { data: 'answer', defaultContent: '' },
+                    {
+                        data: null,
+                        render: function (data, type, row) {
+                            return `<button class="btn btn-sm btn-outline-secondary" onclick="showQuestionDetail('${row.questionId}')"><i class="fas fa-eye"></i></button>`;
+                        }
+                    }
+                ]
+            });
+
+            $('#search-subject-filter').on('change', function () {
+                const selectedSubj = this.value;
+
+                // 1. กรอง Table ตามวิชา
+                table.column(0).search(selectedSubj).draw();
+
+                // 2. อัปเดต Dropdown Category ให้เหลือแค่วิชานี้
+                updateCategoryDropdown(selectedSubj, '#search-category-filter');
+
+                // 3. รีเซ็ตค่าการค้นหา Category ในตาราง (เพราะตัวเลือกเปลี่ยนไปแล้ว)
+                table.column(1).search('').draw();
+            });
+            $('#search-category-filter').on('change', function () {
+                table.column(1).search(this.value).draw();
+            });
+        }
+
+        function initAdminTable() {
+            if ($.fn.DataTable.isDataTable('#adminTable')) return;
+            const table = $('#adminTable').DataTable({
+                data: globalData.questions,
+                columns: [
+                    {
+                        data: 'subject',
+                        defaultContent: '-',
+                        render: function (data, type, row) {
+                            return getSubjectFromCategory(row.category);
+                        }
+                    },
+                    {
+                        data: 'category',
+                        // ปรับปรุง Render: รองรับทั้ง Array, String และค่าว่าง เพื่อให้ Search ทำงานได้ถูกต้อง
+                        render: function (data) {
+                            if (!data) return '-';
+                            return Array.isArray(data) ? data.join(', ') : data;
+                        }
+                    },
+                    { data: 'problem', defaultContent: '' },
+                    {
+                        data: 'img',
+                        render: function (data) {
+                            if (!data) return '-';
+                            return `<img src="${transformUrl(data.split('///')[0])}" class="img-preview-mini">`;
+                        }
+                    },
+                    { data: 'answer', defaultContent: '' },
+                    {
+                        data: null,
+                        render: function (data, type, row) {
+                            return `<button class="btn btn-sm btn-primary" onclick="openEditModal('${row.questionId}')"><i class="fas fa-edit"></i></button>`;
+                        }
+                    }
+                ]
+            });
+
+            // Event Listeners สำหรับ Filter
+            // แก้ไขส่วนนี้ใน initAdminTable
+            $('#db-subject-filter').on('change', function () {
+                const selectedSubj = this.value;
+
+                // 1. กรอง Table ตามวิชา
+                table.column(0).search(selectedSubj).draw();
+
+                // 2. อัปเดต Dropdown Category ให้เหลือแค่วิชานี้
+                updateCategoryDropdown(selectedSubj, '#db-category-filter');
+
+                // 3. รีเซ็ตค่าการค้นหา Category ในตาราง
+                table.column(1).search('').draw();
+            });
+            $('#db-category-filter').on('change', function () {
+                // ค้นหาข้อความที่มีใน Category (Smart Search ของ DataTables จะจัดการ Partial Match ให้)
+                table.column(1).search(this.value).draw();
+            });
+        }
+
+        function initStructureTables() {
+
+            if (!$.fn.DataTable.isDataTable('#structSubjectTable')) {
+                const subjTable = $('#structSubjectTable').DataTable({
+                    data: globalData.structure,
+                    columns: [
+                        { data: 'Year', defaultContent: '' },
+                        { data: 'SubjectID', defaultContent: '' },
+                        { data: 'SubjectName', defaultContent: '' },
+                        { data: 'AccordionGroup', defaultContent: '' },
+                        { data: null, defaultContent: '-' }
+                    ]
+                });
+
+                $('#struct-subject-filter').on('change', function () {
+                    subjTable.column(1).search(this.value).draw();
+                });
+            }
+
+            if (!$.fn.DataTable.isDataTable('#structCategoryTable')) {
+                $('#structCategoryTable').DataTable({
+                    data: globalData.category,
+                    columns: [
+                        { data: 'CategoryID', defaultContent: '' },
+                        { data: 'SubjectRef', defaultContent: '' },
+                        { data: 'AccordionGroup', defaultContent: '' },
+                        { data: 'CategoryName', defaultContent: '' },
+                        { data: null, defaultContent: '-' }
+                    ]
+                });
+            }
+        }
+
+        function initLogsTable() {
+            if ($.fn.DataTable.isDataTable('#logsTable')) {
+                $('#logsTable').DataTable().clear().rows.add(globalData.logs).draw();
+                return;
+            }
+            $('#logsTable').DataTable({
+                data: globalData.logs,
+                order: [[0, 'desc']], // เรียงตามเวลาล่าสุดก่อน
+                columns: [
+                    {
+                        data: 'Timestamp',
+                        render: function (data) { return formatDate(data); }
+                    },
+                    { data: 'User' },
+                    {
+                        data: 'Action',
+                        render: function (data) {
+                            let badge = 'bg-secondary';
+                            if (data.includes('Edit')) badge = 'bg-info';
+                            if (data.includes('Delete')) badge = 'bg-danger';
+                            if (data.includes('Import')) badge = 'bg-success';
+                            return `<span class="badge ${badge}">${data}</span>`;
+                        }
+                    },
+                    {
+                        data: 'TargetID',
+                    },
+                    { data: 'Details', defaultContent: '' }
+                ]
+            });
+        }
+        // --- 4. ADMIN ACTIONS & MODALS ---
+        function showQuestionDetail(id) {
+            const q = globalData.questions.find(x => x.questionId == id);
+            if (!q) return;
+
+            // *** NEW: Set current_question global variable ***
+            current_question = q;
+
+            let cat = Array.isArray(q.category) ? q.category.join(', ') : q.category;
+            let subj = getSubjectFromCategory(q.category);
+            $('#modal-q-subject').text(subj);
+            $('#modal-q-category').text(cat);
+
+            $('#modal-q-text').text(q.problem);
+
+            let imgHtml = '';
+            if (q.img) {
+                q.img.split('///').forEach(url => {
+                    imgHtml += `<img src="${transformUrl(url)}" class="img-fluid mb-2" style="max-height:300px;">`;
+                });
+            }
+            $('#modal-q-img-container').html(imgHtml);
+
+            let choiceHtml = '';
+            if (q.choices) {
+                q.choices.split('///').forEach(c => {
+                    let isCorrect = (c.trim().replace(/^[A-Z]\./, '').trim() === q.answer.trim().replace(/^[A-Z]\./, '').trim()) ? 'list-group-item-success' : '';
+                    choiceHtml += `<div class="list-group-item ${isCorrect}">${c}</div>`;
+                });
+            }
+            $('#modal-q-choices').html(choiceHtml);
+            $('#modal-q-explain').text(q.explain || '-');
+
+            $('#btn-modal-report').off('click').on('click', function () {
+                $('#questionDetailModal').modal('hide');
+                openReportModal(q);
+            });
+
+            // The #btn-open-vote binding is done in document.ready now.
+
+            $('#questionDetailModal').modal('show');
+        }
+
+    function openEditModal(id, suggestedAnswer = null) {
+        const q = globalData.questions.find(x => x.questionId == id);
+        if (!q) return;
+
+        $('#edit-q-id').val(q.questionId);
+
+        // Setup Category
+        let cat = Array.isArray(q.category) ? q.category[0] : q.category;
+        populateFilters();
+        $('#edit-category').val(cat);
+
+        // Setup Text Fields
+        $('#edit-problem').val(q.problem);
+        $('#edit-explanation').val(q.explain);
+
+        // Setup Images
+        renderImagesUI(q.img);
+
+        renderChoicesUI(q.choices, q.answer, suggestedAnswer);
+
+        $('#editQuestionModal').modal('show');
+    }
+        async function saveQuestionChanges() {
+            if (!confirmAdmin()) return;
+
+            const qId = $('#edit-q-id').val();
+            const originalQuestionData = globalData.questions.find(q => q.questionId == qId);
+            const originalProblemText = originalQuestionData ? originalQuestionData.problem.trim() : "";
+
+            const selectedCategory = $('#edit-category').val();
+            const categoryArray = selectedCategory ? [selectedCategory] : [];
+
+            // เตรียมข้อมูลสำหรับแก้ไขคำถาม
+            const payload = {
+                id: qId,
+                problem: $('#edit-problem').val(),
+                img: $('#edit-img').val(),
+                choices: $('#edit-choices').val(),
+                answer: $('#edit-answer').val(),
+                explain: $('#edit-explanation').val(),
+                category: categoryArray
+            };
+
+            // ส่งคำสั่งแก้ไขคำถามไปยัง Server
+            await sendAdminAction('editQuestion', payload);
+
+            // 2. อัปเดตสถานะ Report ที่เกี่ยวข้อง (Auto-Resolve)
+            try {
+                // ตรวจสอบว่ามีข้อมูล Report ที่เก็บไว้หรือไม่
+                const reportData = $('#editQuestionModal').data('reportData');
+                
+                if (reportData) {
+                // กรณีเปิดมาจาก Report Inbox - Auto-resolve Report นั้นๆ
+                const reportPayload = {
+                    action: 'updateReportStatus',
+                    adminPass: adminPass,
+                    data: {
+                    timestamp: reportData.timestamp,
+                    adminNote: reportData.adminNote,
+                    status: 'Resolved',
+                    done: 'TRUE'
+                    }
+                };
+
+                await fetch(APPSCRIPT_URL, {
+                    method: 'POST',
+                    redirect: "follow",
+                    headers: { "Content-Type": "text/plain" },
+                    body: JSON.stringify(reportPayload)
+                });
+                
+                console.log('Report auto-resolved successfully.');
+                
+                // ลบข้อมูล Report ออกจาก Modal
+                $('#editQuestionModal').removeData('reportData');
+                } else {
+                // ค้นหา Report ที่เกี่ยวข้องจาก globalData (Fallback)
+                const pendingReports = (globalData.report || []).filter(r =>
+                    r['Question'] && r['Question'].trim() === originalProblemText &&
+                    (!r['Done'] || String(r['Done']).toUpperCase() === 'FALSE')
+                );
+
+                if (pendingReports.length > 0) {
+                    for (const rep of pendingReports) {
+                    const fallbackPayload = {
+                        action: 'updateReportStatus',
+                        adminPass: adminPass,
+                        data: {
+                        timestamp: rep['Time'],
+                        adminNote: 'Auto-resolved via question edit',
+                        status: 'Resolved',
+                        done: 'TRUE'
+                        }
+                    };
+
+                    fetch(APPSCRIPT_URL, {
+                        method: 'POST',
+                        redirect: "follow",
+                        headers: { "Content-Type": "text/plain" },
+                        body: JSON.stringify(fallbackPayload)
+                    }).catch(e => console.error("Auto-resolve failed:", e));
+                    }
+                    console.log(`Auto-resolved ${pendingReports.length} reports.`);
+                }
+                }
+            } catch (e) {
+                console.error('Error in auto-resolve logic:', e);
+            }
+
+            $('#editQuestionModal').modal('hide');
+            fetchData();
+            }
+
+        async function deleteQuestion() {
+            if (!confirmAdmin()) return;
+            if (!confirm('Are you sure you want to DELETE this question?')) return;
+
+            const payload = { id: $('#edit-q-id').val() };
+            await sendAdminAction('deleteQuestion', payload);
+            $('#editQuestionModal').modal('hide');
+        }
+
+        async function saveNewCategory() {
+            if (!confirmAdmin()) return;
+            const payload = {
+                CategoryID: $('#new-category-id').val(),
+                SubjectRef: $('#new-category-subject').val(),
+                AccordionGroup: $('#new-category-group').val(),
+                CategoryName: $('#new-category-name').val()
+            };
+            await sendAdminAction('addCategory', payload);
+            $('#addCategoryModal').modal('hide');
+        }
+
+        async function sendAdminAction(actionName, dataObj) {
+            $('#loading-overlay').show();
+            try {
+                const response = await fetch(APPSCRIPT_URL, {
+                    method: 'POST',
+                    redirect: "follow",
+                    headers: { "Content-Type": "text/plain" },
+                    body: JSON.stringify({
+                        action: actionName,
+                        adminPass: adminPass,
+                        data: dataObj
+                    })
+                });
+
+                // รอรับ JSON จาก Request ที่ถูก Redirect แล้ว
+                const resJson = await response.json();
+
+                if (resJson.result === 'success') {
+                    // ใช้ setTimeout เล็กน้อยเพื่อให้ Modal ปิดแล้วค่อยแจ้งเตือน
+                    setTimeout(() => {
+                        Swal.fire('Success', 'บันทึกข้อมูลเรียบร้อยแล้ว', 'success');
+                        fetchData(); // โหลดข้อมูลใหม่
+                    }, 500);
+                } else {
+                    throw new Error(resJson.message || resJson.error || 'Unknown Error');
+                }
+            } catch (e) {
+                console.error("Fetch Error:", e); // ดู error เต็มๆ ใน Console
+                Swal.fire('Error', 'เกิดข้อผิดพลาด: ' + e.message, 'error');
+            } finally {
+                $('#loading-overlay').hide();
+            }
+        }
+
+        // --- 5. REPORT SYSTEM ---
+        function renderReportList() {
+            const container = $('#report-list-container');
+            container.empty();
+
+            const pending = globalData.report.filter(r => !r.Done || r.Done.toString().toUpperCase() === 'FALSE');
+
+            if (pending.length === 0) {
+                container.html('<div class="text-center text-muted py-5"><i class="fas fa-check-circle fa-3x text-success mb-3"></i><br>ไม่มีรายการแจ้งปัญหาใหม่</div>');
+                return;
+            }
+
+            pending.forEach((r, index) => {
+                let reportDetail = r['ReportDetail'] || '-';
+                let suggested = r['SuggestedAnswer'] || '-';
+
+                let dbQuestion = globalData.questions.find(q => q.problem.trim() === (r['Question'] || '').trim()) || {};
+
+                let currentAns = dbQuestion.answer || 'ไม่พบข้อมูลใน DB';
+                let explanation = dbQuestion.explain || '(ไม่มีคำอธิบาย)';
+                let choicesStr = r['Choices'] ? r['Choices'].replace(/\n/g, '<br>') : '-';
+
+                let imgHtml = '';
+                let rawImg = String(r['Image'] || "").trim();
+                if (rawImg && (rawImg.startsWith('http') || rawImg.startsWith('https'))) {
+                    // ดึง URL ที่แท้จริง (เผื่อมี formula ติดมา)
+                    let url = (rawImg.match(/"([^"]+)"/) && rawImg.match(/"([^"]+)"/)[1]) ? rawImg.match(/"([^"]+)"/)[1] : rawImg;
+                    url = transformUrl(url);
+
+                    imgHtml = `<div class="my-2 text-center">
+                        <a href="${url}" target="_blank">
+                            <img src="${url}" class="img-thumbnail" style="max-height: 150px;" alt="Q Img">
+                        </a>
+                    </div>`;
+                }
+                // ถ้ามีข้อความแต่ไม่ใช่ URL ให้แสดงเป็น Text แทน (กรณี User พิมพ์เล่น)
+                else if (rawImg.length > 0) {
+                    imgHtml = `<div class="alert alert-warning py-1 small"><i class="fas fa-exclamation-triangle"></i> ข้อมูลรูปภาพ: ${rawImg}</div>`;
+                }
+
+                // ... (ส่วนสร้าง HTML Card เหมือนเดิม) ...
+                let card = `
+        <div class="card mb-4 shadow-sm border-0 bg-white" style="border-left: 4px solid #e74a3b !important;">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-8 border-end">
+                        <h5 class="text-primary fw-bold">
+                            <i class="fas fa-hashtag me-1"></i> ${r['Category'] || 'Unknown Category'}
+                            <small class="text-muted fs-6 float-end"><i class="far fa-clock"></i> ${formatDate(r['Time'])}</small>
+                        </h5>
+
+                        <div class="p-3 bg-light rounded mb-2">
+                            <p class="mb-2"><strong>Question:</strong> ${r['Question']}</p>
+                            ${imgHtml}
+                            <p class="mb-2 small text-secondary"><strong>Choices:</strong><br><pre style="white-space: pre-wrap; margin:0; font-family:inherit;">${choicesStr}</pre></p>
+                        </div>
+                        
+                        <!-- ส่วนที่เหลือเหมือนเดิม -->
+                        <div class="d-flex gap-3">
+                            <div class="text-success">
+                                <strong><i class="fas fa-check-circle"></i> Current Answer:</strong> ${currentAns}
+                            </div>
+                        </div>
+                        <p class="mt-2 small text-muted"><strong>Explanation:</strong> ${explanation}</p>
+                        <p class="small text-muted mb-0">Reported by: ${r['From']}</p>
+                    </div>
+
+                    <div class="col-md-4">
+                         <!-- ส่วนขวามือ เหมือนเดิม -->
+                         <div class="diff-box diff-suggest h-100 d-flex flex-column">
+                            <div class="diff-label text-danger fw-bold border-bottom pb-2 mb-2">
+                                <i class="fas fa-exclamation-circle"></i> ReportDetail
+                            </div>
+
+                            <p class="mb-1"><strong>Suggested Answer:</strong> <span class="text-primary fw-bold">${suggested}</span></p>
+                            <p class="mb-3"><strong>Reason:</strong> ${reportDetail}</p>
+
+                            <div class="mt-auto">
+                                <label class="small fw-bold mb-1">Admin Note (บันทึกการแก้ไข):</label>
+                                <textarea id="admin-note-${index}" class="form-control form-control-sm mb-2" rows="2"
+                                    placeholder="เช่น แก้ไขแล้ว, หรือ ปฏิเสธเนื่องจาก...">${r['AdminNote'] || ''}</textarea>
+
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-outline-secondary btn-sm flex-fill" onclick="processReport(${index}, 'REJECT')">
+                                        <i class="fas fa-times"></i> Reject
+                                    </button>
+                                    <button class="btn btn-success btn-sm flex-fill" onclick="openEditReportModal(${index})">
+                                        <i class="fas fa-edit"></i> Edit & Approve
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+                container.append(card);
+            });
+        }
+
+        async function processReport(index, action) {
+            // ... ใช้โค้ดเดิม แต่เปลี่ยน fetch เป็น sendAdminAction หรือใช้ pattern เดียวกัน ...
+            // แนะนำให้เรียก sendAdminAction('updateReportStatus', payload.data) แทนการ fetch เองซ้ำซ้อน
+            const pending = globalData.report.filter(r => !r.Done || r.Done.toString().toUpperCase() === 'FALSE');
+            const r = pending[index];
+            const note = $(`#admin-note-${index}`).val();
+            if (!confirmAdmin()) return;
+
+            const result = await Swal.fire({ title: 'ยืนยัน?', icon: 'question', showCancelButton: true });
+            if (result.isConfirmed) {
+                await sendAdminAction('updateReportStatus', {
+                    timestamp: r['Time'],
+                    adminNote: note,
+                    status: action === 'REJECT' ? 'Rejected' : 'Resolved',
+                    done: 'TRUE'
+                });
+                $(`#admin-note-${index}`).closest('.card').fadeOut();
+            }
+        }
+
+    function openEditReportModal(index) {
+            // 1. หาข้อมูล Report
+            const pending = globalData.report.filter(r => !r.Done || r.Done.toString().toUpperCase() === 'FALSE');
+            const r = pending[index];
+
+            // 2. หาข้อมูลโจทย์ใน DB
+            let dbQuestion = globalData.questions.find(q => q.problem.trim() === r['Question'].trim());
+
+            if (!dbQuestion) {
+                Swal.fire('Error', 'ไม่พบต้นฉบับข้อสอบนี้ใน Database (อาจถูกลบไปแล้ว)', 'error');
+                return;
+            }
+
+            // 3. ดึงคำตอบที่ถูกเสนอ (Suggested Answer)
+            const suggestedAnswer = r['SuggestedAnswer'];
+
+            // ✅ [แก้ไข] เพิ่มบรรทัดนี้: ดึงค่าจาก Textarea มาใส่ตัวแปร note
+            const note = $(`#admin-note-${index}`).val();
+
+            $('#editQuestionModal').data('reportData', {
+                index: index,
+                timestamp: r['Time'],
+                adminNote: note // ตอนนี้ตัวแปร note มีค่าแล้ว ไม่ error
+            });
+
+            openEditModal(dbQuestion.questionId, suggestedAnswer);
+        } 
+        function formatDate(dateString) {
+            if (!dateString) return '';
+            const d = new Date(dateString);
+            return d instanceof Date && !isNaN(d) ? d.toLocaleString('th-TH') : dateString;
+        }
+
+        // --- 6. UTILITIES & AUTH ---
+        async function hashPassword(password) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(password);
+            const hash = await crypto.subtle.digest('SHA-256', data);
+            return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        // แก้ไขบรรทัดประกาศตัวแปรด้านบน
+        let adminPass = ''; // ให้เป็นค่าว่างไว้ก่อน อย่าเพิ่งใส่ 'beforerain'
+
+        async function toggleLogin() {
+            if (!isAdmin) {
+                const { value: password } = await Swal.fire({
+                    title: 'Admin Login',
+                    input: 'password',
+                    inputLabel: 'Password',
+                    inputPlaceholder: 'Enter your admin password',
+                    showCancelButton: true,
+                    confirmButtonText: 'Login',
+                    showLoaderOnConfirm: true,
+                    preConfirm: async (loginPass) => {
+                        try {
+                            const response = await fetch(APPSCRIPT_URL, {
+                                method: 'POST',
+                                redirect: "follow",
+                                headers: { "Content-Type": "text/plain;charset=utf-8" },
+                                body: JSON.stringify({
+                                    action: 'checkAuth',
+                                    adminPass: loginPass // ส่งรหัสที่พิมพ์ไปเช็ค
+                                })
+                            });
+
+                            if (!response.ok) {
+                                throw new Error(response.statusText);
+                            }
+
+                            const data = await response.json();
+
+                            if (data.result !== 'success') {
+                                throw new Error('Incorrect Password');
+                            }
+
+                            return loginPass; // ถ้ารหัสถูก ให้ return รหัสกลับมา
+                        } catch (error) {
+                            Swal.showValidationMessage(`Login failed: ${error}`);
+                        }
+                    },
+                    allowOutsideClick: () => !Swal.isLoading()
+                });
+
+                if (password) {
+                    adminPass = password; // เก็บ Password ที่ถูกต้องไว้ใช้งาน
+                    isAdmin = true;
+                    $('.admin-only').fadeIn();
+                    $('#btn-sidebar-login').html('Logout').addClass('btn-danger');
+                    $('#topbar-user').text('Admin'); // เปลี่ยนชื่อ
+                    $('#topbar-avatar').attr('src', 'https://api.dicebear.com/7.x/avataaars/svg?seed=AdminUser');
+                    $('#user-status-display').text('Admin Mode').css('color', '#ffdddd');
+                    Swal.fire('Logged In', 'Welcome back, Admin!', 'success');
+
+                    // Refresh Dashboard เพื่อให้เห็นปุ่ม Edit
+                    fetchData();
+                }
+            } else {
+                // Logout Logic
+                isAdmin = false;
+                adminPass = '';
+                $('.admin-only').hide();
+                $('#btn-sidebar-login').html('Admin Login').removeClass('btn-danger');
+                $('#user-status-display').text('Guest User').css('color', 'rgba(255,255,255,0.6)');
+                $('#topbar-user').text('Guest');
+                $('#topbar-avatar').attr('src', 'https://api.dicebear.com/7.x/avataaars/svg?seed=GuestUser');
+                showSection('dashboard');
+                Swal.fire('Logged Out', 'See you next time.', 'info');
+            }
+        }
+
+        function confirmAdmin() {
+            if (!isAdmin || !adminPass) {
+                Swal.fire('Access Denied', 'กรุณา Login ก่อนทำรายการ', 'warning');
+                return false;
+            }
+            return true;
+        }
+
+        function showSection(sectionId) {
+            $('.content-section').addClass('hidden');
+            $('.list-group-item').removeClass('active');
+            $(`[onclick="showSection('${sectionId}')"]`).addClass('active');
+            $(`#sec-${sectionId}`).removeClass('hidden');
+            $('#page-title').text(sectionId.charAt(0).toUpperCase() + sectionId.slice(1).replace('-', ' '));
+
+            // ปิด sidebar เมื่อเปลี่ยน Section บน Mobile
+            if ($(window).width() < 768) {
+                $("#wrapper").removeClass("toggled");
+            }
+        }
+
+        function generateCategoryIDPreview() {
+
+            const subj = $('#new-category-subject').val();
+            const name = $('#new-category-name').val();
+            if (subj && name) {
+                const cleanName = name.replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '');
+                $('#new-category-id').val(`${subj}_${cleanName}`);
+            }
+        }
+
+        function openAddCategoryModal() {
+
+            const subjects = [...new Set(globalData.structure.map(s => s.SubjectID))];
+            let opts = '<option value="">-- Select Subject --</option>';
+            subjects.forEach(s => opts += `<option value="${s}">${s}</option>`);
+            $('#new-category-subject').html(opts);
+            $('#addCategoryModal').modal('show');
+        }
+
+        function previewEditImage() {
+
+            const url = $('#edit-img').val();
+            if (url) {
+                $('#edit-img-preview').attr('src', transformUrl(url.split('///')[0]));
+                $('#edit-img-preview-box').removeClass('d-none');
+            } else {
+                $('#edit-img-preview-box').addClass('d-none');
+            }
+        }
+
+        const transformUrl = (url) => {
+
+            if (!url) return "";
+            const match = url.match(/\/d\/(.*?)\//) || url.match(/id=([^&]+)/);
+            return (match && match[1]) ? `https://lh3.googleusercontent.com/d/${match[1]}?authuser=1=w1000-h1000` : url;
+        };
+
+        const handleImageInput = () => {
+            const rawUrl = $('#edit-img').val();
+            if (!rawUrl) {
+                editImageArray = [];
+                $('#edit-image-gallery-container').hide();
+                return;
+            }
+            // แยก URL ด้วย /// และตัดช่องว่าง
+            editImageArray = rawUrl.split('///').map(u => u.trim()).filter(u => u !== "");
+            editImageIndex = 0;
+            updateEditImageGallery();
+        };
+
+        const updateEditImageGallery = () => {
+            const $container = $('#edit-image-gallery-container');
+            const $img = $('#edit-gallery-img');
+            const $prevBtn = $('#prev-img-btn');
+            const $nextBtn = $('#next-img-btn');
+            const $counter = $('#image-counter');
+
+            if (editImageArray.length === 0) {
+                $container.hide();
+                return;
+            }
+
+            $container.show();
+            // ใช้ transformUrl (ฟังก์ชันเดิมที่มีอยู่) เพื่อแปลง Link Google Drive
+            $img.attr('src', transformUrl(editImageArray[editImageIndex]));
+
+            // จัดการปุ่มและ Counter
+            if (editImageArray.length > 1) {
+                $prevBtn.show();
+                $nextBtn.show();
+                $counter.show().text(`${editImageIndex + 1} / ${editImageArray.length}`);
+            } else {
+                $prevBtn.hide();
+                $nextBtn.hide();
+                $counter.hide();
+            }
+        };
+
+        // --- Converter Tool ---
+        let storage = { struct: "", category: "", ques: "", current: "struct" };
+        const headers = {
+            struct: ["Year", "SubjectID", "SubjectName", "AccordionGroup"],
+            category: ["CategoryID", "SubjectRef", "AccordionGroup", "CategoryName"],
+            ques: ["QuestionID", "Problem", "Image", "Choices", "Answer", "Explanation", "Category"]
+        };
+
+        function switchTab(sheet) {
+
+            storage.current = sheet;
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.getElementById('tab-' + sheet).classList.add('active');
+            renderPreview();
+        }
+
+        function processAll() {
+            // 1. รับค่าจาก Input
+            let rawInput = document.getElementById('jsonInput').value.trim();
+            const year = document.getElementById('yearVal').value;
+            const subjectID = document.getElementById('subjID').value.trim().toUpperCase() || "SUBJ";
+            const subjectName = document.getElementById('subjName').value || "Untitled Subject";
+            const groupKeywords = document.getElementById('groupKeys').value.split(',').map(k => k.trim()).filter(k => k !== "");
+
+            if (!rawInput) { alert("กรุณาวางข้อมูลก่อน"); return; }
+
+            let structMap = new Map();
+            let categoryRows = [];
+            let quesRows = [];
+
+            // 2. ตรวจสอบว่าเป็น Object Format (มีปีกกา) หรือไม่
+            if (rawInput.includes('{') && rawInput.includes('}')) {
+                try {
+                    // 2.1 หาปีกกาเปิดตัวแรก และปีกกาปิดตัวสุดท้าย เพื่อตัดส่วนหัว (var quizdata =) ทิ้ง
+                    const firstBrace = rawInput.indexOf('{');
+                    const lastBrace = rawInput.lastIndexOf('}');
+
+                    if (firstBrace !== -1 && lastBrace !== -1) {
+                        const jsonString = rawInput.substring(firstBrace, lastBrace + 1);
+
+                        let quizObj;
+
+                        // --- 🔴 จุดที่แก้ไข (เริ่ม) ---
+                        // เปลี่ยนจาก JSON.parse เป็นการใช้ new Function เพื่อรองรับ Loose JSON
+                        // (รองรับ key ไม่มี quote, single quote, trailing comma)
+                        try {
+                            quizObj = new Function("return " + jsonString)();
+                        } catch (err) {
+                            // เผื่อกรณี Syntax ผิดพลาดจริงๆ ให้ลอง JSON.parse แบบเดิมเผื่อฟลุ๊ค
+                            quizObj = JSON.parse(jsonString);
+                        }
+                        // --- 🔴 จุดที่แก้ไข (จบ) ---
+
+                        // 2.2 Loop ข้อมูลจาก Object
+                        for (const [categoryKey, questions] of Object.entries(quizObj)) {
+
+                            // หา Group
+                            let group = "GENERAL";
+                            for (let key of groupKeywords) {
+                                if (categoryKey.toUpperCase().includes(key)) { group = key; break; }
+                            }
+
+                            // สร้าง Structure
+                            const structKey = `${subjectID}-${group}`;
+                            if (!structMap.has(structKey)) {
+                                structMap.set(structKey, [year, subjectID, subjectName, group]);
+                            }
+
+                            // สร้าง Category
+                            categoryRows.push([categoryKey, subjectID, group, categoryKey]);
+
+                            // สร้าง Questions
+                            if (Array.isArray(questions)) {
+                                questions.forEach((q, index) => {
+                                    const qId = `${categoryKey}_${index + 1}`;
+                                    quesRows.push([
+                                        qId,
+                                        q.problem || "",
+                                        q.img || "",
+                                        q.choices || "",
+                                        q.answer || "",
+                                        q.explain || "",
+                                        categoryKey
+                                    ]);
+                                });
+                            }
+                        }
+                        Swal.fire('Success', `แปลงข้อมูลสำเร็จ! (ได้ ${quesRows.length} ข้อ)`, 'success');
+                    } else {
+                        throw new Error("ไม่พบเครื่องหมายปีกกา { } ที่ถูกต้อง");
+                    }
+
+                } catch (e) {
+                    console.error(e);
+                    alert("เกิดข้อผิดพลาด: ข้อมูลที่วางอาจมี Syntax ไม่ถูกต้องตามหลัก JavaScript Object\nError: " + e.message);
+                    return;
+                }
+
+            } else {
+                // 3. กรณีเป็นรายชื่อบรรทัดเดียว (Logic เดิม)
+                const lines = rawInput.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+                lines.forEach(categoryKey => {
+                    let group = "GENERAL";
+                    for (let key of groupKeywords) {
+                        if (categoryKey.toUpperCase().includes(key)) { group = key; break; }
+                    }
+
+                    const structKey = `${subjectID}-${group}`;
+                    if (!structMap.has(structKey)) {
+                        structMap.set(structKey, [year, subjectID, subjectName, group]);
+                    }
+                    categoryRows.push([categoryKey, subjectID, group, categoryKey]);
+                });
+                Swal.fire('Success', 'แปลงข้อมูลแบบ List รายชื่อสำเร็จ', 'success');
+            }
+
+            // 4. บันทึกผลลัพธ์
+            storage.struct = Array.from(structMap.values()).map(r => r.join("\t")).join("\n");
+            storage.category = categoryRows.map(r => r.join("\t")).join("\n");
+            storage.ques = quesRows.map(r => r.join("\t")).join("\n");
+
+            renderPreview();
+        }
+
+        function renderPreview() {
+
+            const head = document.getElementById('tableHead');
+            const body = document.getElementById('tableBody');
+            const currentSheet = storage.current;
+            head.innerHTML = headers[currentSheet].map(h => `<th>${h}</th>`).join("");
+            const allData = storage[currentSheet] ? storage[currentSheet].split("\n") : [];
+            body.innerHTML = allData.map(row => {
+                const cells = row.split("\t");
+                return `<tr>${cells.map(c => `<td class="editable-cell" contenteditable="true">${c}</td>`).join("")}</tr>`;
+            }).join("");
+            document.getElementById('previewText').innerText = `แสดงทั้งหมด ${allData.length} แถว`;
+        }
+
+    async function importConvertedData() {
+        if (!confirmAdmin()) return;
+
+        // 1. ดึงข้อมูลจากตาราง
+        const rows = document.querySelectorAll('#tableBody tr');
+        let extractedData = [];
+        rows.forEach(tr => {
+            let rowData = [];
+            tr.querySelectorAll('td').forEach(td => rowData.push(td.innerText));
+            extractedData.push(rowData);
+        });
+
+        if (extractedData.length === 0) {
+            Swal.fire('Warning', 'ไม่มีข้อมูลในตาราง', 'warning');
+            return;
+        }
+
+        // 2. ตั้งค่าการส่งแบบแบ่งชุด (Chunking)
+        const BATCH_SIZE = 2000;
+        const totalBatches = Math.ceil(extractedData.length / BATCH_SIZE);
+
+        $('#loading-overlay').show();
+
+        try {
+            for (let i = 0; i < totalBatches; i++) {
+                const start = i * BATCH_SIZE;
+                const end = start + BATCH_SIZE;
+                const chunk = extractedData.slice(start, end);
+
+                console.log(`Sending batch ${i + 1}/${totalBatches} (${chunk.length} rows)...`);
+
+                // ส่งข้อมูลชุดนี้
+                await sendAdminAction('adminImport', {
+                    sheetName: storage.current,
+                    data: chunk
+                });
+            }
+
+            Swal.fire('Success', `นำเข้าข้อมูลทั้งหมด ${extractedData.length} แถว เรียบร้อยแล้ว!`, 'success');
+
+        } catch (err) {
+            console.error(err);
+            Swal.fire('Error', 'เกิดข้อผิดพลาดระหว่างนำเข้า: ' + err.message, 'error');
+        } finally {
+            $('#loading-overlay').hide();
+        }
+    }
+        async function copyCurrentSheet() {
+
+            const rows = document.querySelectorAll('#tableBody tr');
+            let text = "";
+            rows.forEach(tr => {
+                let rowData = [];
+                tr.querySelectorAll('td').forEach(td => rowData.push(td.innerText));
+                text += rowData.join("\t") + "\n";
+            });
+            navigator.clipboard.writeText(text);
+            Swal.fire('Copied', '', 'success');
+        }
+
+
+    </script>
+</body>
+
+</html>
