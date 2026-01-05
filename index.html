@@ -1957,7 +1957,7 @@
 
     <script>
         // --- 1. CONFIGURATION & GLOBAL VARS ---
-        const APPSCRIPT_URL = '            tWdCFEHhLvQ4Uu/exec';
+                    const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyhloc6p1SYmzAOedpWxMuYd86ZKUufiNtWO09RU01DviflPsRl5OtWdCFEHhLvQ4Uu/exec';
 
         let globalData = {
             questions: [],
@@ -2165,10 +2165,10 @@
             const uniqueSubjects = [];
             const seenSubjectIDs = new Set();
 
-            subjects.forEach(s                
-                        if (!seenSubjectIDs.has(subj                ID)) {
+            subjects.forEach(subj => {
+                if (!seenSubjectIDs.has(subj.SubjectID)) {
                     uniqueSubjects.push(subj);
-                    see                    add(subj.SubjectID);
+                    seenSubjectIDs.add(subj.SubjectID);
                 }
             });
 
@@ -2191,9 +2191,11 @@
                 <ul>`;
 
                 // ดึง Group ทั้งหมดในวิชานี้ (ลบซ้ำ)
-                const groups = [...new Set(globalDaa.category.filter(c => c.SubjectRef === subj.SubjectID).map(c => c.AccordionGroup))].sort();
+                const groups = [...new Set(globalData.category.filter(c => c.SubjectRef === subj.SubjectID).map(c => c.AccordionGroup))].sort();
 
-                groups.forEach(grou                                                        // LEVEL 2: ACCORDION GROU                                               treeHtml += `
+                groups.forEach(groupName => {
+                    // LEVEL 2: ACCORDION GROUP
+                    treeHtml += `
                 <li>
                     <div class="tree-node node-group">
                         <i class="fas fa-chevron-down toggle-icon" onclick="toggleTreeNode(this)"></i>
@@ -2300,32 +2302,37 @@
                     break;
 
                 case 'editSubj':
-                                const subj = global                        re.find(s => s.SubjectID ==                    
-                                const { value: editSubjForm                     t Swal.fire({
-                                        e: 'แก้ไขรายวิชา',
+                    const subj = globalData.structure.find(s => s.SubjectID === id1);
+                    const { value: editSubjForm } = await Swal.fire({
+                        title: 'แก้ไขรายวิชา',
                         html: `
-                                               put id="swal-subj-name" class                    input" placeholder="Subject Name" value="${sub                    tName}">
-                    <input id="swal-subj-year" typ                        lass="swal2-input" placeholder="Year" value=                            
+                    <input id="swal-subj-name" class="swal2-input" placeholder="Subject Name" value="${subj.SubjectName}">
+                    <input id="swal-subj-year" type="number" class="swal2-input" placeholder="Year" value="${subj.Year}">
                 `,
-                                     howCancelButton: true,
+                        showCancelButton: true,
                         preConfirm: () => {
-                            return { SubjectID: id1, SubjectName: document.getElementById('swal-subj-name').value,                            getElementById('                            .value }
-                                                           });
-                                      itSubjForm) {
-                                          d.action = 'updateSubject';
-                                    payload.data = editSubjForm;                                  }
+                            return { SubjectID: id1, SubjectName: document.getElementById('swal-subj-name').value, Year: document.getElementById('swal-subj-year').value }
+                        }
+                    });
+                    if (editSubjForm) {
+                        payload.action = 'updateSubject';
+                        payload.data = editSubjForm;
+                    }
                     break;
 
                 case 'deleteSubj':
                     // 🔥 Strict Delete: ต้องพิมพ์ ID วิชาเพื่อลบ
-                                           onfirmStrictDelet                    ${id1                    ) {
-                        payload.action =                     ubject';
-                        payload.dat                        tID: id1 };
-                                                       break;
+                    if (await confirmStrictDelete(`วิชา ${id1}`, id1)) {
+                        payload.action = 'deleteSubject';
+                        payload.data = { SubjectID: id1 };
+                    }
+                    break;
 
-                // --                         ---
-                                       oup':
-                                               newGroup } = awa                                                    title: 'เพิ่มกลุ่มในวิชา '                                             input: 'text',
+                // --- GROUP CRUD ---
+                case 'addGroup':
+                    const { value: newGroup } = await Swal.fire({
+                        title: 'เพิ่มกลุ่มในวิชา ' + id1,
+                        input: 'text',
                         inputPlaceholder: 'เช่น MCQ, LEC, Lab',
                         showCancelButton: true
                     });
@@ -2507,7 +2514,7 @@
             // กรณีเป็นคำตอบที่ Report เสนอมา
             if (isSuggested) {
                 rowClass += " suggested-choice";
-                badges += `<span class                bg-su                -2"><i class="fas fa-star"></i> Sugg                    `;
+                badges += `<span class="badge bg-success ms-2"><i class="fas fa-star"></i> Suggested</span>`;
             }
 
             // กรณีเป็นคำตอบเดิมใน DB (และไม่ใช่ตัวที่ถูกเสนอ หรือ ถ้าตรงกันก็ใส่ Badge เพิ่ม)
@@ -2538,7 +2545,7 @@
     `;
             $container.append(rowHtml);
 
-                    $('.choice-radio').off('change').on(                    ncChoicesToHiddenInput);
+            $('.choice-radio').off('change').on('change', syncChoicesToHiddenInput);
         }
 
         function removeChoiceRow(btn) {
@@ -3057,7 +3064,7 @@
             // วนลูปตามวิชาเพื่อให้ Dropdown สวยงามมีหัวข้อวิชาคั่น
             subjects.forEach(subj => {
                 // หา Category ที่อยู่ในวิชานี้
-                const                 ata.category.filter(c => c.SubjectRef === subj);
+                const catsInSubj = globalData.category.filter(c => c.SubjectRef === subj);
 
                 if (catsInSubj.length > 0) {
                     categoryOpts += `<optgroup label="${subj}">`; // เปิดกลุ่มวิชา
@@ -3408,17 +3415,17 @@
                         }
                     };
 
-                    await fetch(APPS                            
+                    await fetch(APPSCRIPT_URL, {
                         method: 'POST',
-                                                  "follow",
-                        header                        ntent                        "text/plain" },
-                        body: JSON.st                            rtPayload)
+                        redirect: "follow",
+                        headers: { "Content-Type": "text/plain" },
+                        body: JSON.stringify(reportPayload)
                     });
 
-                    cons                            ort auto-resolved s                            ');
+                    console.log('Report auto-resolved successfully.');
 
-                    // ลบข้อมูล                            าก Modal
-                                     ('#editQuestionModal').removeData('reportData');
+                    // ลบข้อมูล Report ออกจาก Modal
+                    $('#editQuestionModal').removeData('reportData');
                 } else {
                     // ค้นหา Report ที่เกี่ยวข้องจาก globalData (Fallback)
                     const pendingReports = (globalData.report || []).filter(r =>
@@ -3426,14 +3433,18 @@
                         (!r['Done'] || String(r['Done']).toUpperCase() === 'FALSE')
                     );
 
-                    if (pendingRep                        gth                        
-                        for (const rep                             ports) {
-                                                  fallbackPayload = {
-                                                action: 'updateReportStatus',
-                                adminPass: admi                                                        data: {
-                                    timestamp: rep['Time'],                                                      adminNote: 'Auto-resolved v                            edit',
+                    if (pendingReports.length > 0) {
+                        for (const rep of pendingReports) {
+                            const fallbackPayload = {
+                                action: 'updateReportStatus',
+                                adminPass: adminPass,
+                                data: {
+                                    timestamp: rep['Time'],
+                                    adminNote: 'Auto-resolved via question edit',
                                     status: 'Resolved',
-                                                    done: 'TRUE'                                                                                                };
+                                    done: 'TRUE'
+                                }
+                            };
 
                             fetch(APPSCRIPT_URL, {
                                 method: 'POST',
@@ -3686,10 +3697,13 @@
                     showCancelButton: true,
                     confirmButtonText: 'Login',
                     showLoaderOnConfirm: true,
-                    preConf                                                                                               cument.getElementB                                    alue;
-                        const password = document                                    l-input2').val                                                                     sername || !password) {
-                            Sw                            ati                        e('กร                        ้อมูลให้ครบถ่วย');
-                                           urn false;
+                    preConfirm: async () => {
+                        const username = document.getElementById('swal-input1').value;
+                        const password = document.getElementById('swal-input2').value;
+
+                        if (!username || !password) {
+                            Swal.showValidationMessage('กรุณากรอกข้อมูลให้ครบถ่วย');
+                            return false;
                         }
 
                         try {
@@ -3709,13 +3723,14 @@
                             }
                             return data; // ส่งข้อมูล User กลับไป
                         } catch (error) {
-                            Swal.showValidationMessage(`Log                                d:                                 message}`);
+                            Swal.showValidationMessage(`Login failed: ${error.message}`);
                         }
                     },
                     allowOutsideClick: () => !Swal.isLoading()
                 });
 
-                if (formValues && formValues.result === 'succes                                                   const userData = formValue                    
+                if (formValues && formValues.result === 'success') {
+                    const userData = formValues.user;
 
                     // เก็บข้อมูลลงตัวแปร
                     isAdmin = true;
@@ -3724,12 +3739,12 @@
 
                     // อัปเดต UI
                     $('.admin-only').fadeIn();
-                                                      '#btn-sidebar-login').html('<i cla                        fa-sign-out-alt"></i> Logout').addClass('btn-danger');
+                    $('#btn-sidebar-login').html('<i class="fas fa-sign-out-alt"></i> Logout').addClass('btn-danger');
 
-                                        สดงชื่อจริงและรูปจริง
-                                     ('#topbar-user').                                .displayName);
-                    $('#topbar-av                                    urrentUser.avatar);
-                                      '#user-                                        ogged in as:<br><b>${currentUser.displayName}</b>`).css('color', '#fff');
+                    // แสดงชื่อจริงและรูปจริง
+                    $('#topbar-user').text(currentUser.displayName);
+                    $('#topbar-avatar').attr('src', currentUser.avatar);
+                    $('#user-status-display').html(`Logged in as:<br><b>${currentUser.displayName}</b>`).css('color', '#fff');
 
                     Swal.fire('สำเร็จ', `ยินดีต้อนรับ ${currentUser.displayName}`, 'success');
                     fetchData(); // โหลดข้อมูลใหม่เพื่อให้เห็นสิทธิ์ Admin
@@ -3857,15 +3872,20 @@
 
         // --- Converter Tool ---
         let converterStorage = {
-            struct:                      category: [],
+            struct: [],
+            category: [],
             ques: [],
-            c                uct               };                const converterHeaders = {
-                     t: ["#", "Year", "SubjectID", "SubjectName", "AccordionGroup"],
-                           "#", "CategoryID", "SubjectRef", "AccordionGroup", "CategoryNa                       ques: ["#", "QuestionID", "Problem", "Image", "Choices", "Answe                tion", "Category"]
+                                    current: "struct"
+                                };
+
+                                const converterHeaders = {
+                                    struct: ["#", "Year", "SubjectID", "SubjectName", "AccordionGroup"],
+                                    category: ["#", "CategoryID", "SubjectRef", "AccordionGroup", "CategoryName"],
+                                    ques: ["#", "QuestionID", "Problem", "Image", "Choices", "Answer", "Explanation", "Category"]
         };
 
         function switchTab(sheet) {
-            converte                .current = sheet;
+            converterStorage.current = sheet;
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.getElementById('tab-' + sheet).classList.add('active');
             renderPreview();
@@ -3885,12 +3905,12 @@
             let quesRows = [];
 
             // ล้างข้อมูลเก่า
-                           erStorage.struct = [];
+            converterStorage.struct = [];
             converterStorage.category = [];
-                               orage.ques = [];
+            converterStorage.ques = [];
 
-                     ry {
-                if (r                includ                && rawInput.includes('}')) {
+            try {
+                if (rawInput.includes('{') && rawInput.includes('}')) {
                     const firstBrace = rawInput.indexOf('{');
                     const lastBrace = rawInput.lastIndexOf('}');
                     const jsonString = rawInput.substring(firstBrace, lastBrace + 1);
@@ -3909,19 +3929,23 @@
                             if (categoryKey.toUpperCase().includes(key)) { group = key; break; }
                         }
 
-                                            const struct                                    ID}-${group}`;
-                                                                 f (!st                            has(structKey)) {
-                                                structMap.set(                                year, subject                                ame, group]);
-                                            }
-                        cat                            s.push                            ryKey, subjectID, group, categoryKey]);
+                        const structKey = `${subjectID}-${group}`;
+                        if (!structMap.has(structKey)) {
+                            structMap.set(structKey, [year, subjectID, subjectName, group]);
+                        }
+                        categoryRows.push([categoryKey, subjectID, group, categoryKey]);
 
                         if (Array.isArray(questions)) {
                             questions.forEach((q, index) => {
                                 const qId = `${categoryKey}_${index + 1}`;
-                                // แก้ไขปัญหา \n: เก็บค่า string ตามจร                                    น rend                                    ble จะระวังไม่ให้มันแตกแถว
-                                                            quesRows.push([                                                                 qId,
-                                    q.problem ||                                                                      q.img || "",
-                                                                q.choices || "",                                                                                              q.answer                                                                         q.explain || "",
+                                // แก้ไขปัญหา \n: เก็บค่า string ตามจริง แต่ตอน render ใน table จะระวังไม่ให้มันแตกแถว
+                                quesRows.push([
+                                    qId,
+                                    q.problem || "",
+                                    q.img || "",
+                                    q.choices || "",
+                                    q.answer || "",
+                                    q.explain || "",
                                     JSON.stringify([categoryKey])
                                 ]);
                             });
@@ -3942,7 +3966,8 @@
                 }
 
                 // เก็บเข้า Storage ในรูปแบบ Array of Arrays (เพื่อไม่ให้ Newline พังโครงสร้างเหมือน String .split)
-                converterStorage.struct = Array.from(structMap.values                    nverterStorage.category = categoryRows;
+                converterStorage.struct = Array.from(structMap.values());
+                converterStorage.category = categoryRows;
                 converterStorage.ques = quesRows;
 
                 Swal.fire('Success', 'ประมวลผลสำเร็จ! กรุณาตรวจสอบในตารางด้านล่าง', 'success');
@@ -4012,12 +4037,14 @@
                 return;
             }
 
-            const isConfirmed =                        ({
-                                    ันการนำเข้า?',                         text: `คุณกำลังจะน                        llExtractedData.length} แถว เข้าสู่แผ่นงาน ${converterStorage.curren                                       con:                 n',
-                showCan                    rue
+            const isConfirmed = await Swal.fire({
+                title: 'ยืนยันการนำเข้า?',
+                text: `คุณกำลังจะนำข้อมูลจำนวน ${allExtractedData.length} แถว เข้าสู่แผ่นงาน ${converterStorage.current}`,
+                icon: 'question',
+                showCancelButton: true
             });
 
-            if (!isConfirmed                    ) return;
+            if (!isConfirmed.isConfirmed) return;
 
             $('#loading-overlay').show();
 
@@ -4039,8 +4066,9 @@
                 Swal.fire('Completed', `นำเข้าข้อมูลสำเร็จทั้งหมด ${allExtractedData.length} แถว`, 'success');
                 fetchData(); // รีโหลดข้อมูล Dashboard
             } catch (err) {
-                                .fire                    , 'การ Import ขัดข้อง: ' + err.message, 'error'                            } finally {
-                                  ading-overlay').hide();
+                Swal.fire('Error', 'การ Import ขัดข้อง: ' + err.message, 'error');
+            } finally {
+                $('#loading-overlay').hide();
             }
         }
 
