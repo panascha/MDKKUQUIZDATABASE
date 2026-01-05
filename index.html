@@ -572,22 +572,24 @@
         }
 
         /* สไตล์สำหรับคำตอบที่ถูกเสนอ (สีเขียว) */
-.choice-item.suggested-choice {
-    border: 2px solid #1cc88a; /* สีเขียว */
-    background-color: #eafff5;
-}
+        .choice-item.suggested-choice {
+            border: 2px solid #1cc88a;
+            /* สีเขียว */
+            background-color: #eafff5;
+        }
 
-/* สไตล์สำหรับคำตอบเดิมใน Database (ถ้าไม่ตรงกับที่เสนอ) */
-.choice-item.original-choice {
-    border: 2px solid #858796; /* สีเทา */
-    background-color: #f8f9fa;
-}
+        /* สไตล์สำหรับคำตอบเดิมใน Database (ถ้าไม่ตรงกับที่เสนอ) */
+        .choice-item.original-choice {
+            border: 2px solid #858796;
+            /* สีเทา */
+            background-color: #f8f9fa;
+        }
 
-/* สไตล์เมื่อคำตอบเดิม กับ คำตอบที่เสนอ ตรงกัน */
-.choice-item.suggested-choice.original-choice {
-    border: 2px solid #1cc88a;
-    background-color: #eafff5;
-}
+        /* สไตล์เมื่อคำตอบเดิม กับ คำตอบที่เสนอ ตรงกัน */
+        .choice-item.suggested-choice.original-choice {
+            border: 2px solid #1cc88a;
+            background-color: #eafff5;
+        }
 
         .choice-input-group {
             display: flex;
@@ -917,7 +919,7 @@
             table-layout: auto;
         }
 
-            /* --- Structure Tree View --- */
+        /* --- Structure Tree View --- */
         .tree-container {
             background: #fff;
             padding: 20px;
@@ -925,7 +927,8 @@
             border: 1px solid #e3e6f0;
         }
 
-        .tree-view, .tree-view ul {
+        .tree-view,
+        .tree-view ul {
             list-style: none;
             margin: 0;
             padding: 0;
@@ -933,7 +936,8 @@
         }
 
         .tree-view ul {
-            margin-left: 25px; /* ระยะห่างเยื้องขวา */
+            margin-left: 25px;
+            /* ระยะห่างเยื้องขวา */
             max-height: 1000px;
             overflow: hidden;
             transition: max-height 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.4s ease;
@@ -950,12 +954,13 @@
 
         @keyframes slideDown {
             from {
-            opacity: 0;
-            transform: translateY(-8px);
+                opacity: 0;
+                transform: translateY(-8px);
             }
+
             to {
-            opacity: 1;
-            transform: translateY(0);
+                opacity: 1;
+                transform: translateY(0);
             }
         }
 
@@ -997,7 +1002,7 @@
             transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .tree-node:hover { 
+        .tree-node:hover {
             background-color: #f1f3f9;
             transform: translateX(4px);
         }
@@ -1013,7 +1018,7 @@
             pointer-events: none;
         }
 
-        .tree-node:hover .node-actions { 
+        .tree-node:hover .node-actions {
             opacity: 1;
             transform: translateX(0);
             pointer-events: auto;
@@ -1037,12 +1042,12 @@
             transform: scale(1.1);
         }
 
-        .btn-node:active { 
+        .btn-node:active {
             transform: scale(0.9);
         }
 
-        .btn-add { 
-            background: #e8f5e9; 
+        .btn-add {
+            background: #e8f5e9;
             color: #2e7d32;
         }
 
@@ -1051,8 +1056,8 @@
             box-shadow: 0 2px 8px rgba(46, 125, 50, 0.2);
         }
 
-        .btn-edit { 
-            background: #e3f2fd; 
+        .btn-edit {
+            background: #e3f2fd;
             color: #1565c0;
         }
 
@@ -1061,8 +1066,8 @@
             box-shadow: 0 2px 8px rgba(21, 101, 192, 0.2);
         }
 
-        .btn-delete { 
-            background: #ffeeee; 
+        .btn-delete {
+            background: #ffeeee;
             color: #c62828;
         }
 
@@ -1078,18 +1083,18 @@
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .tree-node.collapsed .toggle-icon { 
+        .tree-node.collapsed .toggle-icon {
             transform: rotate(-90deg);
         }
 
-        .tree-node.collapsed + ul { 
+        .tree-node.collapsed+ul {
             max-height: 0;
             opacity: 0;
             overflow: hidden;
         }
 
-        .node-subject { 
-            background: #eef2ff; 
+        .node-subject {
+            background: #eef2ff;
             border-left: 4px solid #4e73df;
             transition: all 0.25s ease;
         }
@@ -1099,9 +1104,9 @@
             background: #e0e7ff;
         }
 
-        .node-group { 
-            background: #f0fdf4; 
-            border-left: 4px solid #1cc88a; 
+        .node-group {
+            background: #f0fdf4;
+            border-left: 4px solid #1cc88a;
             margin-left: 10px;
             transition: all 0.25s ease;
         }
@@ -1111,8 +1116,8 @@
             background: #dcfce7;
         }
 
-        .node-category { 
-            border-bottom: 1px solid #f1f3f9; 
+        .node-category {
+            border-bottom: 1px solid #f1f3f9;
             margin-left: 20px;
             transition: border-color 0.25s ease;
         }
@@ -1122,14 +1127,14 @@
         }
 
 
-.badge-count {
-    font-size: 0.7rem;
-    background: #eaecf4;
-    color: #4e73df;
-    margin-left: 8px;
-    padding: 2px 6px;
-    border-radius: 10px;
-}
+        .badge-count {
+            font-size: 0.7rem;
+            background: #eaecf4;
+            color: #4e73df;
+            margin-left: 8px;
+            padding: 2px 6px;
+            border-radius: 10px;
+        }
 
         /* General small-device tweaks */
         @media (max-width: 575.98px) {
@@ -1149,7 +1154,7 @@
         @media (max-width: 430px) {
 
             /* Allow cells to wrap instead of forcing horizontal scroll,
-               but keep horizontal scroll available if content cannot wrap */
+           but keep horizontal scroll available if content cannot wrap */
             .table-responsive table {
                 min-width: 0;
                 table-layout: fixed;
@@ -1289,7 +1294,7 @@
                 <div class="d-flex align-items-center">
                     <span class="mr-2 d-none d-lg-inline text-gray-600 small me-2" id="topbar-user">Guest</span>
                     <div class="topbar-divider d-none d-sm-block"></div>
-            
+
                     <!-- ✅ เพิ่ม id="topbar-avatar" ตรงนี้ครับ -->
                     <img id="topbar-avatar" class="img-profile rounded-circle"
                         style="width: 32px; height: 32px; background-color: #ccc;"
@@ -1490,9 +1495,14 @@
                     <div class="card card-dashboard">
                         <div class="card-header-custom">
                             <span><i class="fas fa-sitemap me-2"></i> โครงสร้างวิชา (Structure & Category)</span>
-                            <button class="btn btn-primary btn-sm" onclick="openAddCategoryModal()">
-                                <i class="fas fa-plus"></i> Add Category
-                            </button>
+                            <div>
+                                <button class="btn btn-outline-primary btn-sm me-1" onclick="crudAction('addSubj')">
+                                    <i class="fas fa-university"></i> Add Subject
+                                </button>
+                                <button class="btn btn-primary btn-sm" onclick="crudAction('addCat')">
+                                    <i class="fas fa-plus"></i> Add Category
+                                </button>
+                            </div>
                         </div>
                         <div class="card-body">
                             <!-- Filter -->
@@ -1508,7 +1518,7 @@
                                     </div>
                                 </div>
                             </div>
-                
+
                             <!-- Area สำหรับแสดง Tree -->
                             <div class="tree-container">
                                 <div id="structure-tree-view" class="tree-view">
@@ -1518,10 +1528,11 @@
                                     </div>
                                 </div>
                             </div>
-                
+
                             <!-- (Option) ปุ่มดูแบบตารางเดิมถ้าต้องการ -->
                             <div class="mt-3 text-end">
-                                <small class="text-muted">หากต้องการแก้ไขรหัสโดยตรง โปรดใช้หน้า <b>จัดการ Database</b></small>
+                                <small class="text-muted">หากต้องการแก้ไขรหัสโดยตรง โปรดใช้หน้า <b>จัดการ
+                                        Database</b></small>
                             </div>
                         </div>
                     </div>
@@ -1946,7 +1957,7 @@
 
     <script>
         // --- 1. CONFIGURATION & GLOBAL VARS ---
-        const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxT1vh2RRnVLR8HVFQZcKvhGwIliJNBhxAIWOUEZ7s7m7lOp6JWyn7ASSmgzsxNDzsH/exec';
+        const APPSCRIPT_URL = '            tWdCFEHhLvQ4Uu/exec';
 
         let globalData = {
             questions: [],
@@ -1955,6 +1966,7 @@
             report: [],
             votes: []
         };
+        let currentUser = { displayName: 'Guest', avatar: '', username: '' };
         let isAdmin = false;
         let current_question = {}; // Global variable to hold data of the currently viewed question
         let editImageArray = [];
@@ -2089,41 +2101,41 @@
         }
 
         // เพิ่ม param: suggestedAnsStr
-            function renderChoicesUI(choicesStr, correctAnsStr, suggestedAnsStr = null) {
-                const $container = $('#dynamic-choices-container');
-                $container.empty();
+        function renderChoicesUI(choicesStr, correctAnsStr, suggestedAnsStr = null) {
+            const $container = $('#dynamic-choices-container');
+            $container.empty();
 
-                let choices = (choicesStr || "").split('///').map(c => c.trim()).filter(c => c !== "");
-                if (choices.length === 0) choices = ["A. ", "B. ", "C. ", "D. "];
+            let choices = (choicesStr || "").split('///').map(c => c.trim()).filter(c => c !== "");
+            if (choices.length === 0) choices = ["A. ", "B. ", "C. ", "D. "];
 
-                // Clean strings for comparison
-                const cleanCorrect = (correctAnsStr || "").trim();
-                const cleanSuggested = (suggestedAnsStr || "").trim();
+            // Clean strings for comparison
+            const cleanCorrect = (correctAnsStr || "").trim();
+            const cleanSuggested = (suggestedAnsStr || "").trim();
 
-                choices.forEach((choiceText) => {
-                    // ตรวจสอบว่าเป็นคำตอบเดิมหรือไม่
-                    const isOriginalCorrect = (choiceText === cleanCorrect);
+            choices.forEach((choiceText) => {
+                // ตรวจสอบว่าเป็นคำตอบเดิมหรือไม่
+                const isOriginalCorrect = (choiceText === cleanCorrect);
 
-                    // ตรวจสอบว่าเป็นคำตอบที่ถูกเสนอมาหรือไม่
-                    const isSuggested = (cleanSuggested !== "" && choiceText === cleanSuggested);
+                // ตรวจสอบว่าเป็นคำตอบที่ถูกเสนอมาหรือไม่
+                const isSuggested = (cleanSuggested !== "" && choiceText === cleanSuggested);
 
-                    // ส่งค่า Flag ไปให้ addChoiceRow วาด UI
-                    addChoiceRow(choiceText, isOriginalCorrect, isSuggested);
-                });
+                // ส่งค่า Flag ไปให้ addChoiceRow วาด UI
+                addChoiceRow(choiceText, isOriginalCorrect, isSuggested);
+            });
 
-                // กรณีพิเศษ: ถ้าคำตอบที่เสนอมา "ไม่มีในตัวเลือก" (User พิมพ์มาเองใหม่)
-                // ให้แจ้งเตือน หรือ แสดง Alert ใน Modal
-                if (suggestedAnsStr && !choices.includes(cleanSuggested)) {
-                    $container.prepend(`
+            // กรณีพิเศษ: ถ้าคำตอบที่เสนอมา "ไม่มีในตัวเลือก" (User พิมพ์มาเองใหม่)
+            // ให้แจ้งเตือน หรือ แสดง Alert ใน Modal
+            if (suggestedAnsStr && !choices.includes(cleanSuggested)) {
+                $container.prepend(`
             <div class="alert alert-warning small py-2 mb-2">
                 <i class="fas fa-exclamation-triangle"></i> 
                 คำตอบที่เสนอมาคือ: <strong>"${cleanSuggested}"</strong> (ไม่มีในตัวเลือกเดิม)
             </div>
          `);
-                }
-
-                syncChoicesToHiddenInput();
             }
+
+            syncChoicesToHiddenInput();
+        }
         function renderImagesUI(imgStr) {
             const $container = $('#dynamic-images-container');
             $container.empty();
@@ -2141,30 +2153,30 @@
 
             syncImagesToHiddenInput(); // Update Gallery ทันที
         }
-    // --- ฟังก์ชันหลักในการสร้าง Tree ---
-    function renderStructureTree(filterSubjectID = "") {
-        const container = $('#structure-tree-view');
-        container.empty();
+        // --- ฟังก์ชันหลักในการสร้าง Tree ---
+        function renderStructureTree(filterSubjectID = "") {
+            const container = $('#structure-tree-view');
+            container.empty();
 
-        let subjects = globalData.structure;
-        if (filterSubjectID) subjects = subjects.filter(s => s.SubjectID === filterSubjectID);
+            let subjects = globalData.structure;
+            if (filterSubjectID) subjects = subjects.filter(s => s.SubjectID === filterSubjectID);
 
-        // Remove duplicate subjects based on SubjectID
-        const uniqueSubjects = [];
-        const seenSubjectIDs = new Set();
-        
-        subjects.forEach(subj => {
-            if (!seenSubjectIDs.has(subj.SubjectID)) {
-                uniqueSubjects.push(subj);
-                seenSubjectIDs.add(subj.SubjectID);
-            }
-        });
+            // Remove duplicate subjects based on SubjectID
+            const uniqueSubjects = [];
+            const seenSubjectIDs = new Set();
 
-        let treeHtml = '<ul class="tree-view">';
+            subjects.forEach(s                
+                        if (!seenSubjectIDs.has(subj                ID)) {
+                    uniqueSubjects.push(subj);
+                    see                    add(subj.SubjectID);
+                }
+            });
 
-        uniqueSubjects.forEach(subj => {
-            // LEVEL 1: SUBJECT
-            treeHtml += `
+            let treeHtml = '<ul class="tree-view">';
+
+            uniqueSubjects.forEach(subj => {
+                // LEVEL 1: SUBJECT
+                treeHtml += `
             <li id="node-subj-${subj.SubjectID}">
                 <div class="tree-node node-subject">
                     <i class="fas fa-chevron-down toggle-icon" onclick="toggleTreeNode(this)"></i>
@@ -2178,12 +2190,10 @@
                 </div>
                 <ul>`;
 
-            // ดึง Group ทั้งหมดในวิชานี้ (ลบซ้ำ)
-            const groups = [...new Set(globalData.category.filter(c => c.SubjectRef === subj.SubjectID).map(c => c.AccordionGroup))].sort();
+                // ดึง Group ทั้งหมดในวิชานี้ (ลบซ้ำ)
+                const groups = [...new Set(globalDaa.category.filter(c => c.SubjectRef === subj.SubjectID).map(c => c.AccordionGroup))].sort();
 
-            groups.forEach(groupName => {
-                // LEVEL 2: ACCORDION GROUP
-                treeHtml += `
+                groups.forEach(grou                                                        // LEVEL 2: ACCORDION GROU                                               treeHtml += `
                 <li>
                     <div class="tree-node node-group">
                         <i class="fas fa-chevron-down toggle-icon" onclick="toggleTreeNode(this)"></i>
@@ -2196,20 +2206,20 @@
                     </div>
                     <ul>`;
 
-                // LEVEL 3: CATEGORY (ลบซ้ำ)
-                const seenCategoryIDs = new Set();
-                const categories = globalData.category.filter(c => {
-                    if (c.SubjectRef === subj.SubjectID && c.AccordionGroup === groupName) {
-                        if (!seenCategoryIDs.has(c.CategoryID)) {
-                            seenCategoryIDs.add(c.CategoryID);
-                            return true;
+                    // LEVEL 3: CATEGORY (ลบซ้ำ)
+                    const seenCategoryIDs = new Set();
+                    const categories = globalData.category.filter(c => {
+                        if (c.SubjectRef === subj.SubjectID && c.AccordionGroup === groupName) {
+                            if (!seenCategoryIDs.has(c.CategoryID)) {
+                                seenCategoryIDs.add(c.CategoryID);
+                                return true;
+                            }
                         }
-                    }
-                    return false;
-                });
+                        return false;
+                    });
 
-                categories.forEach(cat => {
-                    treeHtml += `
+                    categories.forEach(cat => {
+                        treeHtml += `
                     <li>
                         <div class="tree-node node-category">
                             <i class="fas fa-tag me-2 text-secondary"></i>
@@ -2220,112 +2230,216 @@
                             </div>
                         </div>
                     </li>`;
+                    });
+
+                    treeHtml += '</ul></li>';
                 });
 
                 treeHtml += '</ul></li>';
             });
 
-            treeHtml += '</ul></li>';
-        });
-
-        treeHtml += '</ul>';
-        container.html(treeHtml);
-    }
-
-    // --- ฟังก์ชันเปิด-ปิด Folder ---
-    function toggleTreeNode(el) {
-        $(el).closest('.tree-node').toggleClass('collapsed');
-    }
-
-    // --- รวมฟังก์ชัน CRUD ---
-    async function crudAction(type, id1, id2) {
-        if (!isAdmin) return Swal.fire('Admin Only', 'กรุณาล็อกอินก่อนแก้ไขข้อมูล', 'warning');
-
-        let payload = { action: '', data: {} };
-
-        switch (type) {
-            case 'addCat': // เพิ่มหัวข้อใหม่ใน Group
-                const { value: catName } = await Swal.fire({
-                    title: 'เพิ่มหัวข้อใหม่',
-                    input: 'text',
-                    inputLabel: `วิชา ${id1} > กลุ่ม ${id2}`,
-                    showCancelButton: true
-                });
-                if (catName) {
-                    const catID = `${id1}_${catName.replace(/\s+/g, '')}`;
-                    payload.action = 'addCategory';
-                    payload.data = { CategoryID: catID, SubjectRef: id1, AccordionGroup: id2, CategoryName: catName };
-                }
-                break;
-
-            case 'deleteCat': // ลบหัวข้อ
-                if (await confirmDelete(`ลบหัวข้อ ${id1}?`)) {
-                    payload.action = 'deleteCategory';
-                    payload.data = { CategoryID: id1 };
-                }
-                break;
-
-            case 'editCat': // แก้ไขชื่อหัวข้อ
-                const cat = globalData.category.find(c => c.CategoryID === id1);
-                const { value: newName } = await Swal.fire({
-                    title: 'แก้ไขชื่อหัวข้อ',
-                    input: 'text',
-                    inputValue: cat.CategoryName,
-                    showCancelButton: true
-                });
-                if (newName) {
-                    payload.action = 'updateCategory';
-                    payload.data = { CategoryID: id1, CategoryName: newName };
-                }
-                break;
-
-            case 'deleteGroup': // ลบทั้งกลุ่ม (ลบ Categories ทั้งหมดในกลุ่มนั้น)
-                if (await confirmDelete(`ลบกลุ่ม ${id2} ในวิชา ${id1} (หัวข้อทั้งหมดจะหายไป)?`)) {
-                    payload.action = 'deleteGroup';
-                    payload.data = { SubjectRef: id1, AccordionGroup: id2 };
-                }
-                break;
+            treeHtml += '</ul>';
+            container.html(treeHtml);
         }
 
-        if (payload.action) {
-            await sendAdminAction(payload.action, payload.data);
+        // --- ฟังก์ชันเปิด-ปิด Folder ---
+        function toggleTreeNode(el) {
+            $(el).closest('.tree-node').toggleClass('collapsed');
         }
-    }
 
-    function confirmDelete(text) {
-        return Swal.fire({
-            title: 'ยืนยันการลบ?',
-            text: text,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33'
-        }).then(res => res.isConfirmed);
-    }
-            function editCategoryInline(catID) {
-                    const cat = globalData.category.find(c => c.CategoryID === catID);
-                    if (!cat) return;
+        // --- รวมฟังก์ชัน CRUD ---
+        // --- ฟังก์ชันช่วยยืนยันการลบแบบพิมพ์คำ ---
+        async function confirmStrictDelete(itemName, confirmKey) {
+            const { value: input } = await Swal.fire({
+                title: 'ยืนยันการลบแบบถาวร',
+                html: `คุณกำลังจะลบ <b>${itemName}</b> ข้อมูลที่เกี่ยวข้องทั้งหมดจะหายไปรวมถึงโจทย์ที่ผูกอยู่<br><br>กรุณาพิมพ์: <span class="text-danger fw-bold">${confirmKey}</span> เพื่อยืนยัน`,
+                input: 'text',
+                inputPlaceholder: confirmKey,
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                confirmButtonText: 'ยืนยันการลบ',
+                inputValidator: (value) => {
+                    if (!value || value !== confirmKey) {
+                        return 'ข้อความยืนยันไม่ถูกต้อง!'
+                    }
+                }
+            });
+            return !!input;
+        }
 
-                    Swal.fire({
-                        title: 'แก้ไขหัวข้อ',
+        // --- ฟังก์ชัน CRUD หลักสำหรับโครงสร้าง ---
+        async function crudAction(type, id1, id2) {
+            if (!confirmAdmin()) return;
+
+            let payload = { action: '', data: {} };
+
+            switch (type) {
+                // --- SUBJECT CRUD ---
+                case 'addSubj':
+                    const { value: subjForm } = await Swal.fire({
+                        title: 'เพิ่มรายวิชาใหม่',
                         html: `
+                    <input id="swal-subj-id" class="swal2-input" placeholder="Subject ID (เช่น GI, NS)">
+                    <input id="swal-subj-name" class="swal2-input" placeholder="Subject Name">
+                    <input id="swal-subj-year" type="number" class="swal2-input" placeholder="Year (1-6)">
+                `,
+                        focusConfirm: false,
+                        showCancelButton: true,
+                        preConfirm: () => {
+                            return {
+                                SubjectID: document.getElementById('swal-subj-id').value.toUpperCase(),
+                                SubjectName: document.getElementById('swal-subj-name').value,
+                                Year: document.getElementById('swal-subj-year').value
+                            }
+                        }
+                    });
+                    if (subjForm && subjForm.SubjectID) {
+                        payload.action = 'addSubject';
+                        payload.data = subjForm;
+                    }
+                    break;
+
+                case 'editSubj':
+                                const subj = global                        re.find(s => s.SubjectID ==                    
+                                const { value: editSubjForm                     t Swal.fire({
+                                        e: 'แก้ไขรายวิชา',
+                        html: `
+                                               put id="swal-subj-name" class                    input" placeholder="Subject Name" value="${sub                    tName}">
+                    <input id="swal-subj-year" typ                        lass="swal2-input" placeholder="Year" value=                            
+                `,
+                                     howCancelButton: true,
+                        preConfirm: () => {
+                            return { SubjectID: id1, SubjectName: document.getElementById('swal-subj-name').value,                            getElementById('                            .value }
+                                                           });
+                                      itSubjForm) {
+                                          d.action = 'updateSubject';
+                                    payload.data = editSubjForm;                                  }
+                    break;
+
+                case 'deleteSubj':
+                    // 🔥 Strict Delete: ต้องพิมพ์ ID วิชาเพื่อลบ
+                                           onfirmStrictDelet                    ${id1                    ) {
+                        payload.action =                     ubject';
+                        payload.dat                        tID: id1 };
+                                                       break;
+
+                // --                         ---
+                                       oup':
+                                               newGroup } = awa                                                    title: 'เพิ่มกลุ่มในวิชา '                                             input: 'text',
+                        inputPlaceholder: 'เช่น MCQ, LEC, Lab',
+                        showCancelButton: true
+                    });
+                    if (newGroup) {
+                        // การเพิ่ม Group คือการเพิ่ม Category แรกเข้าไปใน Group นั้น
+                        payload.action = 'addCategory';
+                        payload.data = {
+                            CategoryID: `${id1}_${newGroup.replace(/\s+/g, '')}_Init`,
+                            SubjectRef: id1,
+                            AccordionGroup: newGroup,
+                            CategoryName: 'Default Title'
+                        };
+                    }
+                    break;
+
+                case 'deleteGroup':
+                    // 🔥 Strict Delete: ต้องพิมพ์คำว่า "ลบกลุ่ม"
+                    if (await confirmStrictDelete(`กลุ่ม ${id2} ในวิชา ${id1}`, 'ลบกลุ่ม')) {
+                        payload.action = 'deleteGroup';
+                        payload.data = { SubjectRef: id1, AccordionGroup: id2 };
+                    }
+                    break;
+
+                // --- CATEGORY CRUD ---
+                case 'addCat':
+                    // ถ้าเรียกจากปุ่มใหญ่ด้านบน ให้ถามวิชาและกลุ่มก่อน
+                    let targetSubj = id1;
+                    let targetGrp = id2;
+
+                    if (!targetSubj) {
+                        const subjList = globalData.structure.reduce((acc, s) => ({ ...acc, [s.SubjectID]: s.SubjectID }), {});
+                        const { value: s } = await Swal.fire({ title: 'เลือกวิชา', input: 'select', inputOptions: subjList });
+                        if (!s) return;
+                        targetSubj = s;
+
+                        const grpList = [...new Set(globalData.category.filter(c => c.SubjectRef === s).map(c => c.AccordionGroup))].reduce((acc, g) => ({ ...acc, [g]: g }), {});
+                        const { value: g } = await Swal.fire({ title: 'เลือกกลุ่ม', input: 'select', inputOptions: grpList });
+                        if (!g) return;
+                        targetGrp = g;
+                    }
+
+                    const { value: cName } = await Swal.fire({ title: 'ชื่อหัวข้อ (Category Name)', input: 'text', showCancelButton: true });
+                    if (cName) {
+                        payload.action = 'addCategory';
+                        payload.data = {
+                            CategoryID: `${targetSubj}_${cName.replace(/\s+/g, '')}`,
+                            SubjectRef: targetSubj,
+                            AccordionGroup: targetGrp,
+                            CategoryName: cName
+                        };
+                    }
+                    break;
+
+                case 'deleteCat':
+                    // 🔥 Strict Delete: ต้องพิมพ์คำว่า "DELETE"
+                    if (await confirmStrictDelete(`หัวข้อ ${id1}`, 'DELETE')) {
+                        payload.action = 'deleteCategory';
+                        payload.data = { CategoryID: id1 };
+                    }
+                    break;
+
+                case 'editCat':
+                    const cat = globalData.category.find(c => c.CategoryID === id1);
+                    const { value: catEdit } = await Swal.fire({
+                        title: 'แก้ไขหัวข้อ',
+                        html: `<input id="swal-cat-name" class="swal2-input" value="${cat.CategoryName}">`,
+                        showCancelButton: true,
+                        preConfirm: () => document.getElementById('swal-cat-name').value
+                    });
+                    if (catEdit) {
+                        payload.action = 'updateCategory';
+                        payload.data = { CategoryID: id1, CategoryName: catEdit };
+                    }
+                    break;
+            }
+
+            if (payload.action) {
+                await sendAdminAction(payload.action, payload.data);
+            }
+        }
+        function confirmDelete(text) {
+            return Swal.fire({
+                title: 'ยืนยันการลบ?',
+                text: text,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33'
+            }).then(res => res.isConfirmed);
+        }
+        function editCategoryInline(catID) {
+            const cat = globalData.category.find(c => c.CategoryID === catID);
+            if (!cat) return;
+
+            Swal.fire({
+                title: 'แก้ไขหัวข้อ',
+                html: `
             <input id="swal-cat-name" class="swal2-input" placeholder="Display Name" value="${cat.CategoryName}">
             <input id="swal-cat-group" class="swal2-input" placeholder="Accordion Group" value="${cat.AccordionGroup}">
         `,
-                        showCancelButton: true,
-                        confirmButtonText: 'บันทึก',
-                        preConfirm: () => {
-                            return {
-                                CategoryName: document.getElementById('swal-cat-name').value,
-                                AccordionGroup: document.getElementById('swal-cat-group').value
-                            }
-                        }
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            // ส่งไปแก้ไขใน DB (ต้องมี action ใน GAS รองรับ หรือใช้ส่งค่าไปที่แผ่นงานโดยตรง)
-                            Swal.fire('กำลังพัฒนา', 'ระบบบันทึกการแก้ไขหัวข้อกำลังอยู่ในการดำเนินการ', 'info');
-                        }
-                    });
+                showCancelButton: true,
+                confirmButtonText: 'บันทึก',
+                preConfirm: () => {
+                    return {
+                        CategoryName: document.getElementById('swal-cat-name').value,
+                        AccordionGroup: document.getElementById('swal-cat-group').value
+                    }
                 }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // ส่งไปแก้ไขใน DB (ต้องมี action ใน GAS รองรับ หรือใช้ส่งค่าไปที่แผ่นงานโดยตรง)
+                    Swal.fire('กำลังพัฒนา', 'ระบบบันทึกการแก้ไขหัวข้อกำลังอยู่ในการดำเนินการ', 'info');
+                }
+            });
+        }
 
         function addImageRow(value = "") {
             const $container = $('#dynamic-images-container');
@@ -2383,31 +2497,31 @@
         }
 
         // รับ flag เพิ่ม: isOriginalCorrect, isSuggested
-            function addChoiceRow(value = "", isOriginalCorrect = false, isSuggested = false) {
-                const $container = $('#dynamic-choices-container');
+        function addChoiceRow(value = "", isOriginalCorrect = false, isSuggested = false) {
+            const $container = $('#dynamic-choices-container');
 
-                // กำหนด Class และ Badge ตามสถานะ
-                let rowClass = "";
-                let badges = "";
+            // กำหนด Class และ Badge ตามสถานะ
+            let rowClass = "";
+            let badges = "";
 
-                // กรณีเป็นคำตอบที่ Report เสนอมา
-                if (isSuggested) {
-                    rowClass += " suggested-choice";
-                    badges += `<span class="badge bg-success ms-2"><i class="fas fa-star"></i> Suggested</span>`;
-                }
+            // กรณีเป็นคำตอบที่ Report เสนอมา
+            if (isSuggested) {
+                rowClass += " suggested-choice";
+                badges += `<span class                bg-su                -2"><i class="fas fa-star"></i> Sugg                    `;
+            }
 
-                // กรณีเป็นคำตอบเดิมใน DB (และไม่ใช่ตัวที่ถูกเสนอ หรือ ถ้าตรงกันก็ใส่ Badge เพิ่ม)
-                if (isOriginalCorrect) {
-                    if (!isSuggested) rowClass += " original-choice"; // ถ้าเป็น original อย่างเดียว ให้ใส่สีเทาๆ
-                    badges += `<span class="badge bg-secondary ms-1">Current ans</span>`;
-                }
+            // กรณีเป็นคำตอบเดิมใน DB (และไม่ใช่ตัวที่ถูกเสนอ หรือ ถ้าตรงกันก็ใส่ Badge เพิ่ม)
+            if (isOriginalCorrect) {
+                if (!isSuggested) rowClass += " original-choice"; // ถ้าเป็น original อย่างเดียว ให้ใส่สีเทาๆ
+                badges += `<span class="badge bg-secondary ms-1">Current ans</span>`;
+            }
 
-                // ติ๊ก Radio ถ้าเป็นคำตอบที่เสนอ (เพื่อให้ Admin กด Save ได้เลยถ้าเห็นด้วย)
-                // หรือจะติ๊ก Original ไว้เหมือนเดิมก็ได้ แล้วแต่ Logic ที่ต้องการ
-                // ในที่นี้ขอติ๊กตัว Original ไว้ก่อน เพื่อความปลอดภัย
-                const isChecked = isSuggested;
+            // ติ๊ก Radio ถ้าเป็นคำตอบที่เสนอ (เพื่อให้ Admin กด Save ได้เลยถ้าเห็นด้วย)
+            // หรือจะติ๊ก Original ไว้เหมือนเดิมก็ได้ แล้วแต่ Logic ที่ต้องการ
+            // ในที่นี้ขอติ๊กตัว Original ไว้ก่อน เพื่อความปลอดภัย
+            const isChecked = isSuggested;
 
-                const rowHtml = `
+            const rowHtml = `
         <div class="choice-item ${rowClass}">
             <div class="choice-input-group">
                 <div class="form-check d-flex align-items-center">
@@ -2422,11 +2536,11 @@
             </div>
         </div>
     `;
-                $container.append(rowHtml);
+            $container.append(rowHtml);
 
-                $('.choice-radio').off('change').on('change', syncChoicesToHiddenInput);
-            }
-            
+                    $('.choice-radio').off('change').on(                    ncChoicesToHiddenInput);
+        }
+
         function removeChoiceRow(btn) {
             $(btn).closest('.choice-item').remove();
             syncChoicesToHiddenInput();
@@ -2847,7 +2961,7 @@
             if ($.fn.DataTable.isDataTable('#logsTable')) {
                 $('#logsTable').DataTable().clear().rows.add(globalData.logs || []).draw();
             }
-             else {
+            else {
                 initLogsTable(); // ถ้าตารางยังไม่ถูกสร้าง ให้สร้างใหม่
             }
         }
@@ -2922,55 +3036,55 @@
             }
             $('#dashboardRecentTable tbody').html(html);
         }
-    function populateFilters() {
-        // 1. สร้างตัวเลือกรายวิชา (Subject)
-        // หา Subject ที่ไม่ซ้ำกันจาก Structure
-        const subjects = [...new Set(globalData.structure.map(s => s.SubjectID))].sort();
+        function populateFilters() {
+            // 1. สร้างตัวเลือกรายวิชา (Subject)
+            // หา Subject ที่ไม่ซ้ำกันจาก Structure
+            const subjects = [...new Set(globalData.structure.map(s => s.SubjectID))].sort();
 
-        let subjOpts = '<option value="">All Subjects</option>';
-        subjects.forEach(s => subjOpts += `<option value="${s}">${s}</option>`);
+            let subjOpts = '<option value="">All Subjects</option>';
+            subjects.forEach(s => subjOpts += `<option value="${s}">${s}</option>`);
 
-        // อัปเดต Dropdown วิชาทั้งหมดในหน้าเว็บ
-        $('#search-subject-filter, #db-subject-filter, #struct-subject-filter').html(subjOpts);
+            // อัปเดต Dropdown วิชาทั้งหมดในหน้าเว็บ
+            $('#search-subject-filter, #db-subject-filter, #struct-subject-filter').html(subjOpts);
 
-        // สำหรับ Modal เพิ่ม Category ใหม่
-        $('#new-category-subject').html('<option value="">-- Select Subject --</option>' + subjOpts.replace('All Subjects', ''));
+            // สำหรับ Modal เพิ่ม Category ใหม่
+            $('#new-category-subject').html('<option value="">-- Select Subject --</option>' + subjOpts.replace('All Subjects', ''));
 
 
-        // 2. สร้างตัวเลือกหัวข้อ (Category) - แบบจัดกลุ่ม (Optgroup) เพื่อให้อ่านง่าย
-        let categoryOpts = '<option value="">All Categories</option>';
+            // 2. สร้างตัวเลือกหัวข้อ (Category) - แบบจัดกลุ่ม (Optgroup) เพื่อให้อ่านง่าย
+            let categoryOpts = '<option value="">All Categories</option>';
 
-        // วนลูปตามวิชาเพื่อให้ Dropdown สวยงามมีหัวข้อวิชาคั่น
-        subjects.forEach(subj => {
-            // หา Category ที่อยู่ในวิชานี้
-            const catsInSubj = globalData.category.filter(c => c.SubjectRef === subj);
+            // วนลูปตามวิชาเพื่อให้ Dropdown สวยงามมีหัวข้อวิชาคั่น
+            subjects.forEach(subj => {
+                // หา Category ที่อยู่ในวิชานี้
+                const                 ata.category.filter(c => c.SubjectRef === subj);
 
-            if (catsInSubj.length > 0) {
-                categoryOpts += `<optgroup label="${subj}">`; // เปิดกลุ่มวิชา
+                if (catsInSubj.length > 0) {
+                    categoryOpts += `<optgroup label="${subj}">`; // เปิดกลุ่มวิชา
 
-                catsInSubj.forEach(t => {
+                    catsInSubj.forEach(t => {
+                        categoryOpts += `<option value="${t.CategoryID}">${t.CategoryName} (${t.CategoryID})</option>`;
+                    });
+
+                    categoryOpts += `</optgroup>`; // ปิดกลุ่มวิชา
+                }
+            });
+
+            // กรณีมี Category ที่ไม่มีวิชาสังกัด (Orphan)
+            const orphanCats = globalData.category.filter(c => !c.SubjectRef || !subjects.includes(c.SubjectRef));
+            if (orphanCats.length > 0) {
+                categoryOpts += `<optgroup label="Others">`;
+                orphanCats.forEach(t => {
                     categoryOpts += `<option value="${t.CategoryID}">${t.CategoryName} (${t.CategoryID})</option>`;
                 });
-
-                categoryOpts += `</optgroup>`; // ปิดกลุ่มวิชา
+                categoryOpts += `</optgroup>`;
             }
-        });
 
-        // กรณีมี Category ที่ไม่มีวิชาสังกัด (Orphan)
-        const orphanCats = globalData.category.filter(c => !c.SubjectRef || !subjects.includes(c.SubjectRef));
-        if (orphanCats.length > 0) {
-            categoryOpts += `<optgroup label="Others">`;
-            orphanCats.forEach(t => {
-                categoryOpts += `<option value="${t.CategoryID}">${t.CategoryName} (${t.CategoryID})</option>`;
-            });
-            categoryOpts += `</optgroup>`;
+            // *** สำคัญ: อัปเดต Dropdown Category ทั้งหมด (Search, DB Admin, Edit Modal) ***
+            $('#search-category-filter, #db-category-filter, #edit-category').html(categoryOpts);
         }
 
-        // *** สำคัญ: อัปเดต Dropdown Category ทั้งหมด (Search, DB Admin, Edit Modal) ***
-        $('#search-category-filter, #db-category-filter, #edit-category').html(categoryOpts);
-    }
-
-    // ฟังก์ชันสำหรับกรอง Category ตาม Subject ที่เลือก
+        // ฟังก์ชันสำหรับกรอง Category ตาม Subject ที่เลือก
         function updateCategoryDropdown(subjectId, targetSelector) {
             let options = '<option value="">All Categories</option>';
 
@@ -3229,28 +3343,28 @@
             $('#questionDetailModal').modal('show');
         }
 
-    function openEditModal(id, suggestedAnswer = null) {
-        const q = globalData.questions.find(x => x.questionId == id);
-        if (!q) return;
+        function openEditModal(id, suggestedAnswer = null) {
+            const q = globalData.questions.find(x => x.questionId == id);
+            if (!q) return;
 
-        $('#edit-q-id').val(q.questionId);
+            $('#edit-q-id').val(q.questionId);
 
-        // Setup Category
-        let cat = Array.isArray(q.category) ? q.category[0] : q.category;
-        populateFilters();
-        $('#edit-category').val(cat);
+            // Setup Category
+            let cat = Array.isArray(q.category) ? q.category[0] : q.category;
+            populateFilters();
+            $('#edit-category').val(cat);
 
-        // Setup Text Fields
-        $('#edit-problem').val(q.problem);
-        $('#edit-explanation').val(q.explain);
+            // Setup Text Fields
+            $('#edit-problem').val(q.problem);
+            $('#edit-explanation').val(q.explain);
 
-        // Setup Images
-        renderImagesUI(q.img);
+            // Setup Images
+            renderImagesUI(q.img);
 
-        renderChoicesUI(q.choices, q.answer, suggestedAnswer);
+            renderChoicesUI(q.choices, q.answer, suggestedAnswer);
 
-        $('#editQuestionModal').modal('show');
-    }
+            $('#editQuestionModal').modal('show');
+        }
         async function saveQuestionChanges() {
             if (!confirmAdmin()) return;
 
@@ -3279,60 +3393,57 @@
             try {
                 // ตรวจสอบว่ามีข้อมูล Report ที่เก็บไว้หรือไม่
                 const reportData = $('#editQuestionModal').data('reportData');
-                
+
                 if (reportData) {
-                // กรณีเปิดมาจาก Report Inbox - Auto-resolve Report นั้นๆ
-                const reportPayload = {
-                    action: 'updateReportStatus',
-                    adminPass: adminPass,
-                    data: {
-                    timestamp: reportData.timestamp,
-                    adminNote: reportData.adminNote,
-                    status: 'Resolved',
-                    done: 'TRUE'
-                    }
-                };
-
-                await fetch(APPSCRIPT_URL, {
-                    method: 'POST',
-                    redirect: "follow",
-                    headers: { "Content-Type": "text/plain" },
-                    body: JSON.stringify(reportPayload)
-                });
-                
-                console.log('Report auto-resolved successfully.');
-                
-                // ลบข้อมูล Report ออกจาก Modal
-                $('#editQuestionModal').removeData('reportData');
-                } else {
-                // ค้นหา Report ที่เกี่ยวข้องจาก globalData (Fallback)
-                const pendingReports = (globalData.report || []).filter(r =>
-                    r['Question'] && r['Question'].trim() === originalProblemText &&
-                    (!r['Done'] || String(r['Done']).toUpperCase() === 'FALSE')
-                );
-
-                if (pendingReports.length > 0) {
-                    for (const rep of pendingReports) {
-                    const fallbackPayload = {
+                    // กรณีเปิดมาจาก Report Inbox - Auto-resolve Report นั้นๆ
+                    const reportPayload = {
                         action: 'updateReportStatus',
+                        username: currentUser.username,
                         adminPass: adminPass,
                         data: {
-                        timestamp: rep['Time'],
-                        adminNote: 'Auto-resolved via question edit',
-                        status: 'Resolved',
-                        done: 'TRUE'
+                            timestamp: reportData.timestamp,
+                            adminNote: reportData.adminNote,
+                            status: 'Resolved',
+                            done: 'TRUE'
                         }
                     };
 
-                    fetch(APPSCRIPT_URL, {
+                    await fetch(APPS                            
                         method: 'POST',
-                        redirect: "follow",
-                        headers: { "Content-Type": "text/plain" },
-                        body: JSON.stringify(fallbackPayload)
-                    }).catch(e => console.error("Auto-resolve failed:", e));
+                                                  "follow",
+                        header                        ntent                        "text/plain" },
+                        body: JSON.st                            rtPayload)
+                    });
+
+                    cons                            ort auto-resolved s                            ');
+
+                    // ลบข้อมูล                            าก Modal
+                                     ('#editQuestionModal').removeData('reportData');
+                } else {
+                    // ค้นหา Report ที่เกี่ยวข้องจาก globalData (Fallback)
+                    const pendingReports = (globalData.report || []).filter(r =>
+                        r['Question'] && r['Question'].trim() === originalProblemText &&
+                        (!r['Done'] || String(r['Done']).toUpperCase() === 'FALSE')
+                    );
+
+                    if (pendingRep                        gth                        
+                        for (const rep                             ports) {
+                                                  fallbackPayload = {
+                                                action: 'updateReportStatus',
+                                adminPass: admi                                                        data: {
+                                    timestamp: rep['Time'],                                                      adminNote: 'Auto-resolved v                            edit',
+                                    status: 'Resolved',
+                                                    done: 'TRUE'                                                                                                };
+
+                            fetch(APPSCRIPT_URL, {
+                                method: 'POST',
+                                redirect: "follow",
+                                headers: { "Content-Type": "text/plain" },
+                                body: JSON.stringify(fallbackPayload)
+                            }).catch(e => console.error("Auto-resolve failed:", e));
+                        }
+                        console.log(`Auto-resolved ${pendingReports.length} reports.`);
                     }
-                    console.log(`Auto-resolved ${pendingReports.length} reports.`);
-                }
                 }
             } catch (e) {
                 console.error('Error in auto-resolve logic:', e);
@@ -3340,7 +3451,7 @@
 
             $('#editQuestionModal').modal('hide');
             fetchData();
-            }
+        }
 
         async function deleteQuestion() {
             if (!confirmAdmin()) return;
@@ -3372,10 +3483,13 @@
                     headers: { "Content-Type": "text/plain" },
                     body: JSON.stringify({
                         action: actionName,
+                        username: currentUser.username,
                         adminPass: adminPass,
+                        user: currentUser.displayName,
                         data: dataObj
                     })
                 });
+
 
                 // รอรับ JSON จาก Request ที่ถูก Redirect แล้ว
                 const resJson = await response.json();
@@ -3517,7 +3631,7 @@
             }
         }
 
-    function openEditReportModal(index) {
+        function openEditReportModal(index) {
             // 1. หาข้อมูล Report
             const pending = globalData.report.filter(r => !r.Done || r.Done.toString().toUpperCase() === 'FALSE');
             const r = pending[index];
@@ -3543,7 +3657,7 @@
             });
 
             openEditModal(dbQuestion.questionId, suggestedAnswer);
-        } 
+        }
         function formatDate(dateString) {
             if (!dateString) return '';
             const d = new Date(dateString);
@@ -3563,15 +3677,21 @@
 
         async function toggleLogin() {
             if (!isAdmin) {
-                const { value: password } = await Swal.fire({
+                const { value: formValues } = await Swal.fire({
                     title: 'Admin Login',
-                    input: 'password',
-                    inputLabel: 'Password',
-                    inputPlaceholder: 'Enter your admin password',
+                    html:
+                        '<input id="swal-input1" class="swal2-input" placeholder="Username">' +
+                        '<input id="swal-input2" type="password" class="swal2-input" placeholder="Password">',
+                    focusConfirm: false,
                     showCancelButton: true,
                     confirmButtonText: 'Login',
                     showLoaderOnConfirm: true,
-                    preConfirm: async (loginPass) => {
+                    preConf                                                                                               cument.getElementB                                    alue;
+                        const password = document                                    l-input2').val                                                                     sername || !password) {
+                            Sw                            ati                        e('กร                        ้อมูลให้ครบถ่วย');
+                                           urn false;
+                        }
+
                         try {
                             const response = await fetch(APPSCRIPT_URL, {
                                 method: 'POST',
@@ -3579,58 +3699,61 @@
                                 headers: { "Content-Type": "text/plain;charset=utf-8" },
                                 body: JSON.stringify({
                                     action: 'checkAuth',
-                                    adminPass: loginPass // ส่งรหัสที่พิมพ์ไปเช็ค
+                                    username: username,
+                                    password: password
                                 })
                             });
-
-                            if (!response.ok) {
-                                throw new Error(response.statusText);
-                            }
-
                             const data = await response.json();
-
                             if (data.result !== 'success') {
-                                throw new Error('Incorrect Password');
+                                throw new Error(data.message || 'Login Failed');
                             }
-
-                            return loginPass; // ถ้ารหัสถูก ให้ return รหัสกลับมา
+                            return data; // ส่งข้อมูล User กลับไป
                         } catch (error) {
-                            Swal.showValidationMessage(`Login failed: ${error}`);
+                            Swal.showValidationMessage(`Log                                d:                                 message}`);
                         }
                     },
                     allowOutsideClick: () => !Swal.isLoading()
                 });
 
-                if (password) {
-                    adminPass = password; // เก็บ Password ที่ถูกต้องไว้ใช้งาน
-                    isAdmin = true;
-                    $('.admin-only').fadeIn();
-                    $('#btn-sidebar-login').html('Logout').addClass('btn-danger');
-                    $('#topbar-user').text('Admin'); // เปลี่ยนชื่อ
-                    $('#topbar-avatar').attr('src', 'https://api.dicebear.com/7.x/avataaars/svg?seed=AdminUser');
-                    $('#user-status-display').text('Admin Mode').css('color', '#ffdddd');
-                    Swal.fire('Logged In', 'Welcome back, Admin!', 'success');
+                if (formValues && formValues.result === 'succes                                                   const userData = formValue                    
 
-                    // Refresh Dashboard เพื่อให้เห็นปุ่ม Edit
-                    fetchData();
+                    // เก็บข้อมูลลงตัวแปร
+                    isAdmin = true;
+                    adminPass = document.getElementById('swal-input2').value; // เก็บไว้ใช้ส่งตอน Save
+                    currentUser = userData;
+
+                    // อัปเดต UI
+                    $('.admin-only').fadeIn();
+                                                      '#btn-sidebar-login').html('<i cla                        fa-sign-out-alt"></i> Logout').addClass('btn-danger');
+
+                                        สดงชื่อจริงและรูปจริง
+                                     ('#topbar-user').                                .displayName);
+                    $('#topbar-av                                    urrentUser.avatar);
+                                      '#user-                                        ogged in as:<br><b>${currentUser.displayName}</b>`).css('color', '#fff');
+
+                    Swal.fire('สำเร็จ', `ยินดีต้อนรับ ${currentUser.displayName}`, 'success');
+                    fetchData(); // โหลดข้อมูลใหม่เพื่อให้เห็นสิทธิ์ Admin
                 }
             } else {
-                // Logout Logic
+                // Logout
                 isAdmin = false;
                 adminPass = '';
+                currentUser = { displayName: 'Guest', avatar: '', username: '' };
+
                 $('.admin-only').hide();
-                $('#btn-sidebar-login').html('Admin Login').removeClass('btn-danger');
-                $('#user-status-display').text('Guest User').css('color', 'rgba(255,255,255,0.6)');
+                $('#btn-sidebar-login').html('<i class="fas fa-sign-in-alt"></i> Admin Login').removeClass('btn-danger');
                 $('#topbar-user').text('Guest');
-                $('#topbar-avatar').attr('src', 'https://api.dicebear.com/7.x/avataaars/svg?seed=GuestUser');
+                $('#topbar-avatar').attr('src', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Guest');
+                $('#user-status-display').text('Guest User').css('color', 'rgba(255,255,255,0.6)');
+
                 showSection('dashboard');
-                Swal.fire('Logged Out', 'See you next time.', 'info');
+                Swal.fire('Logged Out', 'ออกจากระบบเรียบร้อย', 'info');
             }
         }
 
         function confirmAdmin() {
-            if (!isAdmin || !adminPass) {
-                Swal.fire('Access Denied', 'กรุณา Login ก่อนทำรายการ', 'warning');
+            if (!isAdmin || !currentUser.username) {
+                Swal.fire('Access Denied', 'เซสชันหมดอายุหรือคุณไม่มีสิทธิ์เข้าถึง กรุณาล็อกอินใหม่', 'warning');
                 return false;
             }
             return true;
@@ -3642,6 +3765,11 @@
             $(`[onclick="showSection('${sectionId}')"]`).addClass('active');
             $(`#sec-${sectionId}`).removeClass('hidden');
             $('#page-title').text(sectionId.charAt(0).toUpperCase() + sectionId.slice(1).replace('-', ' '));
+
+            // ถ้าเข้าหน้า Structure ให้ render tree ทันที
+            if (sectionId === 'structure') {
+                renderStructureTree();
+            }
 
             // ปิด sidebar เมื่อเปลี่ยน Section บน Mobile
             if ($(window).width() < 768) {
@@ -3728,204 +3856,193 @@
         };
 
         // --- Converter Tool ---
-        let storage = { struct: "", category: "", ques: "", current: "struct" };
-        const headers = {
-            struct: ["Year", "SubjectID", "SubjectName", "AccordionGroup"],
-            category: ["CategoryID", "SubjectRef", "AccordionGroup", "CategoryName"],
-            ques: ["QuestionID", "Problem", "Image", "Choices", "Answer", "Explanation", "Category"]
+        let converterStorage = {
+            struct:                      category: [],
+            ques: [],
+            c                uct               };                const converterHeaders = {
+                     t: ["#", "Year", "SubjectID", "SubjectName", "AccordionGroup"],
+                           "#", "CategoryID", "SubjectRef", "AccordionGroup", "CategoryNa                       ques: ["#", "QuestionID", "Problem", "Image", "Choices", "Answe                tion", "Category"]
         };
 
         function switchTab(sheet) {
-
-            storage.current = sheet;
+            converte                .current = sheet;
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.getElementById('tab-' + sheet).classList.add('active');
             renderPreview();
         }
 
         function processAll() {
-            // 1. รับค่าจาก Input
             let rawInput = document.getElementById('jsonInput').value.trim();
             const year = document.getElementById('yearVal').value;
             const subjectID = document.getElementById('subjID').value.trim().toUpperCase() || "SUBJ";
             const subjectName = document.getElementById('subjName').value || "Untitled Subject";
             const groupKeywords = document.getElementById('groupKeys').value.split(',').map(k => k.trim()).filter(k => k !== "");
 
-            if (!rawInput) { alert("กรุณาวางข้อมูลก่อน"); return; }
+            if (!rawInput) { Swal.fire('Error', 'กรุณาวางข้อมูลก่อน', 'error'); return; }
 
             let structMap = new Map();
             let categoryRows = [];
             let quesRows = [];
 
-            // 2. ตรวจสอบว่าเป็น Object Format (มีปีกกา) หรือไม่
-            if (rawInput.includes('{') && rawInput.includes('}')) {
-                try {
-                    // 2.1 หาปีกกาเปิดตัวแรก และปีกกาปิดตัวสุดท้าย เพื่อตัดส่วนหัว (var quizdata =) ทิ้ง
+            // ล้างข้อมูลเก่า
+                           erStorage.struct = [];
+            converterStorage.category = [];
+                               orage.ques = [];
+
+                     ry {
+                if (r                includ                && rawInput.includes('}')) {
                     const firstBrace = rawInput.indexOf('{');
                     const lastBrace = rawInput.lastIndexOf('}');
+                    const jsonString = rawInput.substring(firstBrace, lastBrace + 1);
 
-                    if (firstBrace !== -1 && lastBrace !== -1) {
-                        const jsonString = rawInput.substring(firstBrace, lastBrace + 1);
-
-                        let quizObj;
-
-                        // --- 🔴 จุดที่แก้ไข (เริ่ม) ---
-                        // เปลี่ยนจาก JSON.parse เป็นการใช้ new Function เพื่อรองรับ Loose JSON
-                        // (รองรับ key ไม่มี quote, single quote, trailing comma)
-                        try {
-                            quizObj = new Function("return " + jsonString)();
-                        } catch (err) {
-                            // เผื่อกรณี Syntax ผิดพลาดจริงๆ ให้ลอง JSON.parse แบบเดิมเผื่อฟลุ๊ค
-                            quizObj = JSON.parse(jsonString);
-                        }
-                        // --- 🔴 จุดที่แก้ไข (จบ) ---
-
-                        // 2.2 Loop ข้อมูลจาก Object
-                        for (const [categoryKey, questions] of Object.entries(quizObj)) {
-
-                            // หา Group
-                            let group = "GENERAL";
-                            for (let key of groupKeywords) {
-                                if (categoryKey.toUpperCase().includes(key)) { group = key; break; }
-                            }
-
-                            // สร้าง Structure
-                            const structKey = `${subjectID}-${group}`;
-                            if (!structMap.has(structKey)) {
-                                structMap.set(structKey, [year, subjectID, subjectName, group]);
-                            }
-
-                            // สร้าง Category
-                            categoryRows.push([categoryKey, subjectID, group, categoryKey]);
-
-                            // สร้าง Questions
-                            if (Array.isArray(questions)) {
-                                questions.forEach((q, index) => {
-                                    const qId = `${categoryKey}_${index + 1}`;
-                                    quesRows.push([
-                                        qId,
-                                        q.problem || "",
-                                        q.img || "",
-                                        q.choices || "",
-                                        q.answer || "",
-                                        q.explain || "",
-                                        categoryKey
-                                    ]);
-                                });
-                            }
-                        }
-                        Swal.fire('Success', `แปลงข้อมูลสำเร็จ! (ได้ ${quesRows.length} ข้อ)`, 'success');
-                    } else {
-                        throw new Error("ไม่พบเครื่องหมายปีกกา { } ที่ถูกต้อง");
+                    let quizObj;
+                    try {
+                        // ใช้ Function แทน JSON.parse เพื่อรองรับ Loose Object (ไม่ต้องมี quote ที่ Key)
+                        quizObj = new Function("return " + jsonString)();
+                    } catch (e) {
+                        quizObj = JSON.parse(jsonString);
                     }
 
-                } catch (e) {
-                    console.error(e);
-                    alert("เกิดข้อผิดพลาด: ข้อมูลที่วางอาจมี Syntax ไม่ถูกต้องตามหลัก JavaScript Object\nError: " + e.message);
-                    return;
+                    for (const [categoryKey, questions] of Object.entries(quizObj)) {
+                        let group = "GENERAL";
+                        for (let key of groupKeywords) {
+                            if (categoryKey.toUpperCase().includes(key)) { group = key; break; }
+                        }
+
+                                            const struct                                    ID}-${group}`;
+                                                                 f (!st                            has(structKey)) {
+                                                structMap.set(                                year, subject                                ame, group]);
+                                            }
+                        cat                            s.push                            ryKey, subjectID, group, categoryKey]);
+
+                        if (Array.isArray(questions)) {
+                            questions.forEach((q, index) => {
+                                const qId = `${categoryKey}_${index + 1}`;
+                                // แก้ไขปัญหา \n: เก็บค่า string ตามจร                                    น rend                                    ble จะระวังไม่ให้มันแตกแถว
+                                                            quesRows.push([                                                                 qId,
+                                    q.problem ||                                                                      q.img || "",
+                                                                q.choices || "",                                                                                              q.answer                                                                         q.explain || "",
+                                    JSON.stringify([categoryKey])
+                                ]);
+                            });
+                        }
+                    }
+                } else {
+                    // กรณีรายชื่อ Category
+                    const lines = rawInput.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+                    lines.forEach(categoryKey => {
+                        let group = "GENERAL";
+                        for (let key of groupKeywords) {
+                            if (categoryKey.toUpperCase().includes(key)) { group = key; break; }
+                        }
+                        const structKey = `${subjectID}-${group}`;
+                        if (!structMap.has(structKey)) structMap.set(structKey, [year, subjectID, subjectName, group]);
+                        categoryRows.push([categoryKey, subjectID, group, categoryKey]);
+                    });
                 }
 
-            } else {
-                // 3. กรณีเป็นรายชื่อบรรทัดเดียว (Logic เดิม)
-                const lines = rawInput.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+                // เก็บเข้า Storage ในรูปแบบ Array of Arrays (เพื่อไม่ให้ Newline พังโครงสร้างเหมือน String .split)
+                converterStorage.struct = Array.from(structMap.values                    nverterStorage.category = categoryRows;
+                converterStorage.ques = quesRows;
 
-                lines.forEach(categoryKey => {
-                    let group = "GENERAL";
-                    for (let key of groupKeywords) {
-                        if (categoryKey.toUpperCase().includes(key)) { group = key; break; }
-                    }
+                Swal.fire('Success', 'ประมวลผลสำเร็จ! กรุณาตรวจสอบในตารางด้านล่าง', 'success');
+                renderPreview();
 
-                    const structKey = `${subjectID}-${group}`;
-                    if (!structMap.has(structKey)) {
-                        structMap.set(structKey, [year, subjectID, subjectName, group]);
-                    }
-                    categoryRows.push([categoryKey, subjectID, group, categoryKey]);
-                });
-                Swal.fire('Success', 'แปลงข้อมูลแบบ List รายชื่อสำเร็จ', 'success');
+            } catch (e) {
+                console.error(e);
+                Swal.fire('Error', 'Format ข้อมูลผิดพลาด: ' + e.message, 'error');
             }
-
-            // 4. บันทึกผลลัพธ์
-            storage.struct = Array.from(structMap.values()).map(r => r.join("\t")).join("\n");
-            storage.category = categoryRows.map(r => r.join("\t")).join("\n");
-            storage.ques = quesRows.map(r => r.join("\t")).join("\n");
-
-            renderPreview();
         }
 
         function renderPreview() {
-
             const head = document.getElementById('tableHead');
             const body = document.getElementById('tableBody');
-            const currentSheet = storage.current;
-            head.innerHTML = headers[currentSheet].map(h => `<th>${h}</th>`).join("");
-            const allData = storage[currentSheet] ? storage[currentSheet].split("\n") : [];
-            body.innerHTML = allData.map(row => {
-                const cells = row.split("\t");
-                return `<tr>${cells.map(c => `<td class="editable-cell" contenteditable="true">${c}</td>`).join("")}</tr>`;
+            const currentSheet = converterStorage.current;
+            const data = converterStorage[currentSheet];
+
+            head.innerHTML = converterHeaders[currentSheet].map(h => `<th>${h}</th>`).join("");
+
+            body.innerHTML = data.map((row, i) => {
+                // เพิ่มเลข Index ด้านหน้า
+                const indexCell = `<td>${i + 1}</td>`;
+                const contentCells = row.map(cell => {
+                    // ป้องกัน \n ในตารางทำให้ตารางพัง โดยใช้การแสดงผลแบบรักษา Newline ใน contenteditable
+                    return `<td class="editable-cell" contenteditable="true" style="white-space: pre-wrap;">${cell}</td>`;
+                }).join("");
+                return `<tr>${indexCell}${contentCells}</tr>`;
             }).join("");
-            document.getElementById('previewText').innerText = `แสดงทั้งหมด ${allData.length} แถว`;
+
+            document.getElementById('previewText').innerText = `มีข้อมูลทั้งหมด ${data.length} แถว`;
         }
 
-    async function importConvertedData() {
-        if (!confirmAdmin()) return;
-
-        // 1. ดึงข้อมูลจากตาราง
-        const rows = document.querySelectorAll('#tableBody tr');
-        let extractedData = [];
-        rows.forEach(tr => {
-            let rowData = [];
-            tr.querySelectorAll('td').forEach(td => rowData.push(td.innerText));
-            extractedData.push(rowData);
-        });
-
-        if (extractedData.length === 0) {
-            Swal.fire('Warning', 'ไม่มีข้อมูลในตาราง', 'warning');
-            return;
-        }
-
-        // 2. ตั้งค่าการส่งแบบแบ่งชุด (Chunking)
-        const BATCH_SIZE = 2000;
-        const totalBatches = Math.ceil(extractedData.length / BATCH_SIZE);
-
-        $('#loading-overlay').show();
-
-        try {
-            for (let i = 0; i < totalBatches; i++) {
-                const start = i * BATCH_SIZE;
-                const end = start + BATCH_SIZE;
-                const chunk = extractedData.slice(start, end);
-
-                console.log(`Sending batch ${i + 1}/${totalBatches} (${chunk.length} rows)...`);
-
-                // ส่งข้อมูลชุดนี้
-                await sendAdminAction('adminImport', {
-                    sheetName: storage.current,
-                    data: chunk
-                });
-            }
-
-            Swal.fire('Success', `นำเข้าข้อมูลทั้งหมด ${extractedData.length} แถว เรียบร้อยแล้ว!`, 'success');
-
-        } catch (err) {
-            console.error(err);
-            Swal.fire('Error', 'เกิดข้อผิดพลาดระหว่างนำเข้า: ' + err.message, 'error');
-        } finally {
-            $('#loading-overlay').hide();
-        }
-    }
-        async function copyCurrentSheet() {
-
+        // ฟังก์ชันคัดลอก (ปรับปรุงให้รองรับ Newline)
+        function copyCurrentSheet() {
             const rows = document.querySelectorAll('#tableBody tr');
             let text = "";
             rows.forEach(tr => {
                 let rowData = [];
-                tr.querySelectorAll('td').forEach(td => rowData.push(td.innerText));
+                // เริ่มที่ j=1 เพื่อไม่เอาเลข Index ไปด้วย
+                const cells = tr.querySelectorAll('td');
+                for (let j = 1; j < cells.length; j++) {
+                    rowData.push(cells[j].innerText);
+                }
                 text += rowData.join("\t") + "\n";
             });
             navigator.clipboard.writeText(text);
-            Swal.fire('Copied', '', 'success');
+            Swal.fire('Copied', 'คัดลอกข้อมูล (TSV) เรียบร้อยแล้ว', 'success');
         }
 
+        // ฟังก์ชัน Import (แบ่ง Batch เล็กลงเพื่อความปลอดภัย)
+        async function importConvertedData() {
+            if (!confirmAdmin()) return;
+
+            const rows = document.querySelectorAll('#tableBody tr');
+            let allExtractedData = [];
+            rows.forEach(tr => {
+                let rowData = [];
+                const cells = tr.querySelectorAll('td');
+                for (let j = 1; j < cells.length; j++) {
+                    rowData.push(cells[j].innerText);
+                }
+                allExtractedData.push(rowData);
+            });
+
+            if (allExtractedData.length === 0) {
+                Swal.fire('Warning', 'ไม่มีข้อมูลให้ Import', 'warning');
+                return;
+            }
+
+            const isConfirmed =                        ({
+                                    ันการนำเข้า?',                         text: `คุณกำลังจะน                        llExtractedData.length} แถว เข้าสู่แผ่นงาน ${converterStorage.curren                                       con:                 n',
+                showCan                    rue
+            });
+
+            if (!isConfirmed                    ) return;
+
+            $('#loading-overlay').show();
+
+            // ลด BATCH_SIZE ลงเหลือ 200 แถวต่อครั้ง เพื่อป้องกัน Timeout ของ Google Script
+            const BATCH_SIZE = 200;
+            const totalBatches = Math.ceil(allExtractedData.length / BATCH_SIZE);
+
+            try {
+                for (let i = 0; i < totalBatches; i++) {
+                    const chunk = allExtractedData.slice(i * BATCH_SIZE, (i + 1) * BATCH_SIZE);
+
+                    await sendAdminAction('adminImport', {
+                        sheetName: converterStorage.current,
+                        data: chunk
+                    });
+
+                    console.log(`Progress: ${i + 1}/${totalBatches}`);
+                }
+                Swal.fire('Completed', `นำเข้าข้อมูลสำเร็จทั้งหมด ${allExtractedData.length} แถว`, 'success');
+                fetchData(); // รีโหลดข้อมูล Dashboard
+            } catch (err) {
+                                .fire                    , 'การ Import ขัดข้อง: ' + err.message, 'error'                            } finally {
+                                  ading-overlay').hide();
+            }
+        }
 
     </script>
 </body>
