@@ -441,8 +441,8 @@
         .category-badge-container {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px;
-            min-height: 40px;
+            gap: 10px; /* Increased gap for better spacing */
+            min-height: 50px; /* Increased height for better visibility */
             align-items: center;
         }
 
@@ -451,13 +451,15 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            padding: 8px 15px;
-            border-radius: 50px;
-            font-size: 0.95rem;
+            padding: 10px 20px; /* Increased padding for a more comfortable touch area */
+            border-radius: 25px; /* Slightly adjusted border radius for a softer look */
+            font-size: 1rem; /* Increased font size for better readability */
             font-weight: 600;
-            letter-spacing: 0.3px;
-            transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            letter-spacing: 0.5px; /* Increased letter spacing for clarity */
+            transition: all 0.3s ease; /* Smoother transition effect */
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1); /* Softer shadow for a subtle effect */
+            background-color: #f8f9fa; /* Light background for better contrast */
+            color: #333; /* Darker text color for improved readability */
         }
 
         @media (min-width: 768px) {
@@ -1002,11 +1004,10 @@
         }
 
         .tree-view ul {
-            margin-left: 25px;
-            /* ระยะห่างเยื้องขวา */
-            max-height: 1000px;
-            overflow: hidden;
-            transition: max-height 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.4s ease;
+            margin-left: 25px; /* Indentation */
+            max-height: none; /* Removed max-height to allow scrolling */
+            overflow: auto; /* Changed to auto to enable scrolling */
+            transition: opacity 0.4s ease;
             opacity: 1;
         }
 
@@ -1020,17 +1021,16 @@
 
         @keyframes slideDown {
             from {
-                opacity: 0;
-                transform: translateY(-8px);
+            opacity: 0;
+            transform: translateY(-8px);
             }
-
             to {
-                opacity: 1;
-                transform: translateY(0);
+            opacity: 1;
+            transform: translateY(0);
             }
         }
 
-        /* เส้นแนวตั้ง */
+        /* Vertical line */
         .tree-view li::before {
             content: "";
             position: absolute;
@@ -1042,7 +1042,7 @@
             transition: border-color 0.3s ease;
         }
 
-        /* เส้นแนวนอนที่เชื่อมกับไอคอน */
+        /* Horizontal line connecting to icon */
         .tree-view li::after {
             content: "";
             position: absolute;
@@ -1053,7 +1053,7 @@
             transition: border-color 0.3s ease;
         }
 
-        /* ลบเส้นแนวตั้งที่เกินออกมาจากข้อสุดท้าย */
+        /* Remove excess vertical line from last item */
         .tree-view li:last-child::before {
             height: 15px;
         }
@@ -1871,8 +1871,14 @@
                     <div class="row g-3">
                         <!-- Category -->
                         <div class="col-md-12">
-                            <label class="form-label fw-bold">Category</label>
-                            <select class="form-select" id="edit-category" multiple style="min-height: 150px;"></select>
+                            <label class="form-label fw-bold">Categories (หัวข้อ)</label>
+                            <div id="dynamic-categories-container" class="d-flex flex-column gap-2 mb-2">
+                                <!-- JS จะสร้าง Input กล่องๆ มาใส่ตรงนี้ -->
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-info w-100 dashed-border mb-3" onclick="addNewCategoryRow()">
+                                <i class="fas fa-plus"></i> เพิ่มหัวข้อ (Add Category)
+                            </button>
+                            <input type="hidden" id="edit-category-hidden"> <!-- สำหรับเก็บค่าส่งไป Backend -->
                         </div>
 
                         <!-- Question -->
@@ -2822,12 +2828,7 @@
         $('#edit-q-id').val(q.questionId);
 
         let currentCategories = Array.isArray(q.category) ? q.category : [q.category];
-        populateFilters();
-        $('#edit-category').val(null);
-
-        if (currentCategories.length > 0) {
-            $('#edit-category').val(currentCategories.filter(c => c && c !== '-'));
-        }
+        renderCategoriesUI(currentCategories);
 
         $('#edit-problem').val(q.problem);
         $('#edit-explanation').val(q.explain);
@@ -2847,8 +2848,15 @@
         const originalQuestionData = globalData.questions.find(q => q.questionId == qId);
         const originalProblemText = originalQuestionData ? originalQuestionData.problem.trim() : "";
 
-        const selectedCategory = $('#edit-category').val();
-        const categoryArray = $('#edit-category').val() || [];
+        const categoryString = $('#edit-category-hidden').val();
+        let categoryArray = [];
+        try {
+            categoryArray = JSON.parse(categoryString);
+        } catch (e) {
+            console.error("Error parsing categories:", e);
+            categoryArray = [];
+        }
+
         const payload = {
             id: qId,
             problem: $('#edit-problem').val(),
@@ -2994,6 +3002,150 @@
     // ====================================================================
     // 6. QUESTION CONTENT (Choices & Images) LOGIC
     // ====================================================================
+
+    // --- Category Logic ---
+    function renderCategoriesUI(categoryArray) {
+        const $container = $('#dynamic-categories-container');
+        $container.empty();
+
+        const categories = Array.isArray(categoryArray) ? categoryArray : [categoryArray];
+
+        if (categories.length === 0 || categories[0] === '-' || categories[0] === '') {
+            _renderNewCategoryRow(); // <--- เรียกฟังก์ชัน Internal
+        } else {
+            categories.forEach(categoryId => {
+                if (categoryId && categoryId !== '-') {
+                    _renderNewCategoryRow(categoryId); // <--- เรียกฟังก์ชัน Internal
+                }
+            });
+        }
+        syncCategoriesToHiddenInput();
+    }
+
+    function _renderNewCategoryRow(selectedCategoryID = null) {
+            const $container = $('#dynamic-categories-container');
+            const subjects = [...new Set(globalData.category.map(c => c.SubjectRef))].filter(s => s);
+
+            // 1. สร้าง Option สำหรับ Subject
+            let subjectOptions = `<option value="">-- เลือกวิชา --</option>`;
+            subjects.sort().forEach(s => {
+                subjectOptions += `<option value="${s}">${s}</option>`;
+            });
+
+            // 2. หา Subject/Group ของ Category ที่เลือกไว้ (ถ้ามี)
+            let selectedSubject = '';
+            let selectedGroup = '';
+            let categoryName = '';
+            if (selectedCategoryID) {
+                const cat = globalData.category.find(c => c.CategoryID === selectedCategoryID);
+                if (cat) {
+                    selectedSubject = cat.SubjectRef;
+                    selectedGroup = cat.AccordionGroup;
+                    categoryName = cat.CategoryName;
+                }
+            }
+
+            const rowHtml = `
+            <div class="category-row d-flex gap-2 align-items-center bg-light p-2 rounded">
+                <select class="form-select form-select-sm category-subject-select" onchange="updateGroupSelect(this)" style="flex: 1;">
+                    ${subjectOptions}
+                </select>
+                <select class="form-select form-select-sm category-group-select" onchange="updateCategorySelect(this)" style="flex: 1;">
+                    <option value="">-- กลุ่ม --</option>
+                </select>
+                <select class="form-select form-select-sm category-id-select" onchange="syncCategoriesToHiddenInput()" style="flex: 2;">
+                    <option value="">-- หัวข้อ/Category --</option>
+                </select>
+                <button class="btn btn-sm btn-outline-danger" type="button" onclick="removeCategoryRow(this)">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+            const $row = $(rowHtml);
+
+            // 3. ตั้งค่า Selected Subject และเรียกฟังก์ชัน Update Group/Category
+            if (selectedSubject) {
+                $row.find('.category-subject-select').val(selectedSubject).trigger('change');
+
+                // ตั้งค่า Selected Group
+                if (selectedGroup) {
+                    // ต้องรอให้ Group Select ถูก Populate ก่อน
+                    setTimeout(() => {
+                        $row.find('.category-group-select').val(selectedGroup).trigger('change');
+
+                        // ตั้งค่า Selected CategoryID
+                        if (selectedCategoryID) {
+                            setTimeout(() => {
+                                $row.find('.category-id-select').val(selectedCategoryID);
+                                syncCategoriesToHiddenInput();
+                            }, 50);
+                        }
+                    }, 50);
+                }
+            }
+
+            $container.append($row);
+        }
+
+        function removeCategoryRow(btn) {
+                $(btn).closest('.category-row').remove();
+                syncCategoriesToHiddenInput();
+            }
+
+        function updateGroupSelect(selectElement) {
+            const $subjectSelect = $(selectElement);
+            const subjId = $subjectSelect.val();
+            const $groupSelect = $subjectSelect.closest('.category-row').find('.category-group-select');
+            const $catSelect = $subjectSelect.closest('.category-row').find('.category-id-select');
+
+            $groupSelect.empty().append('<option value="">-- กลุ่ม --</option>');
+            $catSelect.empty().append('<option value="">-- หัวข้อ/Category --</option>');
+
+            if (subjId) {
+                const relatedCategory = globalData.category.filter(t => t.SubjectRef === subjId);
+                const groups = [...new Set(relatedCategory.map(t => t.AccordionGroup))].filter(g => g);
+
+                groups.sort().forEach(g => {
+                    $groupSelect.append(`<option value="${g}">${g}</option>`);
+                });
+            }
+            syncCategoriesToHiddenInput();
+        }
+
+        function updateCategorySelect(selectElement) {
+            const $groupSelect = $(selectElement);
+            const groupName = $groupSelect.val();
+            const $row = $groupSelect.closest('.category-row');
+            const subjId = $row.find('.category-subject-select').val();
+            const $categorySelect = $row.find('.category-id-select');
+
+            $categorySelect.empty().append('<option value="">-- หัวข้อ/Category --</option>');
+
+            if (groupName && subjId) {
+                const categories = globalData.category.filter(t => t.SubjectRef === subjId && t.AccordionGroup === groupName);
+                categories.sort((a, b) => a.CategoryName.localeCompare(b.CategoryName));
+                categories.forEach(t => {
+                    $categorySelect.append(`<option value="${t.CategoryID}">${t.CategoryName} (${t.CategoryID})</option>`);
+                });
+            }
+            syncCategoriesToHiddenInput();
+        }
+
+        function addNewCategoryRow() {
+            _renderNewCategoryRow(null);
+        }
+
+        function syncCategoriesToHiddenInput() {
+            const categories = [];
+            $('#dynamic-categories-container .category-id-select').each(function () {
+                const val = $(this).val();
+                if (val && val !== "") {
+                    categories.push(val);
+                }
+            });
+            // เก็บเป็น Stringified Array เพื่อส่งไป Backend
+            $('#edit-category-hidden').val(JSON.stringify(categories));
+        }
 
     // --- Choice Logic ---
     function renderChoicesUI(choicesStr, correctAnsStr, suggestedAnsStr = null) {
@@ -3706,18 +3858,121 @@
         switch (type) {
             // ... (Subject CRUD Logic - unchanged) ...
             case 'addSubj':
-                // ... (Add Subject Logic) ...
-                const { value: subjForm } = await Swal.fire({ /* ... */ });
-                if (subjForm && subjForm.SubjectID) {
+                // ตรรกะสำหรับการเพิ่มวิชาใหม่
+                const { value: subjForm } = await Swal.fire({
+                    title: 'เพิ่มวิชาใหม่ (Add Subject)',
+                    html: `
+                        <div class="text-start">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold small text-primary">
+                                    <i class="fas fa-code me-1"></i>รหัสวิชา (Subject ID)
+                                </label>
+                                <input id="swal-subj-id" class="form-control form-control-sm" placeholder="เช่น GI, NS, CV" maxlength="5" style="border: 1px solid #ced4da; border-radius: 6px; padding: 0.5rem;">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label fw-bold small text-primary">
+                                    <i class="fas fa-calendar-alt me-1"></i>ชั้นปี (Year)
+                                </label>
+                                <input id="swal-subj-year" type="number" class="form-control form-control-sm" placeholder="เช่น 1, 2, 3" style="border: 1px solid #ced4da; border-radius: 6px; padding: 0.5rem;">
+                            </div>
+                            
+                            <div class="mb-2">
+                                <label class="form-label fw-bold small text-primary">
+                                    <i class="fas fa-book me-1"></i>ชื่อวิชา (Subject Name)
+                                </label>
+                                <input id="swal-subj-name" class="form-control form-control-sm" placeholder="ชื่อวิชาเต็ม" style="border: 1px solid #ced4da; border-radius: 6px; padding: 0.5rem;">
+                            </div>
+                        </div>
+                    `,
+                    focusConfirm: false,
+                    showCancelButton: true,
+                    confirmButtonText: 'บันทึกวิชาใหม่',
+                    preConfirm: () => {
+                        const id = document.getElementById('swal-subj-id').value.trim().toUpperCase();
+                        const year = document.getElementById('swal-subj-year').value.trim();
+                        const name = document.getElementById('swal-subj-name').value.trim();
+
+                        if (!id || !name) {
+                            Swal.showValidationMessage('กรุณากรอกรหัสวิชาและชื่อวิชาให้ครบ');
+                            return false;
+                        }
+
+                        // ตรวจสอบว่า SubjectID ซ้ำหรือไม่
+                        const exists = globalData.structure.some(s => s.SubjectID.toUpperCase() === id);
+                        if (exists) {
+                            Swal.showValidationMessage(`รหัสวิชา ${id} มีอยู่แล้วในระบบ`);
+                            return false;
+                        }
+
+                        return {
+                            SubjectID: id,
+                            Year: year || '0', // ให้ค่าเริ่มต้นเป็น '0' ถ้าไม่มีการระบุ
+                            SubjectName: name
+                        };
+                    }
+                });
+
+                if (subjForm) {
                     payload.action = 'addSubject';
                     payload.data = subjForm;
                 }
                 break;
 
             case 'editSubj':
-                // ... (Edit Subject Logic) ...
+                // id1 คือ SubjectID
                 const subj = globalData.structure.find(s => s.SubjectID === id1);
-                const { value: editSubjForm } = await Swal.fire({ /* ... */ });
+                if (!subj) {
+                    Swal.fire('Error', `ไม่พบวิชา ${id1} ในโครงสร้าง`, 'error');
+                    return;
+                }
+
+                const { value: editSubjForm } = await Swal.fire({
+                    title: `แก้ไขวิชา ${id1}`,
+                    html: `
+                        <div class="text-start">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold small text-primary">
+                                    <i class="fas fa-code me-1"></i>รหัสวิชา (Subject ID)
+                                </label>
+                                <input id="swal-subj-id" class="form-control form-control-sm bg-light" readonly value="${subj.SubjectID}" style="border: 1px solid #dee2e6; border-radius: 6px;">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label fw-bold small text-primary">
+                                    <i class="fas fa-calendar-alt me-1"></i>ชั้นปี (Year)
+                                </label>
+                                <input id="swal-subj-year" type="number" class="form-control form-control-sm" placeholder="เช่น 1, 2, 3" value="${subj.Year || ''}" style="border: 1px solid #ced4da; border-radius: 6px; padding: 0.5rem;">
+                            </div>
+                            
+                            <div class="mb-2">
+                                <label class="form-label fw-bold small text-primary">
+                                    <i class="fas fa-book me-1"></i>ชื่อวิชา (Subject Name)
+                                </label>
+                                <input id="swal-subj-name" class="form-control form-control-sm" placeholder="ชื่อวิชาเต็ม" value="${subj.SubjectName || ''}" style="border: 1px solid #ced4da; border-radius: 6px; padding: 0.5rem;">
+                            </div>
+                        </div>
+                    `,
+                    focusConfirm: false,
+                    showCancelButton: true,
+                    confirmButtonText: 'บันทึกการแก้ไข',
+                    preConfirm: () => {
+                        const year = document.getElementById('swal-subj-year').value;
+                        const name = document.getElementById('swal-subj-name').value.trim();
+
+                        if (!name) {
+                            Swal.showValidationMessage('กรุณากรอกชื่อวิชา');
+                            return false;
+                        }
+
+                        return {
+                            SubjectID: id1,
+                            Year: year,
+                            SubjectName: name
+                        };
+                    }
+                });
+
                 if (editSubjForm) {
                     payload.action = 'updateSubject';
                     payload.data = editSubjForm;
@@ -3754,7 +4009,6 @@
                 break;
 
             case 'editGroup':
-                // ******* NEW: Edit Accordion Group Logic *******
                 const { value: newGroupName } = await Swal.fire({
                     title: `เปลี่ยนชื่อกลุ่ม "${id2}" ในวิชา ${id1}`,
                     input: 'text',
@@ -3772,7 +4026,6 @@
                     };
                 }
                 break;
-            // ******* END NEW *******
 
             case 'deleteGroup':
                 // ... (Delete Group Logic - unchanged) ...
@@ -3784,7 +4037,7 @@
 
             // ... (Category CRUD Logic - unchanged) ...
             case 'addCat':
-                // ... (Add Category Logic) ...
+                openAddCategoryModal(id1, id2);
                 break;
 
             case 'deleteCat':
@@ -3798,7 +4051,13 @@
             case 'editCat':
                 // ... (Edit Category Logic) ...
                 const cat = globalData.category.find(c => c.CategoryID === id1);
-                const { value: catEdit } = await Swal.fire({ /* ... */ });
+                const { value: catEdit } =  await Swal.fire({
+                    title: 'แก้ไขหัวข้อ ' + id1,
+                    input: 'text',
+                    inputValue: cat ? cat.CategoryName : '',
+                    inputPlaceholder: 'Display Name',
+                    showCancelButton: true
+                });
                 if (catEdit) {
                     payload.action = 'updateCategory';
                     payload.data = { CategoryID: id1, CategoryName: catEdit };
@@ -3876,15 +4135,27 @@
         // ... (จบโค้ด generateCategoryIDPreview เดิม) ...
     }
 
-    function openAddCategoryModal() {
-        // ... (โค้ด openAddCategoryModal เดิม) ...
-        const subjects = [...new Set(globalData.structure.map(s => s.SubjectID))];
-        let opts = '<option value="">-- Select Subject --</option>';
-        subjects.forEach(s => opts += `<option value="${s}">${s}</option>`);
-        $('#new-category-subject').html(opts);
-        $('#addCategoryModal').modal('show');
-        // ... (จบโค้ด openAddCategoryModal เดิม) ...
-    }
+    function openAddCategoryModal(subjectId = null, groupName = null) {
+            const subjects = [...new Set(globalData.structure.map(s => s.SubjectID))];
+            let opts = '<option value="">-- Select Subject --</option>';
+            // ใช้ template literal เพื่อตรวจสอบและตั้งค่า 'selected'
+            subjects.forEach(s => opts += `<option value="${s}" ${subjectId === s ? 'selected' : ''}>${s}</option>`);
+
+            $('#new-category-subject').html(opts);
+
+            // ตั้งค่า Group และ Name (Name จะถูกเคลียร์เสมอ)
+            $('#new-category-group').val(groupName || '');
+            $('#new-category-name').val('');
+            $('#new-category-id').val('');
+            $('#category-id-error').text('');
+
+            // ถ้ามีการ Pre-fill Subject ให้ลอง Generate ID ทันที
+            if (subjectId) {
+                generateCategoryIDPreview();
+            }
+
+            $('#addCategoryModal').modal('show');
+        }
 
 
     // ====================================================================
