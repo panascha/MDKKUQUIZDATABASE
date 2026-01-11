@@ -45,6 +45,10 @@
             /* สำหรับ Vote Modal */
             --color-dark: #5a5c69;
             /* สำหรับ Vote Modal */
+                --sidebar-bg: linear-gradient(180deg, #1a2a6c 0%, #2a4858 100%);
+    --sidebar-width: 270px;
+    --transition-speed: 0.3s;
+    --item-radius: 12px;
         }
 
         body {
@@ -55,9 +59,9 @@
             width: 100%;
         }
 
-        .hidden {
-            display: none;
-        }
+         .hidden {
+        display: none !important;
+    }
 
         .admin-only {
             display: none;
@@ -67,16 +71,17 @@
         /* 4.2 Sidebar Styles */
         /* -------------------------------------------------------------------- */
         #sidebar-wrapper {
-            min-height: 100vh;
-            margin-left: var(--sidebar-hidden-margin);
-            transition: margin .25s ease-out;
-            background: linear-gradient(180deg, #4e73df 10%, #224abe 100%);
-            width: var(--sidebar-width);
-            position: fixed;
-            z-index: 1050;
-            /* เพิ่ม z-index ให้สูงกว่าปกติ */
-            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
-        }
+    min-height: 100vh;
+    width: var(--sidebar-width);
+    position: fixed;
+    z-index: 1050;
+    margin-left: calc(-1 * var(--sidebar-width));
+    transition: all var(--transition-speed) cubic-bezier(0.4, 0, 0.2, 1);
+    background: var(--sidebar-bg);
+    box-shadow: 4px 0 15px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+}
 
         /* Mobile: Sidebar เปิดเมื่อมี class 'toggled' (เดิมถูกซ่อน) */
         #wrapper.toggled #sidebar-wrapper {
@@ -98,29 +103,30 @@
             }
         }
 
-        #sidebar-wrapper .sidebar-heading {
-            padding: 1.5rem 1.25rem;
-            font-size: 1.2rem;
-            /* ปรับลดขนาดเล็กน้อยให้พอดีมือถือ */
-            font-weight: 700;
-            color: white;
-            text-align: center;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.15);
-            position: relative;
-            white-space: nowrap;
-            overflow: hidden;
-        }
-
+#sidebar-wrapper .sidebar-heading {
+    padding: 0.8rem 0.5rem;
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
         /* Style สำหรับปุ่มปิด Sidebar บนมือถือ */
         #sidebar-close-btn {
             position: absolute;
+            top: 15px;
             right: 15px;
-            top: 50%;
-            transform: translateY(-50%);
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
             color: white;
-            font-size: 1.25rem;
+            font-size: 1.5rem;
+            padding: 5px 10px;
+            border-radius: 5px;
             cursor: pointer;
-            text-decoration: none;
             opacity: 0.7;
             transition: opacity 0.2s;
         }
@@ -148,6 +154,13 @@
             padding: 1rem 1.5rem;
             font-weight: 500;
             transition: all 0.2s;
+            border-radius: var(--item-radius);
+            display: flex;
+            align-items: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+
         }
 
         #sidebar-wrapper .list-group-item:hover {
@@ -228,6 +241,42 @@
             max-width: 180px;
         }
 
+        /* เพิ่มในส่วน 4.3 Page Content & Topbar Styles */
+        #topbar-avatar {
+        object-fit: cover;
+        cursor: pointer;
+        border: 2px solid #eee;
+        transition: transform 0.2s;
+    }
+    #topbar-avatar:hover {
+        transform: scale(1.1);
+        border-color: var(--primary-color);
+    }
+        .topbar-profile-actions {
+    margin-right: 15px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    color: var(--dark-text);
+}
+.topbar-profile-actions:hover {
+    color: var(--primary-color);
+}
+
+/* เพิ่มในส่วน 4.8 Data Tables & Responsive Table Styles */
+/* DEV Role Check Styling */
+.developer-only {
+    display: none; 
+}
+/* New Form/Modal enhancements */
+.form-label.small {
+    font-size: 0.85rem;
+    margin-bottom: 0.2rem;
+}
+.form-control:focus:invalid {
+    border-color: #e74a3b;
+    box-shadow: 0 0 0 0.25rem rgba(231, 74, 59, 0.25);
+}
+
         @media (min-width: 576px) {
             #page-title {
                 font-size: 1.5rem;
@@ -238,6 +287,7 @@
                 padding: 0 1.5rem;
             }
         }
+
 
         /* -------------------------------------------------------------------- */
         /* 4.4 Modal Styles (General) */
@@ -1286,6 +1336,66 @@
                 text-align: center;
             }
         }
+
+        /* Custom Form Styles */
+.form-floating-custom > label {
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+.form-floating-custom > .form-control:focus ~ label {
+    color: var(--primary-color);
+}
+.avatar-upload-box {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background-color: #f1f3f9;
+    border: 2px dashed #d1d3e2;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    overflow: hidden;
+    margin: 0 auto 15px;
+    position: relative;
+    transition: all 0.2s;
+}
+.avatar-upload-box:hover {
+    border-color: var(--primary-color);
+    background-color: #eaecf4;
+}
+.avatar-upload-box img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.avatar-upload-box i {
+    font-size: 2rem;
+    color: #b7b9cc;
+}
+.hidden-file-input {
+    display: none;
+}
+/* Auth Buttons in Topbar */
+.auth-buttons-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.modal-header-auth {
+    background: linear-gradient(135deg, #4e73df 0%, #224abe 100%);
+    color: white;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    padding: 1.5rem;
+    text-align: center;
+}
+.modal-auth-content {
+    border: none;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
     </style>
 </head>
 
@@ -1329,8 +1439,12 @@
                 <a href="#" class="list-group-item list-group-item-action" onclick="showSection('converter')">
                     <i class="fas fa-file-code"></i> Converter Tool
                 </a>
-                <a href="#" class="list-group-item list-group-item-action" onclick="showSection('logs')">
+                <a href="#" class="list-group-item list-group-item-action developer-only" onclick="showSection('logs')">
                     <i class="fas fa-list-ul"></i> Activity Logs
+                </a>
+
+                <a href="#" class="list-group-item list-group-item-action developer-only" onclick="showSection('admin-manager')">
+                    <i class="fas fa-users-cog"></i> Manage Admins
                 </a>
             </div>
         </div>
@@ -1338,9 +1452,9 @@
         <div
             style="position: absolute; bottom: 20px; width: 100%; text-align: center; color: rgba(255,255,255,0.6); font-size: 0.9rem;">
             <div id="user-status-display">Guest User</div>
-            <button id="btn-sidebar-login" class="btn btn-sm btn-outline-light mt-2" onclick="toggleLogin()">
+            <!-- <button id="btn-sidebar-login" class="btn btn-sm btn-outline-light mt-2" onclick="toggleLogin()">
                 <i class="fas fa-sign-in-alt"></i> Admin Login
-            </button>
+            </button> -->
         </div>
     </div>
     <!-- /#sidebar-wrapper -->
@@ -1352,19 +1466,29 @@
 
         <!-- 2.1 Topbar -->
         <nav class="topbar mb-4 static-top">
-            <!-- ปุ่มสำหรับ Toggle Sidebar -->
             <button class="btn btn-link rounded-circle me-3" id="menu-toggle">
                 <i class="fa fa-bars text-secondary"></i>
             </button>
             <h4 class="m-0 font-weight-bold text-primary" id="page-title">Dashboard</h4>
-            <div class="d-flex align-items-center">
-                <span class="mr-2 d-none d-lg-inline text-gray-600 small me-2" id="topbar-user">Guest</span>
-                <div class="topbar-divider d-none d-sm-block"></div>
-
-                <!-- Avatar -->
-                <img id="topbar-avatar" class="img-profile rounded-circle"
-                    style="width: 32px; height: 32px; background-color: #ccc;"
-                    src="https://api.dicebear.com/7.x/avataaars/svg?seed=Guest">
+        
+            <!-- AUTH SECTION (RIGHT SIDE) -->
+            <div class="d-flex align-items-center ms-auto"> <!-- ms-auto pushes to right -->
+                <div id="auth-guest-view" class="auth-buttons-container">
+                    <button class="btn btn-outline-primary btn-sm rounded-pill px-3" onclick="openLoginModal()">
+                        <i class="fas fa-sign-in-alt me-1"></i> Login
+                    </button>
+                    <button class="btn btn-primary btn-sm rounded-pill px-3" onclick="openRegisterModal()">
+                        <i class="fas fa-user-plus me-1"></i> Register
+                    </button>
+                </div>
+        
+                <div id="auth-user-view" class="align-items-center hidden">
+                    <span class="mr-2 d-none d-lg-inline text-gray-600 small me-2" id="topbar-user">Guest</span>
+                    <img id="topbar-avatar" class="img-profile rounded-circle me-2" style="width: 32px; height: 32px;" src="">
+                    <button class="btn btn-sm btn-light text-danger rounded-circle" onclick="logoutAdmin()" title="Logout">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </button>
+                </div>
             </div>
         </nav>
 
@@ -1861,6 +1985,32 @@
                     </div>
                 </div>
             </div>
+
+            <!-- SECTION: Admin Management (Developer Only) -->
+            <div id="sec-admin-manager" class="content-section hidden">
+                <div class="card card-dashboard">
+                    <div class="card-header-custom bg-dark text-white">
+                        <span><i class="fas fa-user-shield me-2"></i> User Management (Developer Power)</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table id="adminUserTable" class="table table-hover table-bordered" style="width:100%">
+                                <thead>
+                                    <tr>
+                                        <th>Avatar</th>
+                                        <th>Username</th>
+                                        <th>Full Name</th>
+                                        <th>Role</th>
+                                        <th>KKUMail</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="admin-user-list"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div> <!-- /container-fluid -->
     </div> <!-- /#page-content-wrapper -->
 </div> <!-- /#wrapper -->
@@ -1868,6 +2018,229 @@
 <!-- ==================================================================== -->
 <!-- 3. MODALS -->
 <!-- ==================================================================== -->
+
+<!-- Modal: Edit Profile (สำหรับผู้ใช้ที่ login) -->
+<div class="modal fade" id="editProfileModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="fas fa-user-edit"></i> แก้ไขข้อมูลส่วนตัว</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+                        <div class="modal-body">
+                            <div class="text-center mb-3">
+                                <div class="avatar-upload-box mx-auto" onclick="$('#edit-avatar-input').click()"
+                                    style="width: 100px; height: 100px;">
+                                    <img id="edit-avatar-preview" src=""
+                                        style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+                                    <div class="overlay-icon"><i class="fas fa-camera"></i></div>
+                                </div>
+                                <input type="file" id="edit-avatar-input" class="d-none" accept="image/*" onchange="previewEditAvatar(this)">
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-md-4">
+                                    <label class="small fw-bold">คำนำหน้า</label>
+                                    <input type="text" id="ep-prefix" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="small fw-bold">ชื่อจริง-นามสกุล</label>
+                                    <input type="text" id="ep-fullname" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="small fw-bold">Display Name</label>
+                                    <input type="text" id="ep-displayname" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="small fw-bold">ชั้นปี</label>
+                                    <input type="number" id="ep-year" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-12">
+                                    <label class="small fw-bold">Contact</label>
+                                    <input type="text" id="ep-contact" class="form-control form-control-sm">
+                                </div>
+                            </div>
+                                            <hr>
+                                            <!-- เพิ่มปุ่มเปลี่ยนรหัสตรงนี้ -->
+                                            <div class="text-center">
+                                                <button type="button" class="btn btn-outline-warning btn-sm w-100" onclick="openResetFromProfile()">
+                                                    <i class="fas fa-key me-1"></i> เปลี่ยนรหัสผ่าน (Change Password)
+                                                </button>
+                                            </div>
+                        </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-primary w-100"
+                    onclick="updateUserProfile()">บันทึกการเปลี่ยนแปลง</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Login -->
+<div class="modal fade" id="loginModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content modal-auth-content">
+            <div class="modal-header-auth">
+                <h5 class="m-0 fw-bold"><i class="fas fa-user-lock"></i> Admin Login</h5>
+            </div>
+            <div class="modal-body p-4">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Username</label>
+                    <input type="text" id="login-username" class="form-control" placeholder="Enter username">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Password</label>
+                    <input type="password" id="login-password" class="form-control" placeholder="Enter password">
+                </div>
+                <button class="btn btn-primary w-100 mb-2" onclick="performLogin()">Login</button>
+                <div class="text-center">
+                    <a href="#" class="small text-muted text-decoration-none" onclick="openResetModal()">ลืมรหัสผ่าน /
+                        เปลี่ยนรหัสผ่าน?</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Register -->
+<div class="modal fade" id="registerModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content modal-auth-content">
+            <div class="modal-header-auth bg-success">
+                <h5 class="m-0 fw-bold"><i class="fas fa-user-plus"></i> สมัครสมาชิก Admin ใหม่</h5>
+                <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3"
+                    data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form id="registerForm">
+                    <div class="row">
+                        <!-- Avatar Column -->
+                        <div class="col-md-3 text-center border-end">
+                            <label class="form-label fw-bold text-primary">รูปโปรไฟล์</label>
+                            <div class="avatar-upload-box" onclick="$('#reg-avatar-input').click()">
+                                <img id="reg-avatar-preview" class="hidden">
+                                <i id="reg-avatar-icon" class="fas fa-camera"></i>
+                            </div>
+                            <input type="file" id="reg-avatar-input" class="hidden-file-input" accept="image/*"
+                                onchange="previewAvatar(this)">
+                            <small class="text-muted d-block" style="font-size: 0.75rem;">คลิกเพื่ออัปโหลด<br>(แนะนำ
+                                1:1)</small>
+                        </div>
+
+                        <!-- Info Column -->
+                        <div class="col-md-9 ps-md-4">
+                            <h6 class="text-primary fw-bold mb-3 border-bottom pb-2">ข้อมูลส่วนตัว & ยืนยันตัวตน</h6>
+                            <div class="row g-2 mb-2">
+                                <div class="col-md-2">
+                                    <label class="small fw-bold">คำนำหน้า</label>
+                                    <select class="form-select form-select-sm" id="reg-prefix">
+                                        <option value="นาย">นาย</option>
+                                        <option value="นางสาว">นางสาว</option>
+                                        <option value="นาง">นาง</option>
+                                        <option value="นพ.">นพ.</option>
+                                        <option value="พญ.">พญ.</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-5">
+                                    <label class="small fw-bold">ชื่อ-นามสกุล (ไทย)</label>
+                                    <input type="text" class="form-control form-control-sm" id="reg-fullname" required>
+                                </div>
+                                <div class="col-md-5">
+                                    <label class="small fw-bold">ชื่อแสดง (Display Name)</label>
+                                    <input type="text" class="form-control form-control-sm" id="reg-displayname"
+                                        required placeholder="ชื่อที่จะโชว์ในเว็บ">
+                                </div>
+                            </div>
+
+                            <div class="row g-2 mb-2">
+                                <div class="col-md-4">
+                                    <label class="small fw-bold">รหัสนักศึกษา (123456789-0)</label>
+                                    <input type="text" class="form-control form-control-sm" id="reg-studentid"
+                                        placeholder="xx-xxxxxxx-x" required>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="small fw-bold">ชั้นปี</label>
+                                    <input type="number" class="form-control form-control-sm" id="reg-year" min="1"
+                                        max="6">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="small fw-bold">KKU Mail (@kkumail.com)</label>
+                                    <input type="email" class="form-control form-control-sm" id="reg-kkumail" required>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="small fw-bold">ช่องทางติดต่อ (Line ID / FB / Tel)</label>
+                                <input type="text" class="form-control form-control-sm" id="reg-contact">
+                            </div>
+
+                            <h6 class="text-primary fw-bold mb-3 border-bottom pb-2 mt-4">ตั้งค่าบัญชี</h6>
+                            <div class="row g-2">
+                                <div class="col-md-6">
+                                    <label class="small fw-bold">Username</label>
+                                    <input type="text" class="form-control form-control-sm" id="reg-username" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="small fw-bold">Password</label>
+                                    <input type="password" class="form-control form-control-sm" id="reg-password"
+                                        required>
+                                </div>
+                            </div>
+
+                            <!-- Hidden Role (Default Admin) -->
+                            <input type="hidden" id="reg-role" value="Admin">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                <button type="button" class="btn btn-success px-4" onclick="submitRegister()">
+                    <i class="fas fa-check-circle me-1"></i> ยืนยันการสมัคร
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Reset Password -->
+<div class="modal fade" id="resetModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content modal-auth-content">
+            <div class="modal-header-auth bg-warning text-dark">
+                <h5 class="m-0 fw-bold"><i class="fas fa-key"></i> เปลี่ยนรหัสผ่าน / ลืมรหัสผ่าน</h5>
+                <button type="button" class="btn-close position-absolute top-0 end-0 m-3"
+                    data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="alert alert-info small">
+                    <i class="fas fa-info-circle"></i> กรุณากรอกข้อมูลให้ตรงกับที่ลงทะเบียนไว้เพื่อยืนยันตัวตน
+                </div>
+                <div class="mb-2">
+                    <label class="small fw-bold">Username</label>
+                    <input type="text" class="form-control form-control-sm" id="reset-username">
+                </div>
+                <div class="mb-2">
+                    <label class="small fw-bold">KKU Mail</label>
+                    <input type="email" class="form-control form-control-sm" id="reset-kkumail">
+                </div>
+                <div class="mb-2">
+                    <label class="small fw-bold">รหัสนักศึกษา</label>
+                    <input type="text" class="form-control form-control-sm" id="reset-studentid">
+                </div>
+                <div class="mb-2">
+                    <label class="small fw-bold">ชื่อ-นามสกุล (ไทย)</label>
+                    <input type="text" class="form-control form-control-sm" id="reset-fullname">
+                </div>
+                <hr>
+                <div class="mb-3">
+                    <label class="small fw-bold text-success">รหัสผ่านใหม่ที่ต้องการ</label>
+                    <input type="password" class="form-control" id="reset-newpass">
+                </div>
+                <button class="btn btn-warning w-100 fw-bold" onclick="submitResetPassword()">เปลี่ยนรหัสผ่าน</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- Modal: Question Detail -->
 <div class="modal fade" id="questionDetailModal" tabindex="-1">
@@ -2194,7 +2567,7 @@
     // ====================================================================
     // 1. GLOBAL CONFIGURATION & VARIABLES
     // ====================================================================
-    const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwEkjr2qlDsy6JGj_P0BbLSooRpP-ffJ8LDhcUtAAnfXHKltnmVT_QI8nSlpsgGIa5b/exec';
+    const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz2HFB9DfXnHMbGUOTvAS828c36QskJWjSLGkn2hBIJf7j1rrn4hQ5v_x4nvY9fZ0RJ/exec';
 
     let globalData = {
         questions: [],
@@ -2204,7 +2577,7 @@
         votes: [],
         logs: []
     };
-    let currentUser = { displayName: 'Guest', avatar: '', username: '' };
+    let currentUser = { displayName: 'Guest', avatar: '', username: '', role: '' };
     let isAdmin = false;
     let adminPass = ''; // สำหรับเก็บรหัสผ่านที่ Hashed เพื่อส่งต่อใน Admin Actions
     let current_question = {}; // Global variable to hold data of the currently viewed question
@@ -2214,6 +2587,11 @@
     let isMouseDown = false;
     let startCell = null;
 
+    let isLoggedIn = false;
+    let sectionId = null;
+    let sectionName = null;
+    let regAvatarBase64 = null;
+        let regAvatarMimeType = null; 
     // ====================================================================
     // 2. INITIALIZATION (jQuery Ready & Core UI Bindings)
     // ====================================================================
@@ -2410,7 +2788,7 @@
         // --- 2.5 Initial Data & Table Setup ---
         initPublicTable();
         initAdminTable();
-        initStructureTables();
+        //initStructureTables();
         setupConverterMultiEdit();
 
         fetchData();
@@ -4312,6 +4690,453 @@
     // 10. ADMIN & GENERAL UTILITIES
     // ====================================================================
 
+        const transformUrl = (url) => {
+                // ... (โค้ด transformUrl เดิม) ...
+                if (!url) return "";
+                const match = url.match(/\/d\/(.*?)\//) || url.match(/id=([^&]+)/);
+                return (match && match[1]) ? `https://lh3.googleusercontent.com/d/${match[1]}?authuser=1=w1000-h1000` : url;
+                // ... (จบโค้ด transformUrl เดิม) ...
+            };
+
+            function openResetFromProfile() {
+                    $('#editProfileModal').modal('hide'); // ปิดหน้าโปรไฟล์
+
+                    // ตั้งค่าข้อมูลเบื้องต้นในหน้า Reset ให้ (ถ้ามี)
+                    $('#reset-username').val(currentUser.username);
+                    $('#reset-kkumail').val(currentUser.kkumail || '');
+
+                    $('#resetModal').modal('show'); // เปิดหน้าเปลี่ยนรหัส
+                }
+    // 1. ฟังก์ชันเปิด Modal แก้ไขโปรไฟล์ และดึงข้อมูลเดิมมาใส่
+    function openEditProfile() {
+        if (!currentUser.username) return;
+
+        $('#ep-prefix').val(currentUser.prefix || '');
+        $('#ep-fullname').val(currentUser.fullName || '');
+        $('#ep-displayname').val(currentUser.displayName || '');
+        $('#ep-year').val(currentUser.year || '');
+        $('#ep-contact').val(currentUser.contact || '');
+        $('#edit-avatar-preview').attr('src', currentUser.avatar);
+        $('#editProfileModal').modal('show');
+    }
+
+        // 2. ฟังก์ชันอัปเดตโปรไฟล์
+        async function updateUserProfile() {
+            // ตรวจสอบรูปภาพ: ถ้า currentUser.avatar เป็น Base64 (จากการเลือกไฟล์ใหม่) ให้ส่งไป
+            let avatarBase64 = null;
+            if (currentUser.avatar && currentUser.avatar.startsWith('data:image')) {
+            avatarBase64 = currentUser.avatar;
+            }
+
+            const updateData = {
+            prefix: $('#ep-prefix').val(),
+            fullName: $('#ep-fullname').val(),
+            displayName: $('#ep-displayname').val(),
+            year: $('#ep-year').val(),
+            contact: $('#ep-contact').val(),
+            AvatarBase64: avatarBase64 // ส่งค่า Base64 เพื่อให้ Backend อัปโหลดลง Drive
+            };
+
+            $('#loading-overlay').css('display', 'flex');
+            try {
+            const response = await fetch(APPSCRIPT_URL, {
+                method: 'POST',
+                redirect: "follow",
+                headers: { "Content-Type": "text/plain" },
+                body: JSON.stringify({
+                action: 'updateAdminProfile',
+                targetUsername: currentUser.username,
+                updateData: updateData
+                })
+            });
+            
+            const res = await response.json();
+            
+            if (res.result === 'success') {
+                // อัปเดต Display Name ฝั่ง Client ทันทีเพื่อ UX ที่ดี
+                currentUser.displayName = updateData.displayName;
+
+                Swal.fire('สำเร็จ', 'อัปเดตข้อมูลโปรไฟล์เรียบร้อยแล้ว', 'success');
+                $('#editProfileModal').modal('hide');
+                await fetchData(); // โหลดข้อมูลใหม่ (เพื่อให้ได้ URL รูปจริงจาก Drive)
+            } else {
+                Swal.fire('Error', res.message || 'ไม่สามารถอัปเดตข้อมูลได้', 'error');
+            }
+            } catch (error) {
+            console.error(error);
+            Swal.fire('Error', 'Server Connection Error: ' + error.message, 'error');
+            } finally {
+            $('#loading-overlay').hide();
+            }
+        }
+
+        // 3. ปรับปรุง UI เมื่อล็อกอิน (เพิ่มคลิกที่ชื่อ/รูปเพื่อแก้โปรไฟล์)
+        /* แก้ไขใน function updateAuthUI(isLoggedIn) */
+        if (isLoggedIn) {
+            // ... โค้ดเดิม ...
+            $('#topbar-user, #topbar-avatar').on('click', openEditProfile);
+            $('#topbar-user').css('cursor', 'pointer').attr('title', 'คลิกเพื่อแก้ไขโปรไฟล์');
+
+            // ถ้าเป็น Dev ให้โชว์เมนูจัดการ User
+            if (currentUser.role === 'DEVELOPER') {
+                $('.developer-only').show();
+                $('[onclick="showSection(\'admin-manager\')"]').show(); // เพิ่มปุ่มใน sidebar ด้วย
+            }
+        }
+
+        // 4. ฟังก์ชันจัดการ Admin สำหรับ Developer
+        async function loadAdminManager() {
+            $('#admin-user-list').html('<tr><td colspan="6" class="text-center">กำลังโหลด...</td></tr>');
+            const response = await fetch(`${APPSCRIPT_URL}?action=getAllData`); // หรือสร้าง action แยก
+            const data = await response.json();
+            const admins = data.admins || []; // ต้องแน่ใจว่า backend ส่ง admins มาใน getAllData
+
+            let html = '';
+            admins.forEach(u => {
+                html += `
+        <tr>
+            <td><img src="${u.AvatarURL}" width="30" class="rounded-circle"></td>
+            <td>${u.Username}</td>
+            <td>${u.FullName}</td>
+            <td><span class="badge ${u.Role === 'DEVELOPER' ? 'bg-danger' : 'bg-primary'}">${u.Role}</span></td>
+            <td>${u.KKUMail}</td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary" onclick="devEditUser('${u.Username}')"><i class="fas fa-edit"></i></button>
+            </td>
+        </tr>`;
+            });
+            $('#admin-user-list').html(html);
+        }
+
+        if (sectionId === 'admin-manager') {
+            if (currentUser.role !== 'DEVELOPER') {
+                Swal.fire('Access Denied', 'คุณไม่มีสิทธิ์เข้าถึงหน้านี้', 'error');
+                showSection('dashboard');
+            }
+            loadAdminManager();
+        }
+
+        function openRegisterModal() {
+            Swal.close(); // ปิด Modal Login
+            $('#registerModal').modal('show');
+            $('#registerForm').removeClass('was-validated');
+        }
+
+    function validateRegistrationForm() {
+        const kkumail = $('#reg-kkumail').val() ? $('#reg-kkumail').val().trim() : "";
+        const studentId = $('#reg-studentid').val() ? $('#reg-studentid').val().trim() : ""; // แก้จาก reg-student-id เป็น reg-studentid
+        const $form = $('#registerForm');
+        let isValid = true;
+
+        $form.find('input, select').removeClass('is-invalid');
+
+        // 1. KKUMail validation
+        const kkuMailRegex = /@kkumail\.com$|@kku\.ac\.th$/i;
+        if (!kkuMailRegex.test(kkumail)) {
+            $('#reg-kkumail').addClass('is-invalid');
+            isValid = false;
+        }
+
+        // 2. StudentID validation (Format: 123456789-0)
+        const studentIdRegex = /^\d{9}-\d$/;
+        if (!studentIdRegex.test(studentId)) {
+            $('#reg-studentid').addClass('is-invalid');
+            isValid = false;
+        }
+
+        // 3. HTML5 required check
+        $form.find('[required]').each(function () {
+            if (!$(this).val()) {
+                $(this).addClass('is-invalid');
+                isValid = false;
+            }
+        });
+
+        if (isValid) {
+            $form.addClass('was-validated');
+        } else {
+            $form.removeClass('was-validated');
+        }
+
+        return isValid;
+    }
+
+        // ====================================================================
+        // PASSWORD CHANGE LOGIC
+        // ====================================================================
+
+        // --- Auth Modal Control ---
+            function openLoginModal() {
+                $('#loginModal').modal('show');
+            }
+            function openRegisterModal() {
+                $('#registerModal').modal('show');
+            }
+            function openResetModal() {
+                $('#loginModal').modal('hide');
+                $('#resetModal').modal('show');
+            }
+
+    // --- Image Preview & Base64 Conversion ---
+
+    function previewEditAvatar(input) {
+        if (input.files && input.files[0]) {
+            var file = input.files[0];
+            if (file.size > 500 * 1024) { // 500KB limit
+                Swal.fire('Error', 'ขนาดรูปภาพต้องไม่เกิน 500KB', 'error');
+                input.value = ""; // Clear selection
+                return;
+            }
+
+            var reader = new FileReader();
+            reader.onload = function (e) {
+                $('#edit-avatar-preview').attr('src', e.target.result).removeClass('hidden');
+                $('#edit-avatar-icon').addClass('hidden');
+                currentUser.avatar = e.target.result; // Update currentUser avatar
+            }
+            reader.readAsDataURL(file);
+        }
+    }
+    
+    function previewAvatar(input) {
+        if (input.files && input.files[0]) {
+            var file = input.files[0];
+            if (file.size > 500 * 1024) { // 500KB limit (ควรตรวจสอบใน submitRegister ด้วย)
+                Swal.fire('Error', 'ขนาดรูปภาพต้องไม่เกิน 500KB', 'error');
+                input.value = ""; // Clear selection
+                return;
+            }
+
+            var reader = new FileReader();
+            reader.onload = function (e) {
+                $('#reg-avatar-preview').attr('src', e.target.result).removeClass('hidden');
+                $('#reg-avatar-icon').addClass('hidden');
+                regAvatarBase64 = e.target.result; // Store base64 string
+                regAvatarMimeType = file.type; // Store MIME type
+            }
+            reader.readAsDataURL(file);
+        } else {
+            regAvatarBase64 = null;
+            regAvatarMimeType = null;
+        }
+    }
+        // --- Register Logic ---
+            async function submitRegister() {
+                // 1. Validate Input
+                const kkumail = $('#reg-kkumail').val().trim();
+                const studentId = $('#reg-studentid').val().trim();
+                const password = $('#reg-password').val();
+                const username = $('#reg-username').val().trim();
+
+                // Regex Check
+                const emailRegex = /@(kkumail\.com|kku\.ac\.th)$/;
+                const studentIdRegex = /^\d{9}-\d{1}$/;
+
+                if (!emailRegex.test(kkumail)) {
+                    Swal.fire('Error', 'อีเมลต้องลงท้ายด้วย @kkumail.com หรือ @kku.ac.th', 'error');
+                    return;
+                }
+                if (!studentIdRegex.test(studentId)) {
+                    Swal.fire('Error', 'รหัสนักศึกษาไม่ถูกต้อง (Format: 123456789-0)', 'error');
+                    return;
+                }
+                if (username.length < 4 || password.length < 4) {
+                    Swal.fire('Error', 'Username และ Password ต้องมีความยาวอย่างน้อย 4 ตัวอักษร', 'error');
+                    return;
+                }
+
+                if (!validateRegistrationForm()) {
+                    Swal.fire('Error', 'กรุณากรอกข้อมูลให้ถูกต้องและครบถ้วน', 'error');
+                    return;
+                }
+
+                const fileInput = document.getElementById('reg-avatar-input'); // แก้ไขจาก reg-avatar-file เป็น reg-avatar-input
+                if (fileInput && fileInput.files.length > 0) {
+                    if (fileInput.files[0].size > 500 * 1024) {
+                        Swal.fire('Error', 'ขนาดรูปภาพต้องไม่เกิน 500KB', 'error');
+                        return;
+                    }
+                }
+
+                const avatarBase64 = regAvatarBase64;
+                const avatarMimeType = regAvatarMimeType;
+
+                // 2. Prepare Data
+                const userData = {
+                    Username: username,
+                    Password: password,
+                    DisplayName: $('#reg-displayname').val().trim(),
+                    Prefix: $('#reg-prefix').val(),
+                    FullName: $('#reg-fullname').val().trim(),
+                    StudentID: studentId,
+                    Year: $('#reg-year').val(),
+                    KKUMail: kkumail,
+                    Contact: $('#reg-contact').val().trim(),
+                    Role: $('#reg-role').val(),
+                    AvatarBase64: avatarBase64 // Send image data
+                };
+
+                // 3. Send to Server
+                $('#registerModal').modal('hide');
+                $('#loading-overlay').css('display', 'flex');
+                try {
+                    const response = await fetch(APPSCRIPT_URL, {
+                        method: 'POST',
+                        redirect: "follow",
+                        headers: { "Content-Type": "text/plain" },
+                        body: JSON.stringify({
+                            action: 'registerAdmin',
+                            userData: userData
+                        })
+                    });
+                    const data = await response.json();
+
+                    if (data.result === 'success') {
+                        Swal.fire('ลงทะเบียนสำเร็จ!', 'ยินดีต้อนรับ Admin ใหม่', 'success');
+                        fetchData();
+                    } else {
+                        Swal.fire('Error', data.message || 'เกิดข้อผิดพลาดในการลงทะเบียน', 'error');
+                    }
+                } catch (e) {
+                    Swal.fire('Error', 'Server Error: ' + e.message, 'error');
+                } finally {
+                    $('#loading-overlay').hide().find('h5').text('กำลังเชื่อมต่อฐานข้อมูล...');
+                }
+            }
+
+            // --- Reset Password Logic ---
+            async function submitResetPassword() {
+                const data = {
+                    verifyData: {
+                        Username: $('#reset-username').val().trim(),
+                        KKUMail: $('#reset-kkumail').val().trim(),
+                        StudentID: $('#reset-studentid').val().trim(),
+                        FullName: $('#reset-fullname').val().trim()
+                    },
+                    newPassword: $('#reset-newpass').val()
+                };
+
+                if (!data.newPassword || data.newPassword.length < 4) {
+                    Swal.fire('Warning', 'กรุณาตั้งรหัสผ่านใหม่อย่างน้อย 4 ตัวอักษร', 'warning');
+                    return;
+                }
+
+                $('#loading-overlay').css('display', 'flex');
+                try {
+                    const response = await fetch(APPSCRIPT_URL, {
+                        method: 'POST',
+                        redirect: "follow",
+                        headers: { "Content-Type": "text/plain" },
+                        body: JSON.stringify({
+                            action: 'resetPassword',
+                            ...data
+                        })
+                    });
+                    const res = await response.json();
+
+                    if (res.result === 'success') {
+                        Swal.fire('สำเร็จ', 'เปลี่ยนรหัสผ่านเรียบร้อยแล้ว กรุณาล็อกอินด้วยรหัสผ่านใหม่', 'success');
+                        $('#resetModal').modal('hide');
+                    } else {
+                        Swal.fire('Error', res.message, 'error');
+                    }
+                } catch (e) {
+                    Swal.fire('Error', e.message, 'error');
+                } finally {
+                    $('#loading-overlay').hide();
+                }
+            }
+
+            // --- Login Logic (Updated) ---
+            async function performLogin() {
+                const username = $('#login-username').val();
+                const password = $('#login-password').val();
+
+                if (!username || !password) return;
+
+                $('#loading-overlay').css('display', 'flex');
+                try {
+                    const response = await fetch(APPSCRIPT_URL, {
+                        method: 'POST',
+                        redirect: "follow",
+                        headers: { "Content-Type": "text/plain" },
+                        body: JSON.stringify({
+                            action: 'checkAuth',
+                            username: username,
+                            password: password
+                        })
+                    });
+                    const data = await response.json();
+
+                    if (data.result === 'success') {
+                        currentUser = data.user;
+                        isAdmin = true;
+                        adminPass = password; // Store for session actions
+
+                        updateAuthUI(true);
+                        $('#loginModal').modal('hide');
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Welcome, ' + currentUser.displayName,
+                            text: 'Role: ' + currentUser.role,
+                            timer: 1500,
+                            showConfirmButton: false
+                        });
+                        fetchData();
+                    } else {
+                        Swal.fire('Login Failed', data.message, 'error');
+                    }
+                } catch (e) {
+                    Swal.fire('Error', e.message, 'error');
+                } finally {
+                    $('#loading-overlay').hide();
+                }
+            }
+
+            function logoutAdmin() {
+                isAdmin = false;
+                adminPass = '';
+                currentUser = { displayName: 'Guest', avatar: '', username: '', role: '' };
+                updateAuthUI(false);
+                showSection('dashboard');
+            }
+
+    function updateAuthUI(isLoggedIn) {
+            if (isLoggedIn) {
+                // 1. จัดการการแสดงผลของปุ่มที่ Topbar
+                $('#auth-guest-view').addClass('hidden'); // ซ่อน Login/Register
+                $('#auth-user-view').removeClass('hidden').addClass('d-flex'); // แสดงชื่อและรูป
+
+                // 2. แสดงชื่อและรูปภาพ
+                $('#topbar-user').text(currentUser.displayName || currentUser.username);
+
+                // จัดการรูปโปรไฟล์ (ถ้าไม่มีรูปให้ใช้รูป Default)
+                let avatarSrc = currentUser.avatar ? transformUrl(currentUser.avatar) : 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+                $('#topbar-avatar').attr('src', avatarSrc);
+
+                // 3. จัดการ Sidebar
+                $('.admin-only').fadeIn();
+                $('#btn-sidebar-login').hide();
+                $('#user-status-display').html(`Logged in as:<br><b>${currentUser.displayName}</b>`).css('color', '#fff');
+
+                // 4. สิทธิ์ Developer
+                if (currentUser.role === 'DEVELOPER') {
+                    $('.developer-only').show();
+                }
+
+                // คลิกที่รูปหรือชื่อเพื่อเปิดโปรไฟล์
+                $('#topbar-user, #topbar-avatar').off('click').on('click', openEditProfile);
+
+            } else {
+                // กรณี Logout หรือยังไม่ล็อกอิน
+                $('#auth-guest-view').removeClass('hidden');
+                $('#auth-user-view').addClass('hidden').removeClass('d-flex');
+                $('.admin-only').hide();
+                $('.developer-only').hide();
+                $('#btn-sidebar-login').show();
+                $('#user-status-display').text('Guest User').css('color', 'rgba(255,255,255,0.6)');
+            }
+        }
     async function sendAdminAction(actionName, dataObj) {
         // ... (โค้ด sendAdminAction เดิม) ...
         $('#loading-overlay').show();
@@ -4370,78 +5195,9 @@
     async function toggleLogin() {
         // ... (โค้ด toggleLogin เดิม) ...
         if (!isAdmin) {
-            const { value: formValues } = await Swal.fire({
-                title: 'Admin Login',
-                html:
-                    '<input id="swal-input1" class="swal2-input" placeholder="Username">' +
-                    '<input id="swal-input2" type="password" class="swal2-input" placeholder="Password">',
-                focusConfirm: false,
-                showCancelButton: true,
-                confirmButtonText: 'Login',
-                showLoaderOnConfirm: true,
-                preConfirm: async () => {
-                    const username = document.getElementById('swal-input1').value;
-                    const password = document.getElementById('swal-input2').value;
-
-                    if (!username || !password) {
-                        Swal.showValidationMessage('กรุณากรอกข้อมูลให้ครบถ่วย');
-                        return false;
-                    }
-
-                    try {
-                        const response = await fetch(APPSCRIPT_URL, {
-                            method: 'POST',
-                            redirect: "follow",
-                            headers: { "Content-Type": "text/plain;charset=utf-8" },
-                            body: JSON.stringify({
-                                action: 'checkAuth',
-                                username: username,
-                                password: password
-                            })
-                        });
-                        const data = await response.json();
-                        if (data.result !== 'success') {
-                            throw new Error(data.message || 'Login Failed');
-                        }
-                        return data;
-                    } catch (error) {
-                        Swal.showValidationMessage(`Login failed: ${error.message}`);
-                    }
-                },
-                allowOutsideClick: () => !Swal.isLoading()
-            });
-
-            if (formValues && formValues.result === 'success') {
-                const userData = formValues.user;
-
-                isAdmin = true;
-                adminPass = document.getElementById('swal-input2').value;
-                currentUser = userData;
-
-                $('.admin-only').fadeIn();
-                $('#btn-sidebar-login').html('<i class="fas fa-sign-out-alt"></i> Logout').addClass('btn-danger');
-
-                $('#topbar-user').text(currentUser.displayName);
-                $('#topbar-avatar').attr('src', currentUser.avatar);
-                $('#user-status-display').html(`Logged in as:<br><b>${currentUser.displayName}</b>`).css('color', '#fff');
-
-                Swal.fire('สำเร็จ', `ยินดีต้อนรับ ${currentUser.displayName}`, 'success');
-                fetchData();
-            }
+                    openLoginModal();
         } else {
-            // Logout
-            isAdmin = false;
-            adminPass = '';
-            currentUser = { displayName: 'Guest', avatar: '', username: '' };
-
-            $('.admin-only').hide();
-            $('#btn-sidebar-login').html('<i class="fas fa-sign-in-alt"></i> Admin Login').removeClass('btn-danger');
-            $('#topbar-user').text('Guest');
-            $('#topbar-avatar').attr('src', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Guest');
-            $('#user-status-display').text('Guest User').css('color', 'rgba(255,255,255,0.6)');
-
-            showSection('dashboard');
-            Swal.fire('Logged Out', 'ออกจากระบบเรียบร้อย', 'info');
+            logoutAdmin();
         }
         // ... (จบโค้ด toggleLogin เดิม) ...
     }
@@ -4457,11 +5213,25 @@
     }
 
     function showSection(sectionId) {
-        // ... (โค้ด showSection เดิม) ...
         $('.content-section').addClass('hidden');
         $('.list-group-item').removeClass('active');
         $(`[onclick="showSection('${sectionId}')"]`).addClass('active');
         $(`#sec-${sectionId}`).removeClass('hidden');
+
+        // ตรวจสอบสิทธิ์สำหรับ Logs และ Admin Manager
+        if (sectionId === 'logs' || sectionId === 'admin-manager') {
+            if (!isAdmin || currentUser.role !== 'DEVELOPER') {
+                $(`#sec-${sectionId}`).addClass('hidden'); // ซ่อนส่วนที่ไม่ได้รับอนุญาต
+                Swal.fire('Access Denied', 'สิทธิ์เข้าถึงถูกจำกัด: เฉพาะ DEVELOPER เท่านั้น', 'error');
+                showSection('dashboard'); // Redirect
+                return;
+            } else if (sectionId === 'logs') {
+                initLogsTable();
+            } else if (sectionId === 'admin-manager') {
+                loadAdminManager();
+            }
+        }
+
         $('#page-title').text(sectionId.charAt(0).toUpperCase() + sectionId.slice(1).replace('-', ' '));
 
         if (sectionId === 'structure') {
@@ -4471,17 +5241,7 @@
         if ($(window).width() < 768) {
             $("#wrapper").removeClass("toggled");
         }
-        // ... (จบโค้ด showSection เดิม) ...
     }
-
-    const transformUrl = (url) => {
-        // ... (โค้ด transformUrl เดิม) ...
-        if (!url) return "";
-        const match = url.match(/\/d\/(.*?)\//) || url.match(/id=([^&]+)/);
-        return (match && match[1]) ? `https://lh3.googleusercontent.com/d/${match[1]}?authuser=1=w1000-h1000` : url;
-        // ... (จบโค้ด transformUrl เดิม) ...
-    };
-
     // ====================================================================
         // 11. CONVERTER TOOL LOGIC
         // ====================================================================

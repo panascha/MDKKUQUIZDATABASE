@@ -1,262 +1,221 @@
-<script>
 // ====================================================================
-// 11. CONVERTER TOOL LOGIC (แก้ไขตามคำขอ)
+// 10. ADMIN & GENERAL UTILITIES
 // ====================================================================
 
-let converterStorage = {
-struct: [],
-category: [],
-ques: [],
-current: "ques" // ตั้งค่าเริ่มต้นเป็น ques เพื่อให้สอดคล้องกับ showSection
+// ** NEW CRITICAL FIX: Move transformUrl here to ensure it's defined before DataTables usage **
+const transformUrl = (url) => {
+if (!url) return "";
+const match = url.match(/\/d\/(.*?)\//) || url.match(/id=([^&]+)/);
+// เพิ่ม w1000-h1000 เพื่อแสดงผลขนาดใหญ่และเร็วขึ้นจาก Google Photos/Drive
+return (match && match[1]) ? `https://lh3.googleusercontent.com/d/${match[1]}?authuser=1=w1000-h1000` : url;
+};
+// ** END CRITICAL FIX **
+
+
+// 1. ฟังก์ชันเปิด Modal แก้ไขโปรไฟล์ และดึงข้อมูลเดิมมาใส่
+function openEditProfile() {
+$('#ep-prefix').val(currentUser.prefix || '');
+$('#ep-fullname').val(currentUser.fullName || '');
+$('#ep-displayname').val(currentUser.displayName || '');
+$('#ep-year').val(currentUser.year || '');
+$('#ep-contact').val(currentUser.contact || '');
+$('#edit-avatar-preview').attr('src', currentUser.avatar);
+$('#editProfileModal').modal('show');
+}
+
+// 2. ฟังก์ชันอัปเดตโปรไฟล์
+async function updateUserProfile() {
+if (!confirmAdmin()) return;
+const updateData = {
+prefix: $('#ep-prefix').val(),
+fullName: $('#ep-fullname').val(),
+displayName: $('#ep-displayname').val(),
+year: $('#ep-year').val(),
+contact: $('#ep-contact').val(),
+avatarUrl: currentUser.avatar // ถ้ามีการอัปโหลดใหม่ต้องเปลี่ยนตรงนี้ (Simplify for now)
 };
 
-const converterHeaders = {
-struct: ["#", "Year", "SubjectID", "SubjectName", "AccordionGroup"],
-category: ["#", "CategoryID", "SubjectRef", "AccordionGroup", "CategoryName"],
-ques: ["#", "QuestionID", "Problem", "Image", "Choices", "Answer", "Explanation", "Category"]
-};
-
-function setConverterTabVisibility(type) {
-if (type === 'structure_only') {
-$('#tab-struct').show();
-$('#tab-category').show();
-$('#tab-ques').hide();
+$('#loading-overlay').show();
+try {
+const response = await fetch(APPSCRIPT_URL, {
+method: 'POST',
+redirect: "follow",
+headers: { "Content-Type": "text/plain" },
+body: JSON.stringify({
+action: 'updateAdminProfile',
+targetUsername: currentUser.username,
+username: currentUser.username, // for logging
+adminPass: adminPass,
+updateData: updateData
+})
+});
+const res = await response.json();
+if (res.result === 'success') {
+Swal.fire('สำเร็จ', 'อัปเดตข้อมูลแล้ว กรุณาเข้าสู่ระบบใหม่เพื่อให้ผลแสดงชัดเจน', 'success');
+$('#editProfileModal').modal('hide');
+// อัปเดตข้อมูลผู้ใช้ใน Frontend ทันที
+Object.assign(currentUser, updateData);
+updateAuthUI(true);
 } else {
-$('#tab-struct').show();
-$('#tab-category').show();
-$('#tab-ques').show();
+throw new Error(res.message || 'Server reported error');
+}
+} catch (e) {
+Swal.fire('Error', 'ไม่สามารถอัปเดตได้: ' + e.message, 'error');
+} finally {
+$('#loading-overlay').hide();
 }
 }
 
-function extractDataFromCurrentTable(sheetName) {
-const rows = document.querySelectorAll('#tableBody tr');
-let extractedData = [];
-rows.forEach(tr => {
-let rowData = [];
-const cells = tr.querySelectorAll('td');
-// เริ่มจาก cell ที่ 1 (j=1) เพื่อข้าม cell Index (#)
-for (let j = 1; j < cells.length; j++) { rowData.push(cells[j].innerText.trim()); } extractedData.push(rowData); });
-    return extractedData; } function switchTab(sheet) { converterStorage.current=sheet;
-    document.querySelectorAll('.tab').forEach(t=> t.classList.remove('active'));
-    document.getElementById('tab-' + sheet).classList.add('active');
-    renderPreview();
-    }
+// 3. ฟังก์ชันจัดการ Admin สำหรับ Developer (ยังคง logic เดิม)
+async function loadAdminManager() {
+if (currentUser.role !== 'DEVELOPER') return;
+$('#admin-user-list').html('<tr>
+    <td colspan="6" class="text-center py-4 text-muted"><i class="fas fa-spinner fa-spin"></i> กำลังโหลด...</td>
+</tr>');
+try {
+const response = await fetch(`${APPSCRIPT_URL}?action=getAdmins`); // ต้องสร้าง action getAdmins ใหม่ใน GS
+const admins = await response.json();
 
-    function processAll() {
-    let rawInput = document.getElementById('jsonInput').value.trim();
-    const year = document.getElementById('yearVal').value;
-    const subjectID = document.getElementById('subjID').value.trim().toUpperCase() || "SUBJ";
-    const subjectName = document.getElementById('subjName').value || "Untitled Subject";
-    const groupKeywords = document.getElementById('groupKeys').value.split(',').map(k => k.trim()).filter(k => k !==
-    "");
-    const arrayCategoryID = document.getElementById('arrayCategoryID').value.trim() || null;
+let html = '';
+if (admins && admins.length > 0) {
+admins.forEach(u => {
+html += `
+<tr>
+    <td><img src="${u.AvatarURL || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + u.Username}" width="30"
+            class="rounded-circle"></td>
+    <td>${u.Username}</td>
+    <td>${u.FullName || '-'}</td>
+    <td><span class="badge ${u.Role === 'DEVELOPER' ? 'bg-danger' : 'bg-primary'}">${u.Role}</span></td>
+    <td>${u.KKUMail || '-'}</td>
+    <td>
+        <button class="btn btn-sm btn-outline-danger" onclick="devDeleteUser('${u.Username}')"><i
+                class="fas fa-trash"></i></button>
+    </td>
+</tr>`;
+});
+} else {
+html = '<tr>
+    <td colspan="6" class="text-center text-muted">ไม่พบข้อมูล Admin</td>
+</tr>';
+}
+$('#admin-user-list').html(html);
+} catch (e) {
+$('#admin-user-list').html('<tr>
+    <td colspan="6" class="text-center text-danger">โหลดข้อมูล Admin ล้มเหลว</td>
+</tr>');
+}
+}
 
-    if (!rawInput) {
-    Swal.fire('Error', 'กรุณาวางข้อมูลก่อน', 'error');
-    return;
-    }
+function openRegisterModal() {
+// ใช้ Bootstrap Modal
+$('#loginModal').modal('hide');
+$('#registerModal').modal('show');
+// Clear form
+$('#registerForm')[0].reset();
+$('#reg-avatar-preview').addClass('hidden').attr('src', '');
+$('#reg-avatar-icon').removeClass('hidden');
+avatarBase64 = "";
+}
 
-    let structMap = new Map();
-    let categoryRows = [];
-    let quesRows = [];
-
-    // ล้างข้อมูลเก่า
-    converterStorage.struct = [];
-    converterStorage.category = [];
-    converterStorage.ques = [];
-
-    // กำหนด Active Tab ที่เหมาะสม
-    let initialTab = 'category'; // Default for Category List
-    let inputType = 'structure_only'; // Default for Category List
-
-    try {
-    if (rawInput.startsWith('[') && rawInput.endsWith(']')) {
-    // ********************************************************************
-    // CASE 3: QUESTION ARRAY
-    // ********************************************************************
-    initialTab = 'ques';
-    inputType = 'full';
-    if (!arrayCategoryID) {
-    Swal.fire('Error', 'กรุณาระบุ Category ID สำหรับชุดคำถามนี้ในช่องสีแดง "ใส่ชื่อหัวข้อ"', 'error');
-    return;
-    }
-
-    // ... (Logic การประมวลผล Question Array - เหมือนเดิม) ...
-    let questionsArray;
-    try {
-    questionsArray = JSON.parse(rawInput);
-    } catch (e) {
-    questionsArray = new Function("return " + rawInput)();
-    }
-
-    const categoryKey = arrayCategoryID;
-    let group = "GENERAL";
-    for (let key of groupKeywords) {
-    if (categoryKey.toUpperCase().includes(key.toUpperCase())) {
-    group = key;
-    break;
-    }
-    }
-    const structKey = `${subjectID}-${group}`;
-    if (!structMap.has(structKey)) {
-    structMap.set(structKey, [year, subjectID, subjectName, group]);
-    }
-
-    let extractedName = categoryKey;
-    const subjPrefix = `${subjectID}_`;
-    if (categoryKey.toUpperCase().startsWith(subjPrefix.toUpperCase())) {
-    extractedName = categoryKey.substring(subjPrefix.length);
-    }
-    if (group !== 'GENERAL' && extractedName.toUpperCase().startsWith(`${group.toUpperCase()}`)) {
-    const parts = extractedName.split('_');
-    if (parts.length > 1) {
-    extractedName = extractedName.substring(parts[0].length + 1);
-    }
-    }
-    const lastUnderscore = extractedName.lastIndexOf('_');
-    if (lastUnderscore > -1) {
-    extractedName = extractedName.substring(lastUnderscore + 1);
-    }
-
-    categoryRows.push([categoryKey, subjectID, group, extractedName]);
-
-    questionsArray.forEach((q, index) => {
-    const qId = `${categoryKey}_${index + 1}`;
-    quesRows.push([qId, q.problem || "", q.img || "", q.choices || "", q.answer || "", q.explain || "",
-    JSON.stringify([categoryKey])
-    ]);
-    });
+// ** NOTE: The logic for validateRegistrationForm, submitRegistration,
+// ** previewAvatar, submitRegister, submitResetPassword, performLogin,
+// ** logoutAdmin remains the same as previously defined, just ensure
+// ** they are correctly placed inside this section! **
 
 
-    } else if (rawInput.includes('{') && rawInput.includes('}')) {
-    // ********************************************************************
-    // CASE 2: QUIZ DATA (JSON Object)
-    // ********************************************************************
-    initialTab = 'ques';
-    inputType = 'full';
+// --- Login Logic (Updated) ---
+async function performLogin() {
+const username = $('#login-username').val();
+const password = $('#login-password').val();
 
-    // ... (Logic การประมวลผล Quiz JSON Object - เหมือนเดิม) ...
-    const firstBrace = rawInput.indexOf('{');
-    const lastBrace = rawInput.lastIndexOf('}');
-    const jsonString = rawInput.substring(firstBrace, lastBrace + 1);
-    let quizObj;
-    try {
-    quizObj = new Function("return " + jsonString)();
-    } catch (e) {
-    quizObj = JSON.parse(jsonString);
-    }
+if (!username || !password) return;
 
-    for (const [categoryKey, questions] of Object.entries(quizObj)) {
-    let group = "GENERAL";
-    for (let key of groupKeywords) {
-    if (categoryKey.toUpperCase().includes(key.toUpperCase())) {
-    group = key;
-    break;
-    }
-    }
+$('#loading-overlay').css('display', 'flex');
+try {
+const response = await fetch(APPSCRIPT_URL, {
+method: 'POST',
+redirect: "follow",
+headers: { "Content-Type": "text/plain" },
+body: JSON.stringify({
+action: 'checkAuth',
+username: username,
+password: password
+})
+});
+const data = await response.json();
 
-    const structKey = `${subjectID}-${group}`;
-    if (!structMap.has(structKey)) {
-    structMap.set(structKey, [year, subjectID, subjectName, group]);
-    }
+if (data.result === 'success') {
+currentUser = data.user;
+isAdmin = true;
+adminPass = password; // Store for session actions
 
-    categoryRows.push([categoryKey, subjectID, group, categoryKey]);
+updateAuthUI(true);
+$('#loginModal').modal('hide');
+Swal.fire({
+icon: 'success',
+title: 'Welcome, ' + currentUser.displayName,
+text: 'Role: ' + currentUser.role,
+timer: 1500,
+showConfirmButton: false
+});
+fetchData();
+} else {
+Swal.fire('Login Failed', data.message, 'error');
+}
+} catch (e) {
+Swal.fire('Error', e.message, 'error');
+} finally {
+$('#loading-overlay').hide();
+}
+}
 
-    if (Array.isArray(questions)) {
-    questions.forEach((q, index) => {
-    const qId = `${categoryKey}_${index + 1}`;
-    quesRows.push([qId, q.problem || "", q.img || "", q.choices || "", q.answer || "", q.explain || "",
-    JSON.stringify([categoryKey])
-    ]);
-    });
-    }
-    }
-    } else {
-    // ********************************************************************
-    // CASE 1: CATEGORY LIST (Text List)
-    // ********************************************************************
-    initialTab = 'category';
-    inputType = 'structure_only';
+function logoutAdmin() {
+isAdmin = false;
+adminPass = '';
+currentUser = { displayName: 'Guest', avatar: '', username: '', role: '' };
+updateAuthUI(false);
+showSection('dashboard');
+}
 
-    // ... (Logic การประมวลผล Category List - เหมือนเดิม) ...
-    const lines = rawInput.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-    lines.forEach(categoryKey => {
-    let group = "GENERAL";
-    for (let key of groupKeywords) {
-    if (categoryKey.toUpperCase().includes(key.toUpperCase())) {
-    group = key;
-    break;
-    }
-    }
-    const structKey = `${subjectID}-${group}`;
-    if (!structMap.has(structKey)) structMap.set(structKey, [year, subjectID, subjectName, group]);
+// 🛑 FIX: The logic using isLoggedIn is now correctly placed inside this function 🛑
+function updateAuthUI(isLoggedIn) {
+if (isLoggedIn) {
+$('#auth-guest-view').addClass('hidden');
+$('#auth-user-view').removeClass('hidden').addClass('d-flex');
 
-    let extractedName = categoryKey;
-    const firstUnderscore = categoryKey.indexOf('_');
-    const secondUnderscore = categoryKey.indexOf('_', firstUnderscore + 1);
+$('#topbar-user').text(currentUser.displayName);
+$('#topbar-avatar').attr('src', currentUser.avatar);
 
-    if (firstUnderscore > -1 && secondUnderscore > -1) {
-    extractedName = categoryKey.substring(secondUnderscore +
-    1).trim();
-    } else if (firstUnderscore > -1) {
-    extractedName = categoryKey.substring(firstUnderscore + 1).trim();
-    }
+// Sidebar Handling
+$('.admin-only').fadeIn();
 
-    categoryRows.push([categoryKey, subjectID, group, extractedName]);
-    });
-    }
+// 🛑 NEW/FIXED LOGIC START 🛑
+// 1. Enable profile editing on topbar
+$('#topbar-user, #topbar-avatar').off('click').on('click', openEditProfile); // off() to prevent multiple bindings
+$('#topbar-user').css('cursor', 'pointer').attr('title', 'คลิกเพื่อแก้ไขโปรไฟล์');
 
-    // เก็บเข้า Storage
-    converterStorage.struct = Array.from(structMap.values());
-    converterStorage.category = categoryRows;
-    converterStorage.ques = quesRows;
+// 2. Developer Role Check (Show/Hide Developer-only menu items)
+if (currentUser.role === 'DEVELOPER') {
+$('.developer-only').show();
+// Note: The Sidebar menu item is controlled by the CSS class `.developer-only`
+} else {
+$('.developer-only').hide();
+}
+// 🛑 NEW/FIXED LOGIC END 🛑
 
-    Swal.fire('Success', 'ประมวลผลสำเร็จ! กรุณาตรวจสอบในตารางด้านล่าง', 'success');
-
-    // NEW: Set visibility based on detected type
-    setConverterTabVisibility(inputType);
-
-    // NEW: เปลี่ยนไป Tab ที่เหมาะสมและเรนเดอร์
-    switchTab(initialTab);
-
-    } catch (e) {
-    console.error(e);
-    Swal.fire('Error', 'Format ข้อมูลผิดพลาด: ' + e.message, 'error');
-    }
-    }
-
-    function renderPreview() {
-    const head = document.getElementById('tableHead');
-    const body = document.getElementById('tableBody');
-    const currentSheet = converterStorage.current;
-    let data = converterStorage[currentSheet];
-
-    // NEW: ถ้าเป็น Category List Input แต่ user switch ไป Tab Questions (ซึ่งจะว่าง) ให้แสดงข้อความว่าง
-    if (currentSheet === 'ques' && data.length === 0 && converterStorage.category.length > 0) {
-    data = []; // ใช้ data ว่าง
-    } else if (data.length === 0 && (currentSheet === 'struct' || currentSheet === 'category')) {
-    data = [];
-    }
+// Hide sidebar login button
+$('#btn-sidebar-login').hide();
+$('#user-status-display').html(`Logged in as:<br><b>${currentUser.displayName}</b>`).css('color', '#fff');
 
 
-    head.innerHTML = converterHeaders[currentSheet].map(h => `<th>${h}</th>`).join("");
+} else {
+$('#auth-guest-view').removeClass('hidden');
+$('#auth-user-view').addClass('hidden').removeClass('d-flex');
 
-    if (data.length === 0) {
-    body.innerHTML = `<tr>
-        <td colspan="${converterHeaders[currentSheet].length + 1}" class="text-center text-muted py-3">
-            <i class="fas fa-box-open me-2"></i> ไม่มีข้อมูลที่ถูกสร้างใน Tab นี้
-        </td>
-    </tr>`;
-    } else {
-    body.innerHTML = data.map((row, i) => {
-    const indexCell = `<td>${i + 1}</td>`;
-    const contentCells = row.map(cell => {
-    return `<td class="editable-cell" contenteditable="true" style="white-space: pre-wrap;">${cell}</td>`;
-    }).join("");
-    return `<tr>${indexCell}${contentCells}</tr>`;
-    }).join("");
-    }
+$('.admin-only').hide();
+$('#btn-sidebar-login').show();
+$('#user-status-display').text('Guest User').css('color', 'rgba(255,255,255,0.6)');
+}
+}
 
-    document.getElementById('previewText').innerText = `มีข้อมูลทั้งหมด ${data.length} แถว`;
-    }
-    </script>
+// ... (rest of the code for sendAdminAction, formatDate, hashPassword, toggleLogin, confirmAdmin) ...
