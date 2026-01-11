@@ -441,8 +441,10 @@
         .category-badge-container {
             display: flex;
             flex-wrap: wrap;
-            gap: 10px; /* Increased gap for better spacing */
-            min-height: 50px; /* Increased height for better visibility */
+            gap: 10px;
+            /* Increased gap for better spacing */
+            min-height: 50px;
+            /* Increased height for better visibility */
             align-items: center;
         }
 
@@ -451,15 +453,23 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            padding: 10px 20px; /* Increased padding for a more comfortable touch area */
-            border-radius: 25px; /* Slightly adjusted border radius for a softer look */
-            font-size: 1rem; /* Increased font size for better readability */
+            padding: 10px 20px;
+            /* Increased padding for a more comfortable touch area */
+            border-radius: 25px;
+            /* Slightly adjusted border radius for a softer look */
+            font-size: 1rem;
+            /* Increased font size for better readability */
             font-weight: 600;
-            letter-spacing: 0.5px; /* Increased letter spacing for clarity */
-            transition: all 0.3s ease; /* Smoother transition effect */
-            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1); /* Softer shadow for a subtle effect */
-            background-color: #f8f9fa; /* Light background for better contrast */
-            color: #333; /* Darker text color for improved readability */
+            letter-spacing: 0.5px;
+            /* Increased letter spacing for clarity */
+            transition: all 0.3s ease;
+            /* Smoother transition effect */
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+            /* Softer shadow for a subtle effect */
+            background-color: #f8f9fa;
+            /* Light background for better contrast */
+            color: #333;
+            /* Darker text color for improved readability */
         }
 
         @media (min-width: 768px) {
@@ -1004,9 +1014,12 @@
         }
 
         .tree-view ul {
-            margin-left: 25px; /* Indentation */
-            max-height: none; /* Removed max-height to allow scrolling */
-            overflow: auto; /* Changed to auto to enable scrolling */
+            margin-left: 25px;
+            /* Indentation */
+            max-height: none;
+            /* Removed max-height to allow scrolling */
+            overflow: auto;
+            /* Changed to auto to enable scrolling */
             transition: opacity 0.4s ease;
             opacity: 1;
         }
@@ -1021,12 +1034,13 @@
 
         @keyframes slideDown {
             from {
-            opacity: 0;
-            transform: translateY(-8px);
+                opacity: 0;
+                transform: translateY(-8px);
             }
+
             to {
-            opacity: 1;
-            transform: translateY(0);
+                opacity: 1;
+                transform: translateY(0);
             }
         }
 
@@ -1425,7 +1439,7 @@
                                     <tr>
                                         <th style="width: 15%;">วันที่</th>
                                         <th style="width: 30%;">ข้อที่แก้ไข (คลิกดู)</th>
-                                        <th style="width: 10%;">เฉลย</th>
+                                        <th style="width: 10%;">Report Detail</th>
                                         <th>การตอบกลับ (Admin Note)</th>
                                         <th style="width: 10%;">สถานะ</th>
                                     </tr>
@@ -1581,7 +1595,8 @@
                         </div>
 
                         <!-- Area สำหรับแสดง Tree -->
-                        <div class="tree-container" style="max-height: calc(100vh - 300px); overflow-y: auto; -webkit-overflow-scrolling: touch; padding-right: 8px;">
+                        <div class="tree-container"
+                            style="max-height: calc(100vh - 300px); overflow-y: auto; -webkit-overflow-scrolling: touch; padding-right: 8px;">
                             <div id="structure-tree-view" class="tree-view">
                                 <!-- โครงสร้าง Folder จะถูกสร้างที่นี่ -->
                                 <div class="text-center py-4 text-muted">
@@ -1599,83 +1614,225 @@
                 </div>
             </div>
 
-            <!-- SECTION: Converter Tool -->
-            <div id="sec-converter" class="content-section hidden">
-                <div class="converter-area">
-                    <h4><i class="fas fa-file-code text-primary"></i> Quiz & Structure Converter V4</h4>
-                    <p class="text-muted small">เครื่องมือช่วยแปลง Code หรือรายชื่อหัวข้อ ให้เป็น Format
-                        ที่พร้อมนำไปวางใน Google Sheets (Admin Only)</p>
+<!-- SECTION: Converter Tool -->
+<div id="sec-converter" class="content-section hidden">
+    <div class="converter-area">
+        <h4><i class="fas fa-file-code text-primary"></i> Quiz & Structure Converter V4</h4>
+        <p class="text-muted small">เครื่องมือช่วยแปลง Code หรือรายชื่อหัวข้อ ให้เป็น Format
+            ที่พร้อมนำไปวางใน Google Sheets (Admin Only)</p>
 
-                    <div class="converter-control-panel">
-                        <div>
-                            <label class="mb-2 fw-bold">วาง Code หรือ รายชื่อ CategoryID (บรรทัดละชื่อ)
-                                ที่นี่</label>
-                            <textarea id="jsonInput" class="form-control" rows="8"
-                                placeholder="ตัวอย่างแบบที่ 1 (Quiz Code):&#10;var quizdata = { 'GI51MCQ1_Anat': [...] }&#10;&#10;ตัวอย่างแบบที่ 2 (Category List):&#10;GI_Anatomy&#10;GI_Physiology"></textarea>
+        <!-- NEW: Instructions Section (ไม่ได้เปลี่ยนแปลง) -->
+        <div class="card card-dashboard mb-4">
+            <div class="card-header-custom">
+                <span><i class="fas fa-info-circle me-2"></i> คู่มือการใช้งานและตัวอย่าง Format</span>
+                <a class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" href="#converterInstructions"
+                    role="button" aria-expanded="true" aria-controls="converterInstructions">
+                    Show/Hide
+                </a>
+            </div>
+            <div class="collapse show" id="converterInstructions">
+                <div class="card-body">
+                    <!-- Tabs for Instructions -->
+                    <ul class="nav nav-tabs" id="instructionTab" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="tab1-tab" data-bs-toggle="tab" data-bs-target="#tab1"
+                                type="button" role="tab">1. เพิ่มหัวข้อ Lecture (ใช้ทำข้อสอบแยกเลค)</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="tab2-tab" data-bs-toggle="tab" data-bs-target="#tab2"
+                                type="button" role="tab">2. เพิ่มคำถามทีละหลายๆชุด (ใช้แปลงข้อสอบเก่าเข้าเว็บ)</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="tab3-tab" data-bs-toggle="tab" data-bs-target="#tab3"
+                                type="button" role="tab">3. เพิ่มคำถามทีละชุด (ใช้แปลงข้อสอบเก่าเข้าเว็บ)</button>
+                        </li>
+                    </ul>
+                    <div class="tab-content pt-3" id="instructionTabContent">
+                        <!-- Tab 1: Category List -->
+                        <div class="tab-pane fade show active" id="tab1" role="tabpanel">
+                            <h6 class="text-primary fw-bold">ใช้เมื่อ: ต้องการเพิ่มหัวข้อข้อสอบแยกเลค</h6>
+                            <p class="mb-0"><b>ตัวอย่าง:</b></p>
+                            <pre class="bg-light p-2 rounded small"><code>
+    ตาม format นี้ "ชื่อย่อวิชา_กลุ่ม_ชื่อหัวข้อ"
+    GI_Anatomy_Oral Cavity
+    GI_Physiology_Gastric Secretion
+    GI_Pathology_Bacterial GI Infections
+                                    </code></pre>
                         </div>
-                        <div>
-                            <div class="row g-2">
-                                <div class="col-md-4">
-                                    <label class="small">ชั้นปี (Year)</label>
-                                    <input type="number" id="yearVal" class="form-control form-control-sm"
-                                        placeholder="1,2,3">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="small">รหัสวิชา (Subject ID)</label>
-                                    <input type="text" id="subjID" class="form-control form-control-sm"
-                                        placeholder="GI, NS">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="small">ชื่อวิชา</label>
-                                    <input type="text" id="subjName" class="form-control form-control-sm"
-                                        placeholder="Full Name">
-                                </div>
-                                <div class="col-12">
-                                    <label class="small">กลุ่มคำย่อ (Group Keywords)</label>
-                                    <input type="text" id="groupKeys" class="form-control form-control-sm"
-                                        value="MCQ, FMT, LEC" placeholder="เช่น MCQ, FMT, LEC">
-                                </div>
-                                <div class="col-12 mt-3">
-                                    <button class="btn btn-primary w-100" onclick="processAll()"><i
-                                            class="fas fa-bolt"></i>
-                                        เริ่มประมวลผลข้อมูล</button>
-                                </div>
+                        <!-- Tab 2: Quiz JSON Object -->
+                        <div class="tab-pane fade" id="tab2" role="tabpanel">
+                            <h6 class="text-primary fw-bold">ใช้เมื่อ: เพิ่มคำถามทีละหลายๆชุด</h6>
+                            <!-- ... (ตัวอย่างเดิม) ... -->
+                            <pre class="bg-light p-2 rounded small"><code>
+    1. เก็บทุกอย่างในตัวแปรชื่อ quizdata
+    ด้านในจะมี
+    "ชื่อหัวข้อ1" : [ {คำถาม 1}, {คำถาม 2},... ],
+    "ชื่อหัวข้อ2" : [ {คำถาม 1}, {คำถาม 2},... ], ...
+    2. โครงสร้างของคำถาม
+    {
+    "problem": "ใส่คำถามตรงนี้",
+    "img": "URL_A///URL_B", // ถ้ามีรูปหลายรูปให้ใช้ /// คั่นแต่ละลิงก์
+    "choices": "ตัวเลือก1///ตัวเลือก2///ตัวเลือก3", // ใช้ /// คั่นแต่ละ choice
+    "answer": "ตัวเลือกที่ถูกต้อง", // ต้องตรงกับ choice ที่ให้มา!!!
+    "explain": "คำอธิบายเพิ่มเติม (ถ้ามี)"
+    }
+
+    เช่น
+    var quizdata = {
+    "GI51MCQ1_Anatomy": [
+    {
+    "problem": "1. What is the function of the liver?",
+    "img": "https://drive.google.com/open?id=1hBnJKKlO6S2tuGp6Wvy627V25CipDkN_&usp=drive_copy",
+    "choices": "Detoxification///Digestion///Respiration",
+    "answer": "Detoxification",
+    "explain": "The liver detoxifies various metabolites..."
+    },
+    {prob...}
+    ],
+    "GI51FMT1_Physiology": [
+    {
+    "problem": "1. What hormone regulates blood sugar levels?",
+    "img": "",
+    "choices": "Insulin///Glucagon///Adrenaline",
+    "answer": "Insulin",
+    "explain": "Insulin lowers blood sugar levels..."
+    }
+    ]
+    };
+
+                                        </code></pre>
+                        </div>
+                        <!-- Tab 3: Question Array (NEW) -->
+                        <div class="tab-pane fade" id="tab3" role="tabpanel">
+                            <h6 class="text-danger fw-bold">ใช้เมื่อ: เพิ่มคำถามทีละ 1 ชุด</h6>
+                            <p><b>ใส่ชื่อหัวข้อ <span class="text-danger fw-bold">เช่น GI_52MCQ1_Anatomy,
+                                        GEN4_52FMT2</span> ด้านล่าง</b></p>
+
+                            <!-- 💥 ย้าย Input มาไว้ที่นี่ 💥 -->
+                            <div class="col-12 mt-2 p-3 bg-danger-subtle rounded border border-danger mb-3">
+                                <label class="small fw-bold text-danger"><i class="fas fa-exclamation-triangle"></i>
+                                    ใส่ชื่อหัวข้อ </label>
+                                <input type="text" id="arrayCategoryID"
+                                    class="form-control form-control-sm border-danger"
+                                    placeholder="ตาม format นี้ ชื่อวิชา_ปีและกลุ่ม_ชื่อหัวข้อ">
                             </div>
-                        </div>
-                    </div>
+                            <!-- 💥 สิ้นสุด Input ที่ย้ายมา 💥 -->
 
-                    <div class="tabs">
-                        <div class="tab active" id="tab-struct" onclick="switchTab('struct')">1. Structure</div>
-                        <div class="tab" id="tab-category" onclick="switchTab('category')">2. Category</div>
-                        <div class="tab" id="tab-ques" onclick="switchTab('ques')">3. Questions</div>
-                    </div>
+                            <p><b>ตัวอย่าง Input:</b></p>
+                            <pre class="bg-light p-2 rounded small"><code>
+    1. เอามาแค่ [ {คำถาม1}, {คำถาม2},... ] แบบนี้เลย
+    2. โครงสร้างของคำถาม
+    {
+    problem: "ใส่คำถามตรงนี้",
+    img: "URL_A///URL_B", // ถ้ามีรูปหลายรูปให้ใช้ /// คั่นแต่ละลิงก์
+    choices: "ตัวเลือก1///ตัวเลือก2///ตัวเลือก3", // ใช้ /// คั่นแต่ละ choice
+    answer: "ตัวเลือกที่ถูกต้อง", // ต้องตรงกับ choice ที่ให้มา!!!
+    explain: "คำอธิบายเพิ่มเติม (ถ้ามี)"
+    }
 
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <div>
-                            <span id="previewText" class="small text-muted">รอข้อมูล...</span>
-                            <span class="badge bg-warning text-dark ms-2"><i class="fas fa-pen"></i>
-                                แก้ไขในตารางได้เลย</span>
+    เช่น
+    [
+    {
+    problem: "1. What is the primary function of red blood cells?",
+    img: "https://drive.google.com/open?id=1hBnJKKlO6S2tuGp6Wvy627V25CipDkN_&usp=drive_copy",
+    choices: "Oxygen transport///Immune response///Blood clotting",
+    answer: "Oxygen transport",
+    explain: "Red blood cells are responsible for transporting oxygen..."
+    },
+    {
+    problem: "2. Which organ is primarily responsible for detoxification?",
+    img: "",
+    choices: "Liver///Kidneys///Lungs",
+    answer: "Liver",
+    explain: "The liver detoxifies various metabolites..."
+    }
+    ]
+                                        </code></pre>
+                            <!-- <p class="mb-0"><b>การทำงานของ Group Keywords:</b> หาก Category ID ที่คุณระบุ
+                                            (เช่น
+                                            `NS_MCQ1_CranialNerves`) มีคำที่ตรงกับ <code>Group Keywords</code> (เช่น
+                                            `MCQ`)
+                                            ระบบจะจัดให้อยู่ในกลุ่ม <b>MCQ</b> โดยอัตโนมัติ</p> -->
                         </div>
-                        <div>
-                            <button class="btn btn-outline-primary btn-sm me-2" onclick="copyCurrentSheet()"><i
-                                    class="fas fa-copy"></i>
-                                Copy to Clipboard</button>
-                            <button class="btn btn-success btn-sm" onclick="importConvertedData()"><i
-                                    class="fas fa-cloud-upload-alt"></i>
-                                💾 บันทึกเข้าระบบ (Import to DB)</button>
-                        </div>
-                    </div>
-
-                    <div class="table-scroll border rounded bg-light p-2">
-                        <table class="table table-sm table-bordered bg-white mb-0" id="dataTable">
-                            <thead>
-                                <tr id="tableHead"></tr>
-                            </thead>
-                            <tbody id="tableBody"></tbody>
-                        </table>
                     </div>
                 </div>
             </div>
+        </div>
+        <!-- END Instructions Section -->
+
+
+        <div class="converter-control-panel">
+            <div>
+                <label class="mb-2 fw-bold">วาง Code หรือ รายชื่อ CategoryID ที่นี่</label>
+                <textarea id="jsonInput" class="form-control" rows="8" placeholder="วางโค้ดที่นี่..."></textarea>
+            </div>
+            <div>
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <label class="small">ชั้นปี (Year)</label>
+                        <input type="number" id="yearVal" class="form-control form-control-sm" placeholder="1,2,3">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="small">รหัสวิชา (Subject ID)</label>
+                        <input type="text" id="subjID" class="form-control form-control-sm" placeholder="GI, NS">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="small">ชื่อวิชา</label>
+                        <input type="text" id="subjName" class="form-control form-control-sm" placeholder="Full Name">
+                    </div>
+                    <div class="col-12">
+                        <label class="small">กลุ่มคำย่อ (Group Keywords)</label>
+                        <input type="text" id="groupKeys" class="form-control form-control-sm" value="MCQ1,MCQ2,MCQ3,MCQ4,FMT1,FMT2,by AI"
+                            placeholder="เช่น MCQ1,MCQ2,MCQ3,MCQ4,FMT1,FMT2,by AI">
+                    </div>
+
+                    <!-- 🚫 ช่อง Input Array Category ID ถูกนำออกแล้ว เพื่อให้แสดงแค่ใน Instruction Tab 🚫 -->
+
+                    <div class="col-12 mt-3">
+                        <button class="btn btn-primary w-100" onclick="processAll()"><i class="fas fa-bolt"></i>
+                            เริ่มประมวลผลข้อมูล</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ปรับปรุงชื่อ Tab ให้สื่อสารวัตถุประสงค์ -->
+        <div class="tabs">
+            <div class="tab" id="tab-struct" onclick="switchTab('struct')">1. Structure
+                (โครงสร้างวิชา/กลุ่ม)</div>
+            <div class="tab" id="tab-category" onclick="switchTab('category')">2. Category (หัวข้อ)
+            </div>
+            <div class="tab active" id="tab-ques" onclick="switchTab('ques')">3. Questions (ข้อมูลข้อสอบ)
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <div>
+                <span id="previewText" class="small text-muted">รอข้อมูล...</span>
+                <span class="badge bg-warning text-dark ms-2"><i class="fas fa-pen"></i>
+                    แก้ไขในตารางได้เลย</span>
+            </div>
+            <div class="d-flex gap-2">
+                <!-- <button class="btn btn-warning btn-sm"
+                    onclick="deduplicateConverterData('struct', [1, 3]); deduplicateConverterData('category', [0]); deduplicateConverterData('ques', [0]);"><i
+                        class="fas fa-filter"></i> ลบข้อมูลซ้ำ (Auto Deduplicate)</button> -->
+                <button class="btn btn-outline-primary btn-sm me-2" onclick="copyCurrentSheet()"><i class="fas fa-copy"></i>
+                    Copy to Clipboard</button>
+                <button class="btn btn-success btn-sm" onclick="importConvertedData()"><i class="fas fa-cloud-upload-alt"></i>
+                    💾 บันทึกเข้าระบบ (Import to DB)</button>
+            </div>
+        </div>
+
+        <div class="table-scroll border rounded bg-light p-2">
+            <table class="table table-sm table-bordered bg-white mb-0" id="dataTable">
+                <thead>
+                    <tr id="tableHead"></tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
 
             <!-- SECTION: Logs (Admin) -->
             <div id="sec-logs" class="content-section hidden">
@@ -1875,7 +2032,8 @@
                             <div id="dynamic-categories-container" class="d-flex flex-column gap-2 mb-2">
                                 <!-- JS จะสร้าง Input กล่องๆ มาใส่ตรงนี้ -->
                             </div>
-                            <button type="button" class="btn btn-sm btn-outline-info w-100 dashed-border mb-3" onclick="addNewCategoryRow()">
+                            <button type="button" class="btn btn-sm btn-outline-info w-100 dashed-border mb-3"
+                                onclick="addNewCategoryRow()">
                                 <i class="fas fa-plus"></i> เพิ่มหัวข้อ (Add Category)
                             </button>
                             <input type="hidden" id="edit-category-hidden"> <!-- สำหรับเก็บค่าส่งไป Backend -->
@@ -2259,135 +2417,134 @@
     });
 
     // ====================================================================
-        // 2.1 CONVERTER MULTI-EDIT LOGIC (NEW SECTION)
-        // ====================================================================
+    // 2.1 CONVERTER MULTI-EDIT LOGIC (NEW SECTION)
+    // ====================================================================
 
-        /**
-         * ตั้งค่าเหตุการณ์สำหรับการเลือกหลายเซลล์และการแก้ไขพร้อมกันในตาราง Converter
-         */
-        function setupConverterMultiEdit() {
-            const $tableBody = $('#tableBody');
+    /**
+     * ตั้งค่าเหตุการณ์สำหรับการเลือกหลายเซลล์และการแก้ไขพร้อมกันในตาราง Converter
+     */
+    function setupConverterMultiEdit() {
+        const $tableBody = $('#tableBody');
 
-            // 1. MOUSE DOWN: เริ่มการเลือก
-            $tableBody.on('mousedown', '.editable-cell', function (e) {
-                // ถ้าไม่ได้กด Ctrl/Shift ให้ล้างการเลือกเดิม
-                if (!e.ctrlKey && !e.shiftKey) {
-                    $tableBody.find('.editable-cell').removeClass('selected-cell');
-                }
-
-                isMouseDown = true;
-                startCell = this;
-                $(this).addClass('selected-cell').focus();
-
-                // ป้องกันการเลือกข้อความของ Browser
-                e.preventDefault();
-            });
-
-            // 2. MOUSE OVER: ดำเนินการเลือกเมื่อลาก
-            $tableBody.on('mouseover', '.editable-cell', function () {
-                if (isMouseDown && startCell) {
-                    // เลือกเซลล์จาก startCell ถึงเซลล์ปัจจุบัน
-                    selectRange(startCell, this);
-                }
-            });
-
-            // 3. MOUSE UP: สิ้นสุดการเลือก (บนเอกสารทั้งหมด)
-            $(document).on('mouseup', function () {
-                isMouseDown = false;
-                startCell = null;
-            });
-
-            // 4. KEY DOWN: ใช้ Ctrl + Enter เพื่อ Apply ค่า
-            $tableBody.on('keydown', '.editable-cell', function (e) {
-                // Apply on Ctrl+Enter (หรือ Cmd+Enter บน Mac)
-                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-                    const newValue = $(this).text();
-                    applySelectionValue(newValue);
-                    e.preventDefault(); // ป้องกันการขึ้นบรรทัดใหม่
-                }
-            });
-
-            // 5. คลิกที่อื่น หรือ Tab ไปที่อื่น (Clear Selection)
-            $tableBody.on('blur', '.editable-cell', function () {
-                // ถ้า focus ออกจาก cell ที่ถูกเลือกทั้งหมด
-                setTimeout(() => {
-                    if (!$tableBody.find('.editable-cell:focus').length) {
-                        $tableBody.find('.editable-cell').removeClass('selected-cell');
-                    }
-                }, 10);
-            });
-        }
-
-        /**
-         * เลือกเซลล์ทั้งหมดภายในขอบเขตของ startCell และ endCell
-         * @param {HTMLElement} startCell 
-         * @param {HTMLElement} endCell 
-         */
-        function selectRange(start, end) {
-            const $tableBody = $('#tableBody');
-
-            // ล้างการเลือกเดิม (ถ้าไม่มี Ctrl/Shift)
-            if (!event.ctrlKey && !event.shiftKey) {
+        // 1. MOUSE DOWN: เริ่มการเลือก
+        $tableBody.on('mousedown', '.editable-cell', function (e) {
+            // ถ้าไม่ได้กด Ctrl/Shift ให้ล้างการเลือกเดิม
+            if (!e.ctrlKey && !e.shiftKey) {
                 $tableBody.find('.editable-cell').removeClass('selected-cell');
             }
 
-            const $start = $(start);
-            const $end = $(end);
+            isMouseDown = true;
+            startCell = this;
+            $(this).addClass('selected-cell').focus();
 
-            // คำนวณ Index ของ Row (tr) และ Col (td ที่มี class editable-cell)
-            const startRow = $start.closest('tr').index();
-            const endRow = $end.closest('tr').index();
-            // index() ของ editable-cell เริ่มจาก 1 (เพราะ td ตัวแรกไม่มี class)
-            const startCol = $start.index();
-            const endCol = $end.index();
+            // ป้องกันการเลือกข้อความของ Browser
+            e.preventDefault();
+        });
 
-            const minRow = Math.min(startRow, endRow);
-            const maxRow = Math.max(startRow, endRow);
-            const minCol = Math.min(startCol, endCol);
-            const maxCol = Math.max(startCol, endCol);
-
-            // วนลูปและเลือกเซลล์ในขอบเขต
-            $tableBody.find('tr').slice(minRow, maxRow + 1).each(function () {
-                // .editable-cell.slice(minCol - 1, maxCol)
-                // -1 เพราะ editable-cell index เริ่มที่ 0
-                $(this).find('.editable-cell').slice(minCol - 1, maxCol).addClass('selected-cell');
-            });
-        }
-
-        /**
-         * นำค่า newValue ไปใส่ในทุกเซลล์ที่ถูกเลือก (selected-cell)
-         * @param {string} newValue 
-         */
-        function applySelectionValue(newValue) {
-            const $tableBody = $('#tableBody');
-            const $selectedCells = $tableBody.find('.selected-cell');
-            const selectedCount = $selectedCells.length;
-
-            if (selectedCount > 1) {
-                Swal.fire({
-                    title: 'ยืนยันการแก้ไขหลายช่อง?',
-                    text: `คุณกำลังจะกำหนดค่า "${newValue.substring(0, 50)}${newValue.length > 50 ? '...' : ''}" ให้กับ ${selectedCount} ช่องที่เลือก`,
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonText: 'ใช่, แก้ไขทั้งหมด',
-                    cancelButtonText: 'ยกเลิก'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        // ใช้ .text() เพื่อ set ค่า
-                        $selectedCells.each(function () {
-                            $(this).text(newValue);
-                        });
-
-                        // ล้างการเลือกหลังจาก Apply ค่า
-                        $tableBody.find('.selected-cell').removeClass('selected-cell');
-                    }
-                });
-            } else if (selectedCount === 1) {
-                // ถ้าเลือกแค่ช่องเดียว แต่กด Ctrl+Enter ให้ล้างการเลือก
-                $tableBody.find('.selected-cell').removeClass('selected-cell');
+        // 2. MOUSE OVER: ดำเนินการเลือกเมื่อลาก
+        $tableBody.on('mouseover', '.editable-cell', function () {
+            if (isMouseDown && startCell) {
+                // เลือกเซลล์จาก startCell ถึงเซลล์ปัจจุบัน
+                selectRange(startCell, this);
             }
-        }
+        });
 
+        // 3. MOUSE UP: สิ้นสุดการเลือก (บนเอกสารทั้งหมด)
+        $(document).on('mouseup', function () {
+            isMouseDown = false;
+            startCell = null;
+        });
+
+        // 4. KEY DOWN: ใช้ Ctrl + Enter เพื่อ Apply ค่า
+        $tableBody.on('keydown', '.editable-cell', function (e) {
+            // Apply on Ctrl+Enter (หรือ Cmd+Enter บน Mac)
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                const newValue = $(this).text(); // ได้ค่าปัจจุบันที่พิมพ์อยู่ในเซลล์ที่ Focus
+                applySelectionValue(newValue);
+                e.preventDefault(); // ป้องกันการขึ้นบรรทัดใหม่
+            }
+        });
+
+        // 5. คลิกที่อื่น หรือ Tab ไปที่อื่น (Clear Selection)
+        $tableBody.on('blur', '.editable-cell', function () {
+            // ถ้า focus ออกจาก cell ที่ถูกเลือกทั้งหมด
+            setTimeout(() => {
+                if (!$tableBody.find('.editable-cell:focus').length) {
+                    $tableBody.find('.editable-cell').removeClass('selected-cell');
+                }
+            }, 10);
+        });
+    }
+    /**
+     * เลือกเซลล์ทั้งหมดภายในขอบเขตของ startCell และ endCell
+     * @param {HTMLElement} startCell 
+     * @param {HTMLElement} endCell 
+     */
+    function selectRange(start, end) {
+        const $tableBody = $('#tableBody');
+
+        // ล้างการเลือกเดิม (ถ้าไม่มี Ctrl/Shift)
+        // Note: Logic for Ctrl/Shift is in mousedown, keep only range selection here
+        $tableBody.find('.editable-cell').removeClass('selected-cell');
+
+        const $start = $(start);
+        const $end = $(end);
+
+        // คำนวณ Index ของ Row (tr) และ Col (td ที่มี class editable-cell)
+        const startRow = $start.closest('tr').index();
+        const endRow = $end.closest('tr').index();
+        const startCol = $start.index();
+        const endCol = $end.index();
+
+        const minRow = Math.min(startRow, endRow);
+        const maxRow = Math.max(startRow, endRow);
+        const minCol = Math.min(startCol, endCol);
+        const maxCol = Math.max(startCol, endCol);
+
+        // วนลูปและเลือกเซลล์ในขอบเขต
+        $tableBody.find('tr').slice(minRow, maxRow + 1).each(function () {
+            // editable-cell index เริ่มจาก 1 เพราะ td ตัวแรกเป็น index
+            $(this).find('.editable-cell').slice(minCol - 1, maxCol).addClass('selected-cell');
+        });
+
+        // Ensure the cell that was last clicked/focused is selected
+        $start.addClass('selected-cell');
+        $end.addClass('selected-cell');
+    }
+    /**
+     * นำค่า newValue ไปใส่ในทุกเซลล์ที่ถูกเลือก (selected-cell)
+     * @param {string} newValue 
+     */
+    function applySelectionValue(newValue) {
+        const $tableBody = $('#tableBody');
+        const $selectedCells = $tableBody.find('.selected-cell');
+        const selectedCount = $selectedCells.length;
+
+        if (selectedCount > 1) {
+            Swal.fire({
+                title: 'ยืนยันการแก้ไขหลายช่อง?',
+                text: `คุณกำลังจะกำหนดค่า "${newValue.substring(0, 50)}${newValue.length > 50 ? '...' : ''}" ให้กับ ${selectedCount} ช่องที่เลือก`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'ใช่, แก้ไขทั้งหมด',
+                cancelButtonText: 'ยกเลิก'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // ใช้ .text() เพื่อ set ค่า
+                    $selectedCells.each(function () {
+                        $(this).text(newValue);
+                    });
+
+                    // ล้างการเลือกหลังจาก Apply ค่า
+                    $tableBody.find('.selected-cell').removeClass('selected-cell');
+                }
+            });
+        } else if (selectedCount === 1) {
+            // ถ้าเลือกแค่ช่องเดียว แต่กด Ctrl+Enter ให้ล้างการเลือก
+            $tableBody.find('.selected-cell').removeClass('selected-cell');
+        }
+    }
+    
     // ====================================================================
     // 3. DATA FETCHING & SYNCHRONIZATION
     // ====================================================================
@@ -2491,20 +2648,13 @@
 
             if (qDB) {
                 linkHtml = `<a href="#" onclick="showQuestionDetail('${qDB.questionId}')" class="fw-bold text-decoration-none">${qDB.questionId}</a>`;
-
-                if (qDB && qDB.answer) {
-                    answerDisplay = qDB.answer.toString().trim().replace(/^[A-Z]\s*[\.\)]\s*/, '');
-                    if (!answerDisplay) answerDisplay = '-';
-                } else {
-                    answerDisplay = '-';
-                }
             } else {
                 linkHtml = `<span class="text-secondary small">${r.Category} (Deleted)</span>`;
             }
 
             let statusText = r.Status || 'Resolved';
             if (statusText === 'Rejected') {
-                statusBadge = `<span class="badge bg-secondary badge-pill">Rejected</span>`;
+                statusBadge = `<span class="badge bg-danger badge-pill">Rejected</span>`;
             } else {
                 statusBadge = `<span class="badge bg-success badge-pill">${statusText}</span>`;
             }
@@ -2512,8 +2662,8 @@
             html += `<tr>
                     <td>${dateStr}</td>
                     <td>${linkHtml}</td>
-                    <td class="text-success fw-bold text-center">${answerDisplay}</td>
-                    <td>${r.AdminNote || '-'}</td>
+                    <td style="min-width: 200px;">${r.ReportDetail || '-' }</td>
+                    <td style="min-width: 200px;">${r.AdminNote || '-'}</td>
                     <td>${statusBadge}</td>
                 </tr>`;
         });
@@ -3023,29 +3173,29 @@
     }
 
     function _renderNewCategoryRow(selectedCategoryID = null) {
-            const $container = $('#dynamic-categories-container');
-            const subjects = [...new Set(globalData.category.map(c => c.SubjectRef))].filter(s => s);
+        const $container = $('#dynamic-categories-container');
+        const subjects = [...new Set(globalData.category.map(c => c.SubjectRef))].filter(s => s);
 
-            // 1. สร้าง Option สำหรับ Subject
-            let subjectOptions = `<option value="">-- เลือกวิชา --</option>`;
-            subjects.sort().forEach(s => {
-                subjectOptions += `<option value="${s}">${s}</option>`;
-            });
+        // 1. สร้าง Option สำหรับ Subject
+        let subjectOptions = `<option value="">-- เลือกวิชา --</option>`;
+        subjects.sort().forEach(s => {
+            subjectOptions += `<option value="${s}">${s}</option>`;
+        });
 
-            // 2. หา Subject/Group ของ Category ที่เลือกไว้ (ถ้ามี)
-            let selectedSubject = '';
-            let selectedGroup = '';
-            let categoryName = '';
-            if (selectedCategoryID) {
-                const cat = globalData.category.find(c => c.CategoryID === selectedCategoryID);
-                if (cat) {
-                    selectedSubject = cat.SubjectRef;
-                    selectedGroup = cat.AccordionGroup;
-                    categoryName = cat.CategoryName;
-                }
+        // 2. หา Subject/Group ของ Category ที่เลือกไว้ (ถ้ามี)
+        let selectedSubject = '';
+        let selectedGroup = '';
+        let categoryName = '';
+        if (selectedCategoryID) {
+            const cat = globalData.category.find(c => c.CategoryID === selectedCategoryID);
+            if (cat) {
+                selectedSubject = cat.SubjectRef;
+                selectedGroup = cat.AccordionGroup;
+                categoryName = cat.CategoryName;
             }
+        }
 
-            const rowHtml = `
+        const rowHtml = `
             <div class="category-row d-flex gap-2 align-items-center bg-light p-2 rounded">
                 <select class="form-select form-select-sm category-subject-select" onchange="updateGroupSelect(this)" style="flex: 1;">
                     ${subjectOptions}
@@ -3061,91 +3211,91 @@
                 </button>
             </div>
         `;
-            const $row = $(rowHtml);
+        const $row = $(rowHtml);
 
-            // 3. ตั้งค่า Selected Subject และเรียกฟังก์ชัน Update Group/Category
-            if (selectedSubject) {
-                $row.find('.category-subject-select').val(selectedSubject).trigger('change');
+        // 3. ตั้งค่า Selected Subject และเรียกฟังก์ชัน Update Group/Category
+        if (selectedSubject) {
+            $row.find('.category-subject-select').val(selectedSubject).trigger('change');
 
-                // ตั้งค่า Selected Group
-                if (selectedGroup) {
-                    // ต้องรอให้ Group Select ถูก Populate ก่อน
-                    setTimeout(() => {
-                        $row.find('.category-group-select').val(selectedGroup).trigger('change');
+            // ตั้งค่า Selected Group
+            if (selectedGroup) {
+                // ต้องรอให้ Group Select ถูก Populate ก่อน
+                setTimeout(() => {
+                    $row.find('.category-group-select').val(selectedGroup).trigger('change');
 
-                        // ตั้งค่า Selected CategoryID
-                        if (selectedCategoryID) {
-                            setTimeout(() => {
-                                $row.find('.category-id-select').val(selectedCategoryID);
-                                syncCategoriesToHiddenInput();
-                            }, 50);
-                        }
-                    }, 50);
-                }
+                    // ตั้งค่า Selected CategoryID
+                    if (selectedCategoryID) {
+                        setTimeout(() => {
+                            $row.find('.category-id-select').val(selectedCategoryID);
+                            syncCategoriesToHiddenInput();
+                        }, 50);
+                    }
+                }, 50);
             }
-
-            $container.append($row);
         }
 
-        function removeCategoryRow(btn) {
-                $(btn).closest('.category-row').remove();
-                syncCategoriesToHiddenInput();
-            }
+        $container.append($row);
+    }
 
-        function updateGroupSelect(selectElement) {
-            const $subjectSelect = $(selectElement);
-            const subjId = $subjectSelect.val();
-            const $groupSelect = $subjectSelect.closest('.category-row').find('.category-group-select');
-            const $catSelect = $subjectSelect.closest('.category-row').find('.category-id-select');
+    function removeCategoryRow(btn) {
+        $(btn).closest('.category-row').remove();
+        syncCategoriesToHiddenInput();
+    }
 
-            $groupSelect.empty().append('<option value="">-- กลุ่ม --</option>');
-            $catSelect.empty().append('<option value="">-- หัวข้อ/Category --</option>');
+    function updateGroupSelect(selectElement) {
+        const $subjectSelect = $(selectElement);
+        const subjId = $subjectSelect.val();
+        const $groupSelect = $subjectSelect.closest('.category-row').find('.category-group-select');
+        const $catSelect = $subjectSelect.closest('.category-row').find('.category-id-select');
 
-            if (subjId) {
-                const relatedCategory = globalData.category.filter(t => t.SubjectRef === subjId);
-                const groups = [...new Set(relatedCategory.map(t => t.AccordionGroup))].filter(g => g);
+        $groupSelect.empty().append('<option value="">-- กลุ่ม --</option>');
+        $catSelect.empty().append('<option value="">-- หัวข้อ/Category --</option>');
 
-                groups.sort().forEach(g => {
-                    $groupSelect.append(`<option value="${g}">${g}</option>`);
-                });
-            }
-            syncCategoriesToHiddenInput();
-        }
+        if (subjId) {
+            const relatedCategory = globalData.category.filter(t => t.SubjectRef === subjId);
+            const groups = [...new Set(relatedCategory.map(t => t.AccordionGroup))].filter(g => g);
 
-        function updateCategorySelect(selectElement) {
-            const $groupSelect = $(selectElement);
-            const groupName = $groupSelect.val();
-            const $row = $groupSelect.closest('.category-row');
-            const subjId = $row.find('.category-subject-select').val();
-            const $categorySelect = $row.find('.category-id-select');
-
-            $categorySelect.empty().append('<option value="">-- หัวข้อ/Category --</option>');
-
-            if (groupName && subjId) {
-                const categories = globalData.category.filter(t => t.SubjectRef === subjId && t.AccordionGroup === groupName);
-                categories.sort((a, b) => a.CategoryName.localeCompare(b.CategoryName));
-                categories.forEach(t => {
-                    $categorySelect.append(`<option value="${t.CategoryID}">${t.CategoryName} (${t.CategoryID})</option>`);
-                });
-            }
-            syncCategoriesToHiddenInput();
-        }
-
-        function addNewCategoryRow() {
-            _renderNewCategoryRow(null);
-        }
-
-        function syncCategoriesToHiddenInput() {
-            const categories = [];
-            $('#dynamic-categories-container .category-id-select').each(function () {
-                const val = $(this).val();
-                if (val && val !== "") {
-                    categories.push(val);
-                }
+            groups.sort().forEach(g => {
+                $groupSelect.append(`<option value="${g}">${g}</option>`);
             });
-            // เก็บเป็น Stringified Array เพื่อส่งไป Backend
-            $('#edit-category-hidden').val(JSON.stringify(categories));
         }
+        syncCategoriesToHiddenInput();
+    }
+
+    function updateCategorySelect(selectElement) {
+        const $groupSelect = $(selectElement);
+        const groupName = $groupSelect.val();
+        const $row = $groupSelect.closest('.category-row');
+        const subjId = $row.find('.category-subject-select').val();
+        const $categorySelect = $row.find('.category-id-select');
+
+        $categorySelect.empty().append('<option value="">-- หัวข้อ/Category --</option>');
+
+        if (groupName && subjId) {
+            const categories = globalData.category.filter(t => t.SubjectRef === subjId && t.AccordionGroup === groupName);
+            categories.sort((a, b) => a.CategoryName.localeCompare(b.CategoryName));
+            categories.forEach(t => {
+                $categorySelect.append(`<option value="${t.CategoryID}">${t.CategoryName} (${t.CategoryID})</option>`);
+            });
+        }
+        syncCategoriesToHiddenInput();
+    }
+
+    function addNewCategoryRow() {
+        _renderNewCategoryRow(null);
+    }
+
+    function syncCategoriesToHiddenInput() {
+        const categories = [];
+        $('#dynamic-categories-container .category-id-select').each(function () {
+            const val = $(this).val();
+            if (val && val !== "") {
+                categories.push(val);
+            }
+        });
+        // เก็บเป็น Stringified Array เพื่อส่งไป Backend
+        $('#edit-category-hidden').val(JSON.stringify(categories));
+    }
 
     // --- Choice Logic ---
     function renderChoicesUI(choicesStr, correctAnsStr, suggestedAnsStr = null) {
@@ -3340,7 +3490,7 @@
         const filterSubj = $('#report-subject-filter').val();
         const pending = globalData.report.filter(r => !r.Done || r.Done.toString().toUpperCase() === 'FALSE');
 
-         let filteredReports = pending;
+        let filteredReports = pending;
         if (filterSubj) {
             const cleanFilterSubj = filterSubj.toUpperCase(); // แปลง Subject ID ที่เลือกให้เป็นตัวพิมพ์ใหญ่
 
@@ -3354,7 +3504,7 @@
 
         console.log(`Rendering ${filteredReports.length} reports (Filtered by subject: ${filterSubj || 'None'})`);
 
-        if (filteredReports.length === 0) { 
+        if (filteredReports.length === 0) {
             container.html('<div class="text-center text-muted py-5"><i class="fas fa-check-circle fa-3x text-success mb-3"></i><br>ไม่มีรายการแจ้งปัญหาใหม่</div>');
             return;
         }
@@ -3993,7 +4143,7 @@
                 const { value: newGroup } = await Swal.fire({
                     title: 'เพิ่มกลุ่มในวิชา ' + id1,
                     input: 'text',
-                    inputPlaceholder: 'เช่น MCQ, LEC, Lab',
+                    inputPlaceholder: 'เช่น MCQ1,MCQ2,MCQ3,MCQ4,FMT1,FMT2,by AI',
                     showCancelButton: true
                 });
                 if (newGroup) {
@@ -4051,7 +4201,7 @@
             case 'editCat':
                 // ... (Edit Category Logic) ...
                 const cat = globalData.category.find(c => c.CategoryID === id1);
-                const { value: catEdit } =  await Swal.fire({
+                const { value: catEdit } = await Swal.fire({
                     title: 'แก้ไขหัวข้อ ' + id1,
                     input: 'text',
                     inputValue: cat ? cat.CategoryName : '',
@@ -4136,26 +4286,26 @@
     }
 
     function openAddCategoryModal(subjectId = null, groupName = null) {
-            const subjects = [...new Set(globalData.structure.map(s => s.SubjectID))];
-            let opts = '<option value="">-- Select Subject --</option>';
-            // ใช้ template literal เพื่อตรวจสอบและตั้งค่า 'selected'
-            subjects.forEach(s => opts += `<option value="${s}" ${subjectId === s ? 'selected' : ''}>${s}</option>`);
+        const subjects = [...new Set(globalData.structure.map(s => s.SubjectID))];
+        let opts = '<option value="">-- Select Subject --</option>';
+        // ใช้ template literal เพื่อตรวจสอบและตั้งค่า 'selected'
+        subjects.forEach(s => opts += `<option value="${s}" ${subjectId === s ? 'selected' : ''}>${s}</option>`);
 
-            $('#new-category-subject').html(opts);
+        $('#new-category-subject').html(opts);
 
-            // ตั้งค่า Group และ Name (Name จะถูกเคลียร์เสมอ)
-            $('#new-category-group').val(groupName || '');
-            $('#new-category-name').val('');
-            $('#new-category-id').val('');
-            $('#category-id-error').text('');
+        // ตั้งค่า Group และ Name (Name จะถูกเคลียร์เสมอ)
+        $('#new-category-group').val(groupName || '');
+        $('#new-category-name').val('');
+        $('#new-category-id').val('');
+        $('#category-id-error').text('');
 
-            // ถ้ามีการ Pre-fill Subject ให้ลอง Generate ID ทันที
-            if (subjectId) {
-                generateCategoryIDPreview();
-            }
-
-            $('#addCategoryModal').modal('show');
+        // ถ้ามีการ Pre-fill Subject ให้ลอง Generate ID ทันที
+        if (subjectId) {
+            generateCategoryIDPreview();
         }
+
+        $('#addCategoryModal').modal('show');
+    }
 
 
     // ====================================================================
@@ -4183,12 +4333,12 @@
             const resJson = await response.json();
 
             if (resJson.result === 'success') {
-                    // ใช้ setTimeout เล็กน้อยเพื่อให้ Modal ปิดแล้วค่อยแจ้งเตือน
-                    setTimeout(() => {
-                        Swal.fire('Success', 'บันทึกข้อมูลเรียบร้อยแล้ว', 'success');
-                        fetchData(); // โหลดข้อมูลใหม่
-                    }, 500);
-                } else {
+                // ใช้ setTimeout เล็กน้อยเพื่อให้ Modal ปิดแล้วค่อยแจ้งเตือน
+                setTimeout(() => {
+                    Swal.fire('Success', 'บันทึกข้อมูลเรียบร้อยแล้ว', 'success');
+                    fetchData(); // โหลดข้อมูลใหม่
+                }, 500);
+            } else {
                 throw new Error(resJson.message || resJson.error || 'Unknown Error');
             }
         } catch (e) {
@@ -4332,237 +4482,305 @@
         // ... (จบโค้ด transformUrl เดิม) ...
     };
 
-
     // ====================================================================
-    // 11. CONVERTER TOOL LOGIC
-    // ====================================================================
+        // 11. CONVERTER TOOL LOGIC
+        // ====================================================================
 
-    let converterStorage = {
-        struct: [],
-        category: [],
-        ques: [],
-        current: "struct"
-    };
+        let converterStorage = {
+            struct: [],
+            category: [],
+            ques: [],
+            current: "struct"
+        };
 
-    const converterHeaders = {
-        struct: ["#", "Year", "SubjectID", "SubjectName", "AccordionGroup"],
-        category: ["#", "CategoryID", "SubjectRef", "AccordionGroup", "CategoryName"],
-        ques: ["#", "QuestionID", "Problem", "Image", "Choices", "Answer", "Explanation", "Category"]
-    };
+        const converterHeaders = {
+            struct: ["#", "Year", "SubjectID", "SubjectName", "AccordionGroup"],
+            category: ["#", "CategoryID", "SubjectRef", "AccordionGroup", "CategoryName"],
+            ques: ["#", "QuestionID", "Problem", "Image", "Choices", "Answer", "Explanation", "Category"]
+        };
 
-    function switchTab(sheet) {
-        // ... (โค้ด switchTab เดิม) ...
-        converterStorage.current = sheet;
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        document.getElementById('tab-' + sheet).classList.add('active');
-        renderPreview();
-        // ... (จบโค้ด switchTab เดิม) ...
-    }
-
-    function processAll() {
-        let rawInput = document.getElementById('jsonInput').value.trim();
-        const year = document.getElementById('yearVal').value;
-        const subjectID = document.getElementById('subjID').value.trim().toUpperCase() || "SUBJ";
-        const subjectName = document.getElementById('subjName').value || "Untitled Subject";
-        const groupKeywords = document.getElementById('groupKeys').value.split(',').map(k => k.trim()).filter(k => k !== "");
-
-        if (!rawInput) { Swal.fire('Error', 'กรุณาวางข้อมูลก่อน', 'error'); return; }
-
-        let structMap = new Map();
-        let categoryRows = [];
-        let quesRows = [];
-
-        // ล้างข้อมูลเก่า
-        converterStorage.struct = [];
-        converterStorage.category = [];
-        converterStorage.ques = [];
-
-        try {
-            if (rawInput.includes('{') && rawInput.includes('}')) {
-                // ********************************************************************
-                // CASE 2: QUIZ DATA (JSON Object) -> CategoryName = categoryKey
-                // ********************************************************************
-                const firstBrace = rawInput.indexOf('{');
-                const lastBrace = rawInput.lastIndexOf('}');
-                const jsonString = rawInput.substring(firstBrace, lastBrace + 1);
-
-                let quizObj;
-                try {
-                    // ใช้ Function แทน JSON.parse เพื่อรองรับ Loose Object (ไม่ต้องมี quote ที่ Key)
-                    quizObj = new Function("return " + jsonString)();
-                } catch (e) {
-                    quizObj = JSON.parse(jsonString);
-                }
-
-                for (const [categoryKey, questions] of Object.entries(quizObj)) {
-                    let group = "GENERAL";
-                    for (let key of groupKeywords) {
-                        if (categoryKey.toUpperCase().includes(key.toUpperCase())) { group = key; break; }
-                    }
-
-                    const structKey = `${subjectID}-${group}`;
-                    if (!structMap.has(structKey)) {
-                        structMap.set(structKey, [year, subjectID, subjectName, group]);
-                    }
-
-                    // CategoryID คือ categoryKey (แบบเต็ม), CategoryName ก็คือ categoryKey ตามที่กำหนด
-                    categoryRows.push([categoryKey, subjectID, group, categoryKey]);
-
-                    if (Array.isArray(questions)) {
-                        questions.forEach((q, index) => {
-                            const qId = `${categoryKey}_${index + 1}`;
-                            // แก้ไขปัญหา \n: เก็บค่า string ตามจริง แต่ตอน render ใน table จะระวังไม่ให้มันแตกแถว
-                            quesRows.push([
-                                qId,
-                                q.problem || "",
-                                q.img || "",
-                                q.choices || "",
-                                q.answer || "",
-                                q.explain || "",
-                                JSON.stringify([categoryKey])
-                            ]);
-                        });
-                    }
-                }
-            } else {
-                // ********************************************************************
-                // CASE 1: CATEGORY LIST (Text List) -> ใช้ logic การดึง CategoryName เดิม
-                // ********************************************************************
-                const lines = rawInput.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-                lines.forEach(categoryKey => {
-                    let group = "GENERAL";
-                    for (let key of groupKeywords) {
-                        if (categoryKey.toUpperCase().includes(key.toUpperCase())) { group = key; break; }
-                    }
-
-                    const structKey = `${subjectID}-${group}`;
-                    if (!structMap.has(structKey)) structMap.set(structKey, [year, subjectID, subjectName, group]);
-
-                    // ******* NEW LOGIC for CategoryName Extraction (Category List) *******
-                    let extractedName = categoryKey;
-                    // Assumption: CategoryID is SubjectID_Group_Name
-                    const firstUnderscore = categoryKey.indexOf('_');
-                    const secondUnderscore = categoryKey.indexOf('_', firstUnderscore + 1);
-
-                    if (firstUnderscore > -1 && secondUnderscore > -1) {
-                        extractedName = categoryKey.substring(secondUnderscore + 1).trim();
-                    } else if (firstUnderscore > -1) {
-                        // Fallback: If only one underscore (e.g., GI_ANAT), use the second part.
-                        extractedName = categoryKey.substring(firstUnderscore + 1).trim();
-                    }
-                    // ******* END NEW LOGIC *******
-
-                    // CategoryID คือ categoryKey (แบบเต็ม)
-                    categoryRows.push([categoryKey, subjectID, group, extractedName]);
-                });
-            }
-
-            // เก็บเข้า Storage ในรูปแบบ Array of Arrays (เพื่อไม่ให้ Newline พังโครงสร้างเหมือน String .split)
-            converterStorage.struct = Array.from(structMap.values());
-            converterStorage.category = categoryRows;
-            converterStorage.ques = quesRows;
-
-            Swal.fire('Success', 'ประมวลผลสำเร็จ! กรุณาตรวจสอบในตารางด้านล่าง', 'success');
+        function switchTab(sheet) {
+            // ... (โค้ด switchTab เดิม) ...
+            converterStorage.current = sheet;
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.getElementById('tab-' + sheet).classList.add('active');
             renderPreview();
-
-        } catch (e) {
-            console.error(e);
-            Swal.fire('Error', 'Format ข้อมูลผิดพลาด: ' + e.message, 'error');
+            // ... (จบโค้ด switchTab เดิม) ...
         }
-    }
-    function renderPreview() {
-        // ... (โค้ด renderPreview เดิม) ...
-        const head = document.getElementById('tableHead');
-        const body = document.getElementById('tableBody');
-        const currentSheet = converterStorage.current;
-        const data = converterStorage[currentSheet];
 
-        head.innerHTML = converterHeaders[currentSheet].map(h => `<th>${h}</th>`).join("");
+            function processAll() {
+                    let rawInput = document.getElementById('jsonInput').value.trim();
+                    const year = document.getElementById('yearVal').value;
+                    const subjectID = document.getElementById('subjID').value.trim().toUpperCase() || "SUBJ";
+                    const subjectName = document.getElementById('subjName').value || "Untitled Subject";
+                    const groupKeywords = document.getElementById('groupKeys').value.split(',').map(k => k.trim()).filter(k => k !==
+                        "");
+                    const arrayCategoryID = document.getElementById('arrayCategoryID').value.trim() || null;
 
-        body.innerHTML = data.map((row, i) => {
-            const indexCell = `<td>${i + 1}</td>`;
-            const contentCells = row.map(cell => {
-                return `<td class="editable-cell" contenteditable="true" style="white-space: pre-wrap;">${cell}</td>`;
+                    if (!rawInput) {
+                        Swal.fire('Error', 'กรุณาวางข้อมูลก่อน', 'error');
+                        return;
+                    }
+
+                    let structMap = new Map();
+                    let categoryRows = [];
+                    let quesRows = [];
+
+                    // ล้างข้อมูลเก่า
+                    converterStorage.struct = [];
+                    converterStorage.category = [];
+                    converterStorage.ques = [];
+
+                    // กำหนด Active Tab ที่เหมาะสม
+                    let initialTab = 'category'; // Default for Category List
+                    let inputType = 'structure_only'; // Default for Category List
+
+                    try {
+                        if (rawInput.startsWith('[') && rawInput.endsWith(']')) {
+                            // ********************************************************************
+                            // CASE 3: QUESTION ARRAY
+                            // ********************************************************************
+                            initialTab = 'ques';
+                            inputType = 'full';
+                            if (!arrayCategoryID) {
+                                Swal.fire('Error', 'กรุณาระบุ Category ID สำหรับชุดคำถามนี้ในช่องสีแดง "ใส่ชื่อหัวข้อ"', 'error');
+                                return;
+                            }
+
+                            // ... (Logic การประมวลผล Question Array - เหมือนเดิม) ...
+                            let questionsArray;
+                            try {
+                                questionsArray = JSON.parse(rawInput);
+                            } catch (e) {
+                                questionsArray = new Function("return " + rawInput)();
+                            }
+
+                            const categoryKey = arrayCategoryID;
+                            let group = "GENERAL";
+                            for (let key of groupKeywords) {
+                                if (categoryKey.toUpperCase().includes(key.toUpperCase())) {
+                                    group = key;
+                                    break;
+                                }
+                            }
+                            const structKey = `${subjectID}-${group}`;
+                            if (!structMap.has(structKey)) {
+                                structMap.set(structKey, [year, subjectID, subjectName, group]);
+                            }
+
+                            let extractedName = categoryKey;
+                            //const subjPrefix = `${subjectID}_`;
+                            //if (categoryKey.toUpperCase().startsWith(subjPrefix.toUpperCase())) {
+                            //    extractedName = categoryKey.substring(subjPrefix.length);
+                            //}
+                            //if (group !== 'GENERAL' && extractedName.toUpperCase().startsWith(`${group.toUpperCase()}`)) {
+                              //  const parts = extractedName.split('_');
+                                //if (parts.length > 1) {
+                                  //  extractedName = extractedName.substring(parts[0].length + 1);
+                               // }
+                            //}
+                            //const lastUnderscore = extractedName.lastIndexOf('_');
+                            //if (lastUnderscore > -1) {
+                              //  extractedName = extractedName.substring(lastUnderscore + 1);
+                            //}
+
+                            categoryRows.push([categoryKey, subjectID, group, extractedName]);
+
+                            questionsArray.forEach((q, index) => {
+                                const qId = `${categoryKey}_${index + 1}`;
+                                quesRows.push([qId, q.problem || "", q.img || "", q.choices || "", q.answer || "", q.explain || "",
+                                    JSON.stringify([categoryKey])
+                                ]);
+                            });
+
+
+                        } else if (rawInput.includes('{') && rawInput.includes('}')) {
+                            // ********************************************************************
+                            // CASE 2: QUIZ DATA (JSON Object)
+                            // ********************************************************************
+                            initialTab = 'ques';
+                            inputType = 'full';
+
+                            // ... (Logic การประมวลผล Quiz JSON Object - เหมือนเดิม) ...
+                            const firstBrace = rawInput.indexOf('{');
+                            const lastBrace = rawInput.lastIndexOf('}');
+                            const jsonString = rawInput.substring(firstBrace, lastBrace + 1);
+                            let quizObj;
+                            try {
+                                quizObj = new Function("return " + jsonString)();
+                            } catch (e) {
+                                quizObj = JSON.parse(jsonString);
+                            }
+
+                            for (const [categoryKey, questions] of Object.entries(quizObj)) {
+                                let group = "GENERAL";
+                                for (let key of groupKeywords) {
+                                    if (categoryKey.toUpperCase().includes(key.toUpperCase())) {
+                                        group = key;
+                                        break;
+                                    }
+                                }
+
+                                const structKey = `${subjectID}-${group}`;
+                                if (!structMap.has(structKey)) {
+                                    structMap.set(structKey, [year, subjectID, subjectName, group]);
+                                }
+
+                                categoryRows.push([categoryKey, subjectID, group, categoryKey]);
+
+                                if (Array.isArray(questions)) {
+                                    questions.forEach((q, index) => {
+                                        const qId = `${categoryKey}_${index + 1}`;
+                                        quesRows.push([qId, q.problem || "", q.img || "", q.choices || "", q.answer || "", q.explain || "",
+                                            JSON.stringify([categoryKey])
+                                        ]);
+                                    });
+                                }
+                            }
+                        } else {
+                            // ********************************************************************
+                            // CASE 1: CATEGORY LIST (Text List)
+                            // ********************************************************************
+                            initialTab = 'category';
+                            inputType = 'structure_only';
+
+                            // ... (Logic การประมวลผล Category List - เหมือนเดิม) ...
+                            const lines = rawInput.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+                            lines.forEach(categoryKey => {
+                                let group = "GENERAL";
+                                for (let key of groupKeywords) {
+                                    if (categoryKey.toUpperCase().includes(key.toUpperCase())) {
+                                        group = key;
+                                        break;
+                                    }
+                                }
+                                const structKey = `${subjectID}-${group}`;
+                                if (!structMap.has(structKey)) structMap.set(structKey, [year, subjectID, subjectName, group]);
+
+                                let extractedName = categoryKey;
+                                const firstUnderscore = categoryKey.indexOf('_');
+                                const secondUnderscore = categoryKey.indexOf('_', firstUnderscore + 1);
+
+                                if (firstUnderscore > -1 && secondUnderscore > -1) {
+                                    extractedName = categoryKey.substring(secondUnderscore +
+                                        1).trim();
+                                } else if (firstUnderscore > -1) {
+                                    extractedName = categoryKey.substring(firstUnderscore + 1).trim();
+                                }
+
+                                categoryRows.push([categoryKey, subjectID, group, extractedName]);
+                            });
+                        }
+
+                        // เก็บเข้า Storage
+                        converterStorage.struct = Array.from(structMap.values());
+                        converterStorage.category = categoryRows;
+                        converterStorage.ques = quesRows;
+
+                        Swal.fire('Success', 'ประมวลผลสำเร็จ! กรุณาตรวจสอบในตารางด้านล่าง', 'success');
+
+                        // NEW: เปลี่ยนไป Tab ที่เหมาะสมและเรนเดอร์
+                        switchTab(initialTab);
+
+                    } catch (e) {
+                        console.error(e);
+                        Swal.fire('Error', 'Format ข้อมูลผิดพลาด: ' + e.message, 'error');
+                    }
+                }
+
+        function renderPreview() {
+            // ... (โค้ด renderPreview เดิม) ...
+            const head = document.getElementById('tableHead');
+            const body = document.getElementById('tableBody');
+            const currentSheet = converterStorage.current;
+            const data = converterStorage[currentSheet];
+
+            head.innerHTML = converterHeaders[currentSheet].map(h => `<th>${h}</th>`).join("");
+
+            body.innerHTML = data.map((row, i) => {
+                const indexCell = `<td>${i + 1}</td>`;
+                const contentCells = row.map(cell => {
+                    return `<td class="editable-cell" contenteditable="true" style="white-space: pre-wrap;">${cell}</td>`;
+                }).join("");
+                return `<tr>${indexCell}${contentCells}</tr>`;
             }).join("");
-            return `<tr>${indexCell}${contentCells}</tr>`;
-        }).join("");
 
-        document.getElementById('previewText').innerText = `มีข้อมูลทั้งหมด ${data.length} แถว`;
-        // ... (จบโค้ด renderPreview เดิม) ...
-    }
+            document.getElementById('previewText').innerText = `มีข้อมูลทั้งหมด ${data.length} แถว`;
+            // ... (จบโค้ด renderPreview เดิม) ...
+        }
 
-    function copyCurrentSheet() {
-        // ... (โค้ด copyCurrentSheet เดิม) ...
-        const rows = document.querySelectorAll('#tableBody tr');
-        let text = "";
-        rows.forEach(tr => {
-            let rowData = [];
-            const cells = tr.querySelectorAll('td');
-            for (let j = 1; j < cells.length; j++) {
-                rowData.push(cells[j].innerText);
-            }
-            text += rowData.join("\t") + "\n";
-        });
-        navigator.clipboard.writeText(text);
-        Swal.fire('Copied', 'คัดลอกข้อมูล (TSV) เรียบร้อยแล้ว', 'success');
-        // ... (จบโค้ด copyCurrentSheet เดิม) ...
-    }
+        function copyCurrentSheet() {
+            // ... (โค้ด copyCurrentSheet เดิม) ...
+            const rows = document.querySelectorAll('#tableBody tr');
+            let text = "";
+            rows.forEach(tr => {
+                let rowData = [];
+                const cells = tr.querySelectorAll('td');
+                for (let j = 1; j < cells.length; j++) {
+                    rowData.push(cells[j].innerText);
+                }
+                text += rowData.join("\t") + "\n";
+            });
+            navigator.clipboard.writeText(text);
+            Swal.fire('Copied', 'คัดลอกข้อมูล (TSV) เรียบร้อยแล้ว', 'success');
+            // ... (จบโค้ด copyCurrentSheet เดิม) ...
+        }
 
     async function importConvertedData() {
-        // ... (โค้ด importConvertedData เดิม) ...
         if (!confirmAdmin()) return;
 
-        const rows = document.querySelectorAll('#tableBody tr');
-        let allExtractedData = [];
-        rows.forEach(tr => {
-            let rowData = [];
-            const cells = tr.querySelectorAll('td');
-            for (let j = 1; j < cells.length; j++) {
-                rowData.push(cells[j].innerText);
-            }
-            allExtractedData.push(rowData);
-        });
+        const sheetsToProcess = [
+            { name: 'Structure', key: 'struct' },
+            { name: 'Category', key: 'category' },
+            { name: 'Questions', key: 'ques' }
+        ];
 
-        if (allExtractedData.length === 0) {
-            Swal.fire('Warning', 'ไม่มีข้อมูลให้ Import', 'warning');
-            return;
-        }
+        let totalRowsImported = 0;
+        let importLog = "";
 
         const isConfirmed = await Swal.fire({
-            title: 'ยืนยันการนำเข้า?',
-            text: `คุณกำลังจะนำข้อมูลจำนวน ${allExtractedData.length} แถว เข้าสู่แผ่นงาน ${converterStorage.current}`,
+            title: 'ยืนยันการนำเข้าข้อมูลทั้งหมด?',
+            text: `คุณกำลังจะนำเข้าข้อมูล 3 ส่วน (Structure, Category, Questions) ที่อยู่ใน Converter Tool เข้าสู่ระบบ`,
             icon: 'question',
-            showCancelButton: true
+            showCancelButton: true,
+            confirmButtonText: 'ใช่, Import ทั้งหมด'
         });
 
         if (!isConfirmed.isConfirmed) return;
 
         $('#loading-overlay').show();
 
-        const BATCH_SIZE = 200;
-        const totalBatches = Math.ceil(allExtractedData.length / BATCH_SIZE);
-
         try {
-            for (let i = 0; i < totalBatches; i++) {
-                const chunk = allExtractedData.slice(i * BATCH_SIZE, (i + 1) * BATCH_SIZE);
+            for (const sheet of sheetsToProcess) {
+                const dataToImport = converterStorage[sheet.key];
 
-                await sendAdminAction('adminImport', {
-                    sheetName: converterStorage.current,
-                    data: chunk
-                });
+                if (dataToImport.length > 0) {
+                    const BATCH_SIZE = 200;
+                    const totalBatches = Math.ceil(dataToImport.length / BATCH_SIZE);
 
-                console.log(`Progress: ${i + 1}/${totalBatches}`);
+                    for (let i = 0; i < totalBatches; i++) {
+                        const chunk = dataToImport.slice(i * BATCH_SIZE, (i + 1) * BATCH_SIZE);
+
+                        await sendAdminAction('adminImport', {
+                            sheetName: sheet.key,
+                            data: chunk
+                        });
+                        totalRowsImported += chunk.length;
+                    }
+                    importLog += `นำเข้า ${sheet.name}: ${dataToImport.length} แถว\n`;
+                }
             }
-            Swal.fire('Completed', `นำเข้าข้อมูลสำเร็จทั้งหมด ${allExtractedData.length} แถว`, 'success');
+
+            Swal.fire('Completed', `นำเข้าข้อมูลสำเร็จทั้งหมด ${totalRowsImported} แถว\n\n${importLog}`, 'success');
             fetchData();
         } catch (err) {
             Swal.fire('Error', 'การ Import ขัดข้อง: ' + err.message, 'error');
         } finally {
             $('#loading-overlay').hide();
         }
-        // ... (จบโค้ด importConvertedData เดิม) ...
     }
-</script>
+
+        </script>
 </body>
 
 </html>

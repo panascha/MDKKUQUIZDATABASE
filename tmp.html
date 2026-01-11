@@ -1,0 +1,262 @@
+<script>
+// ====================================================================
+// 11. CONVERTER TOOL LOGIC (แก้ไขตามคำขอ)
+// ====================================================================
+
+let converterStorage = {
+struct: [],
+category: [],
+ques: [],
+current: "ques" // ตั้งค่าเริ่มต้นเป็น ques เพื่อให้สอดคล้องกับ showSection
+};
+
+const converterHeaders = {
+struct: ["#", "Year", "SubjectID", "SubjectName", "AccordionGroup"],
+category: ["#", "CategoryID", "SubjectRef", "AccordionGroup", "CategoryName"],
+ques: ["#", "QuestionID", "Problem", "Image", "Choices", "Answer", "Explanation", "Category"]
+};
+
+function setConverterTabVisibility(type) {
+if (type === 'structure_only') {
+$('#tab-struct').show();
+$('#tab-category').show();
+$('#tab-ques').hide();
+} else {
+$('#tab-struct').show();
+$('#tab-category').show();
+$('#tab-ques').show();
+}
+}
+
+function extractDataFromCurrentTable(sheetName) {
+const rows = document.querySelectorAll('#tableBody tr');
+let extractedData = [];
+rows.forEach(tr => {
+let rowData = [];
+const cells = tr.querySelectorAll('td');
+// เริ่มจาก cell ที่ 1 (j=1) เพื่อข้าม cell Index (#)
+for (let j = 1; j < cells.length; j++) { rowData.push(cells[j].innerText.trim()); } extractedData.push(rowData); });
+    return extractedData; } function switchTab(sheet) { converterStorage.current=sheet;
+    document.querySelectorAll('.tab').forEach(t=> t.classList.remove('active'));
+    document.getElementById('tab-' + sheet).classList.add('active');
+    renderPreview();
+    }
+
+    function processAll() {
+    let rawInput = document.getElementById('jsonInput').value.trim();
+    const year = document.getElementById('yearVal').value;
+    const subjectID = document.getElementById('subjID').value.trim().toUpperCase() || "SUBJ";
+    const subjectName = document.getElementById('subjName').value || "Untitled Subject";
+    const groupKeywords = document.getElementById('groupKeys').value.split(',').map(k => k.trim()).filter(k => k !==
+    "");
+    const arrayCategoryID = document.getElementById('arrayCategoryID').value.trim() || null;
+
+    if (!rawInput) {
+    Swal.fire('Error', 'กรุณาวางข้อมูลก่อน', 'error');
+    return;
+    }
+
+    let structMap = new Map();
+    let categoryRows = [];
+    let quesRows = [];
+
+    // ล้างข้อมูลเก่า
+    converterStorage.struct = [];
+    converterStorage.category = [];
+    converterStorage.ques = [];
+
+    // กำหนด Active Tab ที่เหมาะสม
+    let initialTab = 'category'; // Default for Category List
+    let inputType = 'structure_only'; // Default for Category List
+
+    try {
+    if (rawInput.startsWith('[') && rawInput.endsWith(']')) {
+    // ********************************************************************
+    // CASE 3: QUESTION ARRAY
+    // ********************************************************************
+    initialTab = 'ques';
+    inputType = 'full';
+    if (!arrayCategoryID) {
+    Swal.fire('Error', 'กรุณาระบุ Category ID สำหรับชุดคำถามนี้ในช่องสีแดง "ใส่ชื่อหัวข้อ"', 'error');
+    return;
+    }
+
+    // ... (Logic การประมวลผล Question Array - เหมือนเดิม) ...
+    let questionsArray;
+    try {
+    questionsArray = JSON.parse(rawInput);
+    } catch (e) {
+    questionsArray = new Function("return " + rawInput)();
+    }
+
+    const categoryKey = arrayCategoryID;
+    let group = "GENERAL";
+    for (let key of groupKeywords) {
+    if (categoryKey.toUpperCase().includes(key.toUpperCase())) {
+    group = key;
+    break;
+    }
+    }
+    const structKey = `${subjectID}-${group}`;
+    if (!structMap.has(structKey)) {
+    structMap.set(structKey, [year, subjectID, subjectName, group]);
+    }
+
+    let extractedName = categoryKey;
+    const subjPrefix = `${subjectID}_`;
+    if (categoryKey.toUpperCase().startsWith(subjPrefix.toUpperCase())) {
+    extractedName = categoryKey.substring(subjPrefix.length);
+    }
+    if (group !== 'GENERAL' && extractedName.toUpperCase().startsWith(`${group.toUpperCase()}`)) {
+    const parts = extractedName.split('_');
+    if (parts.length > 1) {
+    extractedName = extractedName.substring(parts[0].length + 1);
+    }
+    }
+    const lastUnderscore = extractedName.lastIndexOf('_');
+    if (lastUnderscore > -1) {
+    extractedName = extractedName.substring(lastUnderscore + 1);
+    }
+
+    categoryRows.push([categoryKey, subjectID, group, extractedName]);
+
+    questionsArray.forEach((q, index) => {
+    const qId = `${categoryKey}_${index + 1}`;
+    quesRows.push([qId, q.problem || "", q.img || "", q.choices || "", q.answer || "", q.explain || "",
+    JSON.stringify([categoryKey])
+    ]);
+    });
+
+
+    } else if (rawInput.includes('{') && rawInput.includes('}')) {
+    // ********************************************************************
+    // CASE 2: QUIZ DATA (JSON Object)
+    // ********************************************************************
+    initialTab = 'ques';
+    inputType = 'full';
+
+    // ... (Logic การประมวลผล Quiz JSON Object - เหมือนเดิม) ...
+    const firstBrace = rawInput.indexOf('{');
+    const lastBrace = rawInput.lastIndexOf('}');
+    const jsonString = rawInput.substring(firstBrace, lastBrace + 1);
+    let quizObj;
+    try {
+    quizObj = new Function("return " + jsonString)();
+    } catch (e) {
+    quizObj = JSON.parse(jsonString);
+    }
+
+    for (const [categoryKey, questions] of Object.entries(quizObj)) {
+    let group = "GENERAL";
+    for (let key of groupKeywords) {
+    if (categoryKey.toUpperCase().includes(key.toUpperCase())) {
+    group = key;
+    break;
+    }
+    }
+
+    const structKey = `${subjectID}-${group}`;
+    if (!structMap.has(structKey)) {
+    structMap.set(structKey, [year, subjectID, subjectName, group]);
+    }
+
+    categoryRows.push([categoryKey, subjectID, group, categoryKey]);
+
+    if (Array.isArray(questions)) {
+    questions.forEach((q, index) => {
+    const qId = `${categoryKey}_${index + 1}`;
+    quesRows.push([qId, q.problem || "", q.img || "", q.choices || "", q.answer || "", q.explain || "",
+    JSON.stringify([categoryKey])
+    ]);
+    });
+    }
+    }
+    } else {
+    // ********************************************************************
+    // CASE 1: CATEGORY LIST (Text List)
+    // ********************************************************************
+    initialTab = 'category';
+    inputType = 'structure_only';
+
+    // ... (Logic การประมวลผล Category List - เหมือนเดิม) ...
+    const lines = rawInput.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    lines.forEach(categoryKey => {
+    let group = "GENERAL";
+    for (let key of groupKeywords) {
+    if (categoryKey.toUpperCase().includes(key.toUpperCase())) {
+    group = key;
+    break;
+    }
+    }
+    const structKey = `${subjectID}-${group}`;
+    if (!structMap.has(structKey)) structMap.set(structKey, [year, subjectID, subjectName, group]);
+
+    let extractedName = categoryKey;
+    const firstUnderscore = categoryKey.indexOf('_');
+    const secondUnderscore = categoryKey.indexOf('_', firstUnderscore + 1);
+
+    if (firstUnderscore > -1 && secondUnderscore > -1) {
+    extractedName = categoryKey.substring(secondUnderscore +
+    1).trim();
+    } else if (firstUnderscore > -1) {
+    extractedName = categoryKey.substring(firstUnderscore + 1).trim();
+    }
+
+    categoryRows.push([categoryKey, subjectID, group, extractedName]);
+    });
+    }
+
+    // เก็บเข้า Storage
+    converterStorage.struct = Array.from(structMap.values());
+    converterStorage.category = categoryRows;
+    converterStorage.ques = quesRows;
+
+    Swal.fire('Success', 'ประมวลผลสำเร็จ! กรุณาตรวจสอบในตารางด้านล่าง', 'success');
+
+    // NEW: Set visibility based on detected type
+    setConverterTabVisibility(inputType);
+
+    // NEW: เปลี่ยนไป Tab ที่เหมาะสมและเรนเดอร์
+    switchTab(initialTab);
+
+    } catch (e) {
+    console.error(e);
+    Swal.fire('Error', 'Format ข้อมูลผิดพลาด: ' + e.message, 'error');
+    }
+    }
+
+    function renderPreview() {
+    const head = document.getElementById('tableHead');
+    const body = document.getElementById('tableBody');
+    const currentSheet = converterStorage.current;
+    let data = converterStorage[currentSheet];
+
+    // NEW: ถ้าเป็น Category List Input แต่ user switch ไป Tab Questions (ซึ่งจะว่าง) ให้แสดงข้อความว่าง
+    if (currentSheet === 'ques' && data.length === 0 && converterStorage.category.length > 0) {
+    data = []; // ใช้ data ว่าง
+    } else if (data.length === 0 && (currentSheet === 'struct' || currentSheet === 'category')) {
+    data = [];
+    }
+
+
+    head.innerHTML = converterHeaders[currentSheet].map(h => `<th>${h}</th>`).join("");
+
+    if (data.length === 0) {
+    body.innerHTML = `<tr>
+        <td colspan="${converterHeaders[currentSheet].length + 1}" class="text-center text-muted py-3">
+            <i class="fas fa-box-open me-2"></i> ไม่มีข้อมูลที่ถูกสร้างใน Tab นี้
+        </td>
+    </tr>`;
+    } else {
+    body.innerHTML = data.map((row, i) => {
+    const indexCell = `<td>${i + 1}</td>`;
+    const contentCells = row.map(cell => {
+    return `<td class="editable-cell" contenteditable="true" style="white-space: pre-wrap;">${cell}</td>`;
+    }).join("");
+    return `<tr>${indexCell}${contentCells}</tr>`;
+    }).join("");
+    }
+
+    document.getElementById('previewText').innerText = `มีข้อมูลทั้งหมด ${data.length} แถว`;
+    }
+    </script>
