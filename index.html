@@ -2588,7 +2588,7 @@
     // ====================================================================
     // 1. GLOBAL CONFIGURATION & VARIABLES
     // ====================================================================
-    const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxfc8_m0ICSkvB7yme13l0M8DIG7nasQ_st3WcyFw76WryPIv5fMIsgyx8XJGsHcNgr/exec';
+    const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxmjmnJeiG_GwHrjt4Va6nqqq9G0oV5L7gdatUdHzVx2tBQVrcfdRiHtG_ERfJ0QcM/exec';
 
     let globalData = {
         questions: [],
@@ -5262,10 +5262,10 @@
                 await clearAdminCache();
                 // -----------------------------------------------------------
 
-                setTimeout(() => {
+                setTimeout(async() => {
+                    await awafetchData(); // fetchData จะเห็นว่าไม่มี Cache แล้วไปโหลดใหม่เอง
                     Swal.fire('Success', 'บันทึกข้อมูลเรียบร้อยแล้ว', 'success');
-                    fetchData(); // fetchData จะเห็นว่าไม่มี Cache แล้วไปโหลดใหม่เอง
-                }, 500);
+                }, 1000);
             } else {
                 throw new Error(resJson.message || resJson.error || 'Unknown Error');
             }
