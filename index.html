@@ -2995,44 +2995,51 @@
         }
 
     async function fetchData() {
-        const localData = localStorage.getItem('mdkku_quiz_cache');
-        const localVer = localStorage.getItem('mdkku_quiz_ver');
-        
+        const cacheKey = 'global_admin_data';
+        const verKey = 'global_admin_ver';
+
         $('#loading-overlay').css('display', 'flex');
 
-        const res = await fetch(`${APPSCRIPT_URL}?action=checkVersion`);
-        const serverInfo = await res.json();
-
-        if (localData && localVer == serverInfo.v) {
-            // ข้อมูลในเครื่องยังใหม่ ใช้ของเดิมได้เลย ไม่ต้องโหลดหนัก
-            globalData = JSON.parse(localData);
-            updateDashboard();
-            populateFilters();
-            renderReportList();
-            refreshTables(); 
-            $('#loading-overlay').hide();
-                return;
-        }
-
         try {
+            // 1. ตรวจสอบเวอร์ชันและดึงข้อมูลจาก Cache ในเครื่อง
+            const [resVer, localData, localVer] = await Promise.all([
+                fetch(`${APPSCRIPT_URL}?action=checkVersion`).then(r => r.json()),
+                getCacheDB(cacheKey),
+                getCacheDB(verKey)
+            ]);
+
+            const serverVersion = resVer.v;
+
+            // 2. ถ้าเวอร์ชันตรงกัน ให้ใช้ข้อมูลจาก Cache
+            if (localData && localVer === serverVersion) {
+                console.log("Admin Data loaded from IndexedDB cache.");
+                globalData = localData;
+
+                updateDashboard();
+                populateFilters();
+                renderReportList();
+                refreshTables();
+
+                $('#loading-overlay').hide();
+                return;
+            }
+
+            // 3. ถ้าเวอร์ชันไม่ตรง หรือไม่มี Cache ให้โหลดใหม่จาก Server
+            console.log("Admin Data: Fetching fresh data from server...");
             const response = await fetch(`${APPSCRIPT_URL}?action=getAllData`);
             const data = await response.json();
 
-            // 1. Clean & Fix Questions Data
+            // --- ทำความสะอาดข้อมูลเหมือนเดิม ---
             globalData.questions = (data.questions || []).map(q => {
                 if (typeof q.category === 'string' && q.category.startsWith('[')) {
-                    try {
-                        q.category = JSON.parse(q.category.replace(/'/g, '"'));
-                    } catch (e) {
-                        q.category = [q.category];
-                    }
+                    try { q.category = JSON.parse(q.category.replace(/'/g, '"')); }
+                    catch (e) { q.category = [q.category]; }
                 } else if (typeof q.category === 'string') {
                     q.category = [q.category];
                 }
                 return q;
             });
 
-            // 2. Clean & Fix Report Data
             globalData.report = (data.report || []).map(r => {
                 if (String(r.Done).toUpperCase() === 'TRUE' && r.Status === 'Pending') {
                     r.Status = 'Resolved';
@@ -3045,22 +3052,22 @@
             globalData.votes = data.votes || [];
             globalData.logs = data.logs || [];
 
+            // 4. บันทึกข้อมูลใหม่ลง IndexedDB
+            await setCacheDB(cacheKey, globalData);
+            await setCacheDB(verKey, serverVersion);
+
             updateDashboard();
             populateFilters();
             renderReportList();
-            refreshTables(); // ต้องเรียกหลังจาก populateFilters
+            refreshTables();
 
-            console.log("Data Loaded and Sanitized successfully.");
         } catch (error) {
-            console.error(error);
-            Swal.fire('Error', 'Server Error: ' + error.message, 'error');
+            console.error("Fetch Data Error:", error);
+            Swal.fire('Error', 'ไม่สามารถโหลดข้อมูลได้: ' + error.message, 'error');
         } finally {
-            localStorage.setItem('mdkku_quiz_cache', JSON.stringify(globalData));
-            localStorage.setItem('mdkku_quiz_ver', serverInfo.v);
             $('#loading-overlay').hide();
         }
     }
-
     function refreshTables() {
         if ($.fn.DataTable.isDataTable('#publicTable')) {
             $('#publicTable').DataTable().clear().rows.add(globalData.questions).draw();
