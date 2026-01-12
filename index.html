@@ -2588,7 +2588,7 @@
     // ====================================================================
     // 1. GLOBAL CONFIGURATION & VARIABLES
     // ====================================================================
-    const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxmjmnJeiG_GwHrjt4Va6nqqq9G0oV5L7gdatUdHzVx2tBQVrcfdRiHtG_ERfJ0QcM/exec';
+    const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw-1tSqMEhZWsqKxcsCqd1WABbH3xULEFSdkTNpTloEspiG0kV6Lly2ZXitMsfKqFnd/exec';
 
     let globalData = {
         questions: [],
@@ -3363,7 +3363,6 @@
     }
 
     function initLogsTable() {
-        // ... (โค้ด initLogsTable เดิม) ...
         if ($.fn.DataTable.isDataTable('#logsTable')) {
             $('#logsTable').DataTable().clear().rows.add(globalData.logs).draw();
             return;
@@ -3376,24 +3375,31 @@
                     data: 'Timestamp',
                     render: function (data) { return formatDate(data); }
                 },
-                { data: 'User' },
+                { data: 'User', defaultContent: 'Guest' },
                 {
-                    data: 'Action',
+                    // Changed from 'Action' to 'ActionType' to match code.gs headers
+                    data: 'ActionType',
+                    defaultContent: '-',
                     render: function (data) {
+                        if (!data) return '<span class="badge bg-secondary">-</span>';
+
                         let badge = 'bg-secondary';
-                        if (data.includes('Edit')) badge = 'bg-info';
-                        if (data.includes('Delete')) badge = 'bg-danger';
-                        if (data.includes('Import')) badge = 'bg-success';
+                        const upperData = data.toString().toUpperCase();
+
+                        if (upperData.includes('EDIT') || upperData.includes('UPDATE')) badge = 'bg-info';
+                        if (upperData.includes('DELETE') || upperData.includes('REJECT')) badge = 'bg-danger';
+                        if (upperData.includes('IMPORT') || upperData.includes('ADD') || upperData.includes('REGISTER')) badge = 'bg-success';
+
                         return `<span class="badge ${badge}">${data}</span>`;
                     }
                 },
                 {
                     data: 'TargetID',
+                    defaultContent: '-'
                 },
                 { data: 'Details', defaultContent: '' }
             ]
         });
-        // ... (จบโค้ด initLogsTable เดิม) ...
     }
 
 
@@ -5246,35 +5252,39 @@
             }
         }
     async function sendAdminAction(actionName, dataObj) {
-        $('#loading-overlay').show();
-        try {
-            const resJson = await sendWithRetry({
-                action: actionName,
-                username: currentUser.username,
-                adminPass: adminPass,
-                user: currentUser.displayName,
-                data: dataObj
-            });
+            $('#loading-overlay').show();
+            try {
+                // สร้าง Payload และเพิ่ม Metadata (User Agent)
+                const payload = {
+                    action: actionName,
+                    username: currentUser.username,
+                    adminPass: adminPass,
+                    user: currentUser.displayName,
+                    data: dataObj,
+                    metadata: navigator.userAgent // [NEW] เพิ่มข้อมูล Browser/Device เพื่อบันทึก Log
+                };
 
-            if (resJson.result === 'success') {
-                // --- ส่วนที่เพิ่ม: ล้าง Cache เมื่อมีการเปลี่ยนแปลงข้อมูลบน Server ---
-                await clearAdminCache();
-                // -----------------------------------------------------------
+                // ส่งข้อมูลด้วยฟังก์ชัน sendWithRetry
+                const resJson = await sendWithRetry(payload);
 
-                setTimeout(async() => {
-                    await awafetchData(); // fetchData จะเห็นว่าไม่มี Cache แล้วไปโหลดใหม่เอง
-                    Swal.fire('Success', 'บันทึกข้อมูลเรียบร้อยแล้ว', 'success');
-                }, 1000);
-            } else {
-                throw new Error(resJson.message || resJson.error || 'Unknown Error');
+                if (resJson.result === 'success') {
+                    // ล้าง Cache ในเครื่องเมื่อมีการเปลี่ยนแปลงข้อมูลบน Server
+                    await clearAdminCache();
+
+                    setTimeout(async () => {
+                        await fetchData(); // โหลดข้อมูลใหม่จาก Server
+                        Swal.fire('Success', 'บันทึกข้อมูลเรียบร้อยแล้ว', 'success');
+                    }, 1000);
+                } else {
+                    throw new Error(resJson.message || resJson.error || 'Unknown Error');
+                }
+            } catch (e) {
+                console.error("Action Error:", e);
+                Swal.fire('Error', 'เกิดข้อผิดพลาด: ' + e.message, 'error');
+            } finally {
+                $('#loading-overlay').hide();
             }
-        } catch (e) {
-            console.error("Action Error:", e);
-            Swal.fire('Error', 'เกิดข้อผิดพลาด: ' + e.message, 'error');
-        } finally {
-            $('#loading-overlay').hide();
         }
-    }
     function formatDate(dateString) {
         // ... (โค้ด formatDate เดิม) ...
         if (!dateString) return '';

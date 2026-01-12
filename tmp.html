@@ -1,221 +1,454 @@
-// ====================================================================
-// 10. ADMIN & GENERAL UTILITIES
-// ====================================================================
+var SHEET_ID = '12rN8vcykEwgcPFK4LoOj18PEhj7JPhwMfz6uUkKrhJU';
+var DRIVE_FOLDER_ID = '1nzLH2ia2lL2TMxfrr6Kv-5fhsWwOWSCm';
 
-// ** NEW CRITICAL FIX: Move transformUrl here to ensure it's defined before DataTables usage **
-const transformUrl = (url) => {
-if (!url) return "";
-const match = url.match(/\/d\/(.*?)\//) || url.match(/id=([^&]+)/);
-// เพิ่ม w1000-h1000 เพื่อแสดงผลขนาดใหญ่และเร็วขึ้นจาก Google Photos/Drive
-return (match && match[1]) ? `https://lh3.googleusercontent.com/d/${match[1]}?authuser=1=w1000-h1000` : url;
+var VOTE_THRESHOLD_APPROVE = 5;
+var VOTE_THRESHOLD_CONFIRM = 6;
+
+/*
+=========================================
+ส่วนที่ 1: การดึงข้อมูล (GET)
+=========================================
+*/
+function updateVersion() {
+var cache = PropertiesService.getScriptProperties();
+var currentVer = parseInt(cache.getProperty('v') || "0");
+cache.setProperty('v', (currentVer + 1).toString());
+}
+
+function doGet(e) {
+var action = e.parameter.action;
+
+if (action == 'checkVersion') {
+var v = PropertiesService.getScriptProperties().getProperty('v') || "0";
+return ContentService.createTextOutput(JSON.stringify({v : v}))
+.setMimeType(ContentService.MimeType.JSON);
+}
+if (action == 'getStructure') return getStructureData(e.parameter.subject);
+if (action == 'getQuestions') return getQuestionsData(e.parameter.subject);
+if (action == 'getPendingVotes') return getPendingVotesData(e.parameter.qid);
+if (action == 'getAllData') return getAllDataForAdmin();
+
+return ContentService.createTextOutput("Action not defined")
+.setMimeType(ContentService.MimeType.TEXT);
+}
+
+function getAdminsList() { return getSheetDataJSON('Admins'); }
+
+function getAllDataForAdmin() {
+var data = {
+questions : JSON.parse(getQuestionsData('').getContent()),
+structure : getSheetDataJSON('Structure'),
+category : getSheetDataJSON('Category'),
+report : getSheetDataJSON('Report'),
+votes : getSheetDataJSON('Votes'),
+logs : getSheetDataJSON('Logs')
 };
-// ** END CRITICAL FIX **
-
-
-// 1. ฟังก์ชันเปิด Modal แก้ไขโปรไฟล์ และดึงข้อมูลเดิมมาใส่
-function openEditProfile() {
-$('#ep-prefix').val(currentUser.prefix || '');
-$('#ep-fullname').val(currentUser.fullName || '');
-$('#ep-displayname').val(currentUser.displayName || '');
-$('#ep-year').val(currentUser.year || '');
-$('#ep-contact').val(currentUser.contact || '');
-$('#edit-avatar-preview').attr('src', currentUser.avatar);
-$('#editProfileModal').modal('show');
+return ContentService.createTextOutput(JSON.stringify(data))
+.setMimeType(ContentService.MimeType.JSON);
 }
 
-// 2. ฟังก์ชันอัปเดตโปรไฟล์
-async function updateUserProfile() {
-if (!confirmAdmin()) return;
-const updateData = {
-prefix: $('#ep-prefix').val(),
-fullName: $('#ep-fullname').val(),
-displayName: $('#ep-displayname').val(),
-year: $('#ep-year').val(),
-contact: $('#ep-contact').val(),
-avatarUrl: currentUser.avatar // ถ้ามีการอัปโหลดใหม่ต้องเปลี่ยนตรงนี้ (Simplify for now)
-};
+function getSheetDataJSON(sheetName) {
+var ss = SpreadsheetApp.openById(SHEET_ID);
+var sheet = ss.getSheetByName(sheetName);
+if (!sheet) return [];
 
-$('#loading-overlay').show();
-try {
-const response = await fetch(APPSCRIPT_URL, {
-method: 'POST',
-redirect: "follow",
-headers: { "Content-Type": "text/plain" },
-body: JSON.stringify({
-action: 'updateAdminProfile',
-targetUsername: currentUser.username,
-username: currentUser.username, // for logging
-adminPass: adminPass,
-updateData: updateData
-})
-});
-const res = await response.json();
-if (res.result === 'success') {
-Swal.fire('สำเร็จ', 'อัปเดตข้อมูลแล้ว กรุณาเข้าสู่ระบบใหม่เพื่อให้ผลแสดงชัดเจน', 'success');
-$('#editProfileModal').modal('hide');
-// อัปเดตข้อมูลผู้ใช้ใน Frontend ทันที
-Object.assign(currentUser, updateData);
-updateAuthUI(true);
-} else {
-throw new Error(res.message || 'Server reported error');
-}
-} catch (e) {
-Swal.fire('Error', 'ไม่สามารถอัปเดตได้: ' + e.message, 'error');
-} finally {
-$('#loading-overlay').hide();
-}
-}
+var data = sheet.getDataRange().getValues();
+var headers = data[0];
+var result = [];
 
-// 3. ฟังก์ชันจัดการ Admin สำหรับ Developer (ยังคง logic เดิม)
-async function loadAdminManager() {
-if (currentUser.role !== 'DEVELOPER') return;
-$('#admin-user-list').html('<tr>
-    <td colspan="6" class="text-center py-4 text-muted"><i class="fas fa-spinner fa-spin"></i> กำลังโหลด...</td>
-</tr>');
-try {
-const response = await fetch(`${APPSCRIPT_URL}?action=getAdmins`); // ต้องสร้าง action getAdmins ใหม่ใน GS
-const admins = await response.json();
+for (var i = 1; i < data.length; i++) { var obj={}; for (var j=0; j < headers.length; j++) { var value=data[i][j]; if
+    (value instanceof Date) { obj[headers[j]]=value.toISOString(); } else { obj[headers[j]]=value; } } result.push(obj);
+    } return result; } function getPendingVotesData(qid) { var ss=SpreadsheetApp.openById(SHEET_ID); var
+    voteSheet=ss.getSheetByName("Votes"); var result=[]; if (voteSheet) { var data=voteSheet.getDataRange().getValues();
+    for (var i=1; i < data.length; i++) { var status=data[i][5]; if (data[i][0]==qid && (status=="Pending" ||
+    status=="Approved" )) { result.push( {categoryId : data[i][2], count : data[i][3], status : status}); } } } return
+    ContentService .createTextOutput(JSON.stringify({ votes : result, thresholds : {approve : VOTE_THRESHOLD_APPROVE,
+    confirm : VOTE_THRESHOLD_CONFIRM} })) .setMimeType(ContentService.MimeType.JSON); } function
+    getStructureData(filterSubject) { var ss=SpreadsheetApp.openById(SHEET_ID); var cleanFilter=filterSubject ?
+    String(filterSubject).trim().toUpperCase() : "" ; var structSheet=ss.getSheetByName('Structure'); var structData=[];
+    if (structSheet) { var rows=structSheet.getDataRange().getValues(); for (var i=1; i < rows.length; i++) { if
+    (cleanFilter !=="" && String(rows[i][1]).trim().toUpperCase() !==cleanFilter) continue; structData.push({ year :
+    rows[i][0], subjectId : rows[i][1], subjectName : rows[i][2], accordionGroup : rows[i][3] }); } } var
+    categorySheet=ss.getSheetByName('Category'); var categoryData=[]; if (categorySheet) { var
+    rows=categorySheet.getDataRange().getValues(); for (var i=1; i < rows.length; i++) { if (cleanFilter !=="" &&
+    String(rows[i][1]).trim().toUpperCase() !==cleanFilter) continue; categoryData.push({ categoryId : rows[i][0],
+    subjectRef : rows[i][1], accordionGroup : rows[i][2], categoryName : rows[i][3] }); } } return ContentService
+    .createTextOutput( JSON.stringify({subjects : structData, category : categoryData}))
+    .setMimeType(ContentService.MimeType.JSON); } function getQuestionsData(filterSubject) { var
+    ss=SpreadsheetApp.openById(SHEET_ID); var cleanFilter=filterSubject ? String(filterSubject).trim().toUpperCase()
+    : "" ; var catSheet=ss.getSheetByName('Category'); var catData=catSheet.getRange(2, 1, catSheet.getLastRow() - 1,
+    2).getValues(); var categoryToSubjectMap={}; catData.forEach(function(row) {
+    categoryToSubjectMap[String(row[0]).trim()]=String(row[1]).trim().toUpperCase(); }); var
+    qSheet=ss.getSheetByName('Questions'); var lastRow=qSheet.getLastRow(); if (lastRow <=1) return
+    ContentService.createTextOutput("[]").setMimeType( ContentService.MimeType.JSON); var data=qSheet.getRange(2, 1,
+    lastRow - 1, 7).getValues(); var questions=data.map(function(row) { var categories=[]; try { var
+    catRaw=row[6].toString().trim(); if (catRaw !=="" ) { categories=(catRaw.indexOf("[")> -1)
+    ? JSON.parse(catRaw.replace(/ '/g, ' "')) : [catRaw];
+    }
+    } catch (err) {
+    categories = ["Uncategorized"];
+    }
 
-let html = '';
-if (admins && admins.length > 0) {
-admins.forEach(u => {
-html += `
-<tr>
-    <td><img src="${u.AvatarURL || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + u.Username}" width="30"
-            class="rounded-circle"></td>
-    <td>${u.Username}</td>
-    <td>${u.FullName || '-'}</td>
-    <td><span class="badge ${u.Role === 'DEVELOPER' ? 'bg-danger' : 'bg-primary'}">${u.Role}</span></td>
-    <td>${u.KKUMail || '-'}</td>
-    <td>
-        <button class="btn btn-sm btn-outline-danger" onclick="devDeleteUser('${u.Username}')"><i
-                class="fas fa-trash"></i></button>
-    </td>
-</tr>`;
-});
-} else {
-html = '<tr>
-    <td colspan="6" class="text-center text-muted">ไม่พบข้อมูล Admin</td>
-</tr>';
-}
-$('#admin-user-list').html(html);
-} catch (e) {
-$('#admin-user-list').html('<tr>
-    <td colspan="6" class="text-center text-danger">โหลดข้อมูล Admin ล้มเหลว</td>
-</tr>');
-}
-}
+    return {
+    questionId : row[0],
+    problem : row[1],
+    img : row[2],
+    choices : row[3],
+    answer : row[4],
+    explain : row[5],
+    category : categories
+    };
+    })
+    .filter(function(q) {
+    if (cleanFilter === "") return true;
+    return q.category.some(function(catId) {
+    return (categoryToSubjectMap[catId] || "") === cleanFilter;
+    });
+    });
 
-function openRegisterModal() {
-// ใช้ Bootstrap Modal
-$('#loginModal').modal('hide');
-$('#registerModal').modal('show');
-// Clear form
-$('#registerForm')[0].reset();
-$('#reg-avatar-preview').addClass('hidden').attr('src', '');
-$('#reg-avatar-icon').removeClass('hidden');
-avatarBase64 = "";
-}
+    return ContentService.createTextOutput(JSON.stringify(questions))
+    .setMimeType(ContentService.MimeType.JSON);
+    }
 
-// ** NOTE: The logic for validateRegistrationForm, submitRegistration,
-// ** previewAvatar, submitRegister, submitResetPassword, performLogin,
-// ** logoutAdmin remains the same as previously defined, just ensure
-// ** they are correctly placed inside this section! **
+    /*
+    =========================================
+    ส่วนที่ 2: ระบบ LOGGING แบบละเอียด (NEW)
+    =========================================
+    */
 
+    /**
+    * บันทึกกิจกรรม Admin พร้อมค่าเก่า/ใหม่
+    */
+    function writeAdminLog(user, role, group, type, targetId, details, oldVal,
+    newVal, meta) {
+    try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var sheet = ss.getSheetByName("Logs") || ss.insertSheet("Logs");
+    if (sheet.getLastRow() == 0) {
+    sheet.appendRow([
+    "Timestamp", "User", "Role", "ActionGroup", "ActionType", "TargetID",
+    "Details", "OldValue", "NewValue", "Metadata"
+    ]);
+    }
+    sheet.appendRow([
+    new Date(), user, role, group, type, targetId, details,
+    typeof oldVal === 'object' ? JSON.stringify(oldVal) : oldVal,
+    typeof newVal === 'object' ? JSON.stringify(newVal) : newVal, meta || ""
+    ]);
+    } catch (e) {
+    console.error("Admin Log Error: " + e.message);
+    }
+    }
 
-// --- Login Logic (Updated) ---
-async function performLogin() {
-const username = $('#login-username').val();
-const password = $('#login-password').val();
+    /**
+    * บันทึกกิจกรรม User (การทำข้อสอบ)
+    */
+    function writeUserActivity(data) {
+    try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var sheet =
+    ss.getSheetByName("UserActivity") || ss.insertSheet("UserActivity");
+    if (sheet.getLastRow() == 0) {
+    sheet.appendRow([
+    "Timestamp", "SessionID", "Action", "TargetID", "Result", "TimeSpent",
+    "Metadata"
+    ]);
+    }
+    sheet.appendRow([
+    new Date(), data.session || "N/A", data.action || "", data.target || "",
+    data.result || "", data.timeSpent || 0, data.metadata || ""
+    ]);
+    } catch (e) {
+    console.error("User Log Error: " + e.message);
+    }
+    }
 
-if (!username || !password) return;
+    /*
+    =========================================
+    ส่วนที่ 3: การบันทึกข้อมูล (POST)
+    =========================================
+    */
+    function doPost(e) {
+    var lock = LockService.getScriptLock();
+    lock.tryLock(30000);
 
-$('#loading-overlay').css('display', 'flex');
-try {
-const response = await fetch(APPSCRIPT_URL, {
-method: 'POST',
-redirect: "follow",
-headers: { "Content-Type": "text/plain" },
-body: JSON.stringify({
-action: 'checkAuth',
-username: username,
-password: password
-})
-});
-const data = await response.json();
+    try {
+    var doc = SpreadsheetApp.openById(SHEET_ID);
+    var contents = e.postData.contents;
+    var data = JSON.parse(contents);
+    var action = data.action;
 
-if (data.result === 'success') {
-currentUser = data.user;
-isAdmin = true;
-adminPass = password; // Store for session actions
+    // NEW: Action สำหรับบันทึก User Activity จากหน้าเว็บ
+    if (action === 'logUserActivity') {
+    writeUserActivity(data.data);
+    return ContentService
+    .createTextOutput(JSON.stringify({result : 'success'}))
+    .setMimeType(ContentService.MimeType.JSON);
+    }
 
-updateAuthUI(true);
-$('#loginModal').modal('hide');
-Swal.fire({
-icon: 'success',
-title: 'Welcome, ' + currentUser.displayName,
-text: 'Role: ' + currentUser.role,
-timer: 1500,
-showConfirmButton: false
-});
-fetchData();
-} else {
-Swal.fire('Login Failed', data.message, 'error');
-}
-} catch (e) {
-Swal.fire('Error', e.message, 'error');
-} finally {
-$('#loading-overlay').hide();
-}
-}
+    // 1. REGISTER ADMIN
+    if (action === 'registerAdmin') {
+    var sheet = doc.getSheetByName("Admins");
+    var users = sheet.getDataRange().getValues();
 
-function logoutAdmin() {
-isAdmin = false;
-adminPass = '';
-currentUser = { displayName: 'Guest', avatar: '', username: '', role: '' };
-updateAuthUI(false);
-showSection('dashboard');
-}
+    for (var i = 1; i < users.length; i++) { if (users[i][0]==data.userData.Username) { return ContentService
+        .createTextOutput(JSON.stringify( {'result' : 'error' , 'message' : 'Username นี้ถูกใช้ไปแล้ว' }))
+        .setMimeType(ContentService.MimeType.JSON); } } var avatarUrl="https://api.dicebear.com/7.x/avataaars/svg?seed="
+        + data.userData.Username; if (data.userData.AvatarBase64) { try {
+        avatarUrl=uploadToDrive(data.userData.AvatarBase64, data.userData.Username + "_avatar.png" , "image/png" ); }
+        catch (err) { } } sheet.appendRow([ data.userData.Username, data.userData.Password, data.userData.DisplayName,
+        avatarUrl, data.userData.Role || "Admin" , data.userData.KKUMail, data.userData.Prefix, data.userData.FullName,
+        data.userData.StudentID, data.userData.Year, data.userData.Contact ]); updateVersion();
+        writeAdminLog("System", "SYSTEM" , "AUTH" , "REGISTER" , data.userData.Username, "New Admin registered" , "" ,
+        data.userData, "" ); return ContentService .createTextOutput(JSON.stringify({'result' : 'success' }))
+        .setMimeType(ContentService.MimeType.JSON); } // 2. RESET PASSWORD if (action==='resetPassword' ) { var
+        sheet=doc.getSheetByName("Admins"); var users=sheet.getDataRange().getValues(); var found=false; for (var i=1; i
+        < users.length; i++) { if (users[i][0]==data.verifyData.Username && users[i][5]==data.verifyData.KKUMail &&
+        users[i][8]==data.verifyData.StudentID) { sheet.getRange(i + 1, 2).setValue(data.newPassword); updateVersion();
+        writeAdminLog(data.verifyData.Username, "Admin" , "AUTH" , "RESET_PASS" , "Self" , "Password reset successful"
+        , "" , "" , "" ); found=true; break; } } if (found) { return ContentService
+        .createTextOutput(JSON.stringify({'result' : 'success' })) .setMimeType(ContentService.MimeType.JSON); } else {
+        return ContentService .createTextOutput(JSON.stringify( {'result' : 'error' , 'message'
+        : 'ข้อมูลยืนยันตัวตนไม่ถูกต้อง' })) .setMimeType(ContentService.MimeType.JSON); } } // 3. LOGIN CHECK if
+        (action==='checkAuth' ) { var userObj=verifyAdmin(data.username, data.password); if (userObj) {
+        writeAdminLog(data.username, userObj.role, "AUTH" , "LOGIN" , "N/A" , "Login successful" , "" , "" , "" );
+        return ContentService .createTextOutput( JSON.stringify({'result' : 'success' , 'user' : userObj}))
+        .setMimeType(ContentService.MimeType.JSON); } else { writeAdminLog(data.username, "Guest" , "AUTH"
+        , "LOGIN_FAIL" , "N/A" , "Failed login attempt" , "" , "" , "" ); return ContentService
+        .createTextOutput(JSON.stringify( {'result' : 'error' , 'message' : 'Username หรือ Password ไม่ถูกต้อง' }))
+        .setMimeType(ContentService.MimeType.JSON); } } // 4. UPDATE PROFILE if (action==='updateAdminProfile' ) { var
+        sheet=doc.getSheetByName("Admins"); var values=sheet.getDataRange().getValues(); var
+        targetUsername=data.targetUsername ? data.targetUsername.toString().trim() : "" ; var foundRow=-1; for (var i=1;
+        i < values.length; i++) { if (values[i][0].toString().trim().toLowerCase()===targetUsername.toLowerCase()) {
+        foundRow=i + 1; break; } } if (foundRow !==-1) { var u=data.updateData; var oldData=values[foundRow - 1]; if
+        (u.displayName !==undefined) sheet.getRange(foundRow, 3).setValue(u.displayName); if (u.AvatarBase64
+        !==undefined) { var newAvatar=uploadToDrive( u.AvatarBase64, targetUsername + "_avatar.png" , "image/png" );
+        sheet.getRange(foundRow, 4).setValue(newAvatar); } if (u.prefix !==undefined) sheet.getRange(foundRow,
+        7).setValue(u.prefix); if (u.fullName !==undefined) sheet.getRange(foundRow, 8).setValue(u.fullName); if (u.year
+        !==undefined) sheet.getRange(foundRow, 10).setValue(u.year); if (u.contact !==undefined)
+        sheet.getRange(foundRow, 11).setValue(u.contact); updateVersion(); writeAdminLog(targetUsername, "Admin"
+        , "AUTH" , "UPDATE_PROFILE" , targetUsername, "Updated profile info" , oldData, u, "" ); return ContentService
+        .createTextOutput(JSON.stringify({'result' : 'success' })) .setMimeType(ContentService.MimeType.JSON); } } // 5.
+        VOTE SYSTEM if (action==='submitVote' ) { var voteSheet=doc.getSheetByName("Votes") || doc.insertSheet("Votes");
+        var voteData=voteSheet.getDataRange().getValues(); var suggestedCategory=data.suggestedCategory || []; var
+        timestamp=new Date(); suggestedCategory.forEach(function(category) { var foundRowIndex=-1; for (var j=1; j <
+        voteData.length; j++) { if (voteData[j][0]==data.questionId && voteData[j][2]==category) { foundRowIndex=j + 1;
+        break; } } if (foundRowIndex !==-1) { var currentVote=parseInt(voteSheet.getRange(foundRowIndex, 4).getValue())
+        || 0; voteSheet.getRange(foundRowIndex, 4).setValue(currentVote + 1); voteSheet.getRange(foundRowIndex,
+        5).setValue(timestamp); } else { voteSheet.appendRow([ data.questionId, data.questionText, category, 1,
+        timestamp, "Pending" ]); } }); return ContentService.createTextOutput(JSON.stringify({'result' : 'success' }))
+        .setMimeType(ContentService.MimeType.JSON); } // 6. REPORT SYSTEM if (action==='submitReport' ) { var
+        sheet=doc.getSheetByName("Report") || doc.insertSheet("Report"); if (sheet.getLastRow()==0)
+        sheet.appendRow([ "From" , "Category" , "Question" , "Image" , "Choices" , "SuggestedAnswer" , "ReportDetail"
+        , "Time" , "Status" , "AdminNote" , "Done" ]); var qImg=(data.questionImages &&
+        data.questionImages.indexOf("http")===0) ? '=IMAGE("' + data.questionImages.split("///")[0] + '")' : "" ;
+        sheet.appendRow([ data.from || "User" , data.category || "" , data.question || "" , qImg, data.allChoices || ""
+        , data.suggestedChoice || "" , data.report || "" , new Date().toISOString(), "Pending" , "" , "FALSE" ]); return
+        ContentService.createTextOutput(JSON.stringify({'result' : 'success' }))
+        .setMimeType(ContentService.MimeType.JSON); } // 7. ADMIN CORE ACTIONS (CRUD) var adminActions=[ 'editQuestion'
+        , 'deleteQuestion' , 'addCategory' , 'adminImport' , 'updateReportStatus' , 'deleteCategory' , 'updateCategory'
+        , 'deleteGroup' , 'updateAccordionGroup' , 'addSubject' , 'updateSubject' , 'deleteSubject' ]; if
+        (adminActions.indexOf(action)> -1) {
+        var userObj = verifyAdmin(data.username, data.adminPass);
+        if (!userObj) {
+        return ContentService
+        .createTextOutput(
+        JSON.stringify({'result' : 'error', 'message' : 'Unauthorized'}))
+        .setMimeType(ContentService.MimeType.JSON);
+        }
 
-// 🛑 FIX: The logic using isLoggedIn is now correctly placed inside this function 🛑
-function updateAuthUI(isLoggedIn) {
-if (isLoggedIn) {
-$('#auth-guest-view').addClass('hidden');
-$('#auth-user-view').removeClass('hidden').addClass('d-flex');
+        var user = userObj.displayName || data.username;
+        var role = userObj.role;
 
-$('#topbar-user').text(currentUser.displayName);
-$('#topbar-avatar').attr('src', currentUser.avatar);
+        if (action === 'editQuestion') {
+        var sheet = doc.getSheetByName("Questions");
+        var rows = sheet.getDataRange().getValues();
+        var headers = rows[0];
+        for (var i = 1; i < rows.length; i++) { if (rows[i][0]==data.data.id) { var oldRow={}; headers.forEach((h,
+            idx)=> oldRow[h] = rows[i][idx]);
 
-// Sidebar Handling
-$('.admin-only').fadeIn();
+            var catToSave = Array.isArray(data.data.category)
+            ? JSON.stringify(data.data.category)
+            : data.data.category;
+            sheet.getRange(i + 1, 2, 1, 6)
+            .setValues([[data.data.problem, data.data.img, data.data.choices,
+            data.data.answer, data.data.explain, catToSave]]);
+            updateVersion();
+            writeAdminLog(user, role, "QUESTION", "EDIT", data.data.id,
+            "Updated question content", oldRow, data.data, "");
+            return ContentService
+            .createTextOutput(JSON.stringify({'result' : 'success'}))
+            .setMimeType(ContentService.MimeType.JSON);
+            }
+            }
+            }
 
-// 🛑 NEW/FIXED LOGIC START 🛑
-// 1. Enable profile editing on topbar
-$('#topbar-user, #topbar-avatar').off('click').on('click', openEditProfile); // off() to prevent multiple bindings
-$('#topbar-user').css('cursor', 'pointer').attr('title', 'คลิกเพื่อแก้ไขโปรไฟล์');
+            if (action === 'deleteQuestion') {
+            var sheet = doc.getSheetByName("Questions");
+            var rows = sheet.getDataRange().getValues();
+            for (var i = 1; i < rows.length; i++) { if (rows[i][0]==data.data.id) { var oldContent=rows[i][1];
+                sheet.deleteRow(i + 1); updateVersion(); writeAdminLog(user, role, "QUESTION" , "DELETE" ,
+                data.data.id, "Deleted question: " + oldContent.substring(0, 50), oldContent, "" , "" ); return
+                ContentService .createTextOutput(JSON.stringify({'result' : 'success' }))
+                .setMimeType(ContentService.MimeType.JSON); } } } if (action==='adminImport' ) { var sheetMap={ 'struct'
+                : 'Structure' , 'category' : 'Category' , 'ques' : 'Questions' }; var payload=data.data; var
+                realSheetName=sheetMap[payload.sheetName] || payload.sheetName; var
+                targetSheet=doc.getSheetByName(realSheetName); if (targetSheet) { var importData=payload.data; var
+                lastRow=targetSheet.getLastRow(); targetSheet .getRange(lastRow + 1, 1, importData.length,
+                importData[0].length) .setValues(importData); updateVersion(); writeAdminLog(user, role, "DATABASE"
+                , "IMPORT" , realSheetName, "Imported batch data" , "" , "Count: " + importData.length, "" ); return
+                ContentService .createTextOutput(JSON.stringify({'result' : 'success' }))
+                .setMimeType(ContentService.MimeType.JSON); } } if (action==='addCategory' ) { var
+                sheet=doc.getSheetByName("Category"); sheet.appendRow([ data.data.CategoryID, data.data.SubjectRef,
+                data.data.AccordionGroup, data.data.CategoryName ]); updateVersion(); writeAdminLog(user,
+                role, "STRUCTURE" , "ADD_CAT" , data.data.CategoryID, "Added new category" , "" , data.data, "" );
+                return ContentService .createTextOutput(JSON.stringify({'result' : 'success' }))
+                .setMimeType(ContentService.MimeType.JSON); } if (action==='updateReportStatus' ) { var
+                sheet=doc.getSheetByName("Report"); var rows=sheet.getDataRange().getValues(); for (var i=1; i <
+                rows.length; i++) { var sTime=rows[i][7] instanceof Date ? rows[i][7].toISOString() :
+                String(rows[i][7]); if (sTime===String(data.data.timestamp)) { sheet.getRange(i + 1, 9, 1, 3)
+                .setValues( [[data.data.status, data.data.adminNote, data.data.done]]); writeAdminLog(user,
+                role, "REPORT" , "RESOLVE" , data.data.timestamp, "Updated report status to " + data.data.status,
+                rows[i][8], data.data.status, "" ); return ContentService .createTextOutput(JSON.stringify({'result'
+                : 'success' })) .setMimeType(ContentService.MimeType.JSON); } } } // --- CRUD สำหรับ Category --- if
+                (action==='deleteCategory' ) { var sheet=doc.getSheetByName("Category"); var
+                rows=sheet.getDataRange().getValues(); for (var i=1; i < rows.length; i++) { if
+                (rows[i][0]==data.data.CategoryID) { var oldData=rows[i]; // เก็บข้อมูลเก่า [ID, Subj, Group, Name]
+                sheet.deleteRow(i + 1); updateVersion(); writeAdminLog(user, role, "STRUCTURE" , "DELETE_CAT" ,
+                data.data.CategoryID, "Deleted category" , oldData, "" , "" ); return
+                ContentService.createTextOutput(JSON.stringify({'result': 'success'
+                })).setMimeType(ContentService.MimeType.JSON); } } } if (action==='updateCategory' ) { var
+                sheet=doc.getSheetByName("Category"); var rows=sheet.getDataRange().getValues(); for (var i=1; i <
+                rows.length; i++) { if (rows[i][0]==data.data.CategoryID) { var oldName=rows[i][3]; sheet.getRange(i +
+                1, 4).setValue(data.data.CategoryName); updateVersion(); writeAdminLog(user, role, "STRUCTURE"
+                , "UPDATE_CAT" , data.data.CategoryID, "Updated category name" , oldName, data.data.CategoryName, "" );
+                return ContentService.createTextOutput(JSON.stringify({'result': 'success'
+                })).setMimeType(ContentService.MimeType.JSON); } } } // --- CRUD สำหรับ Group --- if
+                (action==='deleteGroup' ) { var sheet=doc.getSheetByName("Category"); var
+                rows=sheet.getDataRange().getValues(); var deletedCount=0; for (var i=rows.length - 1; i>= 1; i--) {
+                if (rows[i][1] == data.data.SubjectRef && rows[i][2] == data.data.AccordionGroup) {
+                sheet.deleteRow(i + 1);
+                deletedCount++;
+                }
+                }
+                var structSheet = doc.getSheetByName("Structure");
+                var sRows = structSheet.getDataRange().getValues();
+                for (var i = sRows.length - 1; i >= 1; i--) {
+                if (sRows[i][1] == data.data.SubjectRef && sRows[i][3] == data.data.AccordionGroup) {
+                structSheet.deleteRow(i + 1);
+                }
+                }
+                updateVersion();
+                writeAdminLog(user, role, "STRUCTURE", "DELETE_GROUP", data.data.SubjectRef + "_" +
+                data.data.AccordionGroup, "Deleted group and " + deletedCount + " categories", "", "", "");
+                return ContentService.createTextOutput(JSON.stringify({'result':
+                'success'})).setMimeType(ContentService.MimeType.JSON);
+                }
 
-// 2. Developer Role Check (Show/Hide Developer-only menu items)
-if (currentUser.role === 'DEVELOPER') {
-$('.developer-only').show();
-// Note: The Sidebar menu item is controlled by the CSS class `.developer-only`
-} else {
-$('.developer-only').hide();
-}
-// 🛑 NEW/FIXED LOGIC END 🛑
+                if (action === 'updateAccordionGroup') {
+                var catSheet = doc.getSheetByName("Category");
+                var cRows = catSheet.getDataRange().getValues();
+                for (var i = 1; i < cRows.length; i++) { if (cRows[i][1]==data.data.SubjectRef &&
+                    cRows[i][2]==data.data.OldAccordionGroup) { catSheet.getRange(i + 1,
+                    3).setValue(data.data.NewAccordionGroup); } } var structSheet=doc.getSheetByName("Structure"); var
+                    sRows=structSheet.getDataRange().getValues(); for (var i=1; i < sRows.length; i++) { if
+                    (sRows[i][1]==data.data.SubjectRef && sRows[i][3]==data.data.OldAccordionGroup) {
+                    structSheet.getRange(i + 1, 4).setValue(data.data.NewAccordionGroup); } } updateVersion();
+                    writeAdminLog(user, role, "STRUCTURE" , "RENAME_GROUP" , data.data.SubjectRef, "Renamed group: " +
+                    data.data.OldAccordionGroup + " to " + data.data.NewAccordionGroup, data.data.OldAccordionGroup,
+                    data.data.NewAccordionGroup, "" ); return
+                    ContentService.createTextOutput(JSON.stringify({'result': 'success'
+                    })).setMimeType(ContentService.MimeType.JSON); } // --- CRUD สำหรับ Subject --- if
+                    (action==='addSubject' ) { var sheet=doc.getSheetByName("Structure");
+                    sheet.appendRow([data.data.Year, data.data.SubjectID, data.data.SubjectName, "GENERAL" ]);
+                    updateVersion(); writeAdminLog(user, role, "STRUCTURE" , "ADD_SUBJ" ,
+                    data.data.SubjectID, "Added new subject" , "" , data.data, "" ); return
+                    ContentService.createTextOutput(JSON.stringify({'result': 'success'
+                    })).setMimeType(ContentService.MimeType.JSON); } if (action==='updateSubject' ) { var
+                    sheet=doc.getSheetByName("Structure"); var rows=sheet.getDataRange().getValues(); for (var i=1; i <
+                    rows.length; i++) { if (rows[i][1]==data.data.SubjectID) { var oldSubj=rows[i]; sheet.getRange(i +
+                    1, 1).setValue(data.data.Year); sheet.getRange(i + 1, 3).setValue(data.data.SubjectName);
+                    updateVersion(); writeAdminLog(user, role, "STRUCTURE" , "UPDATE_SUBJ" ,
+                    data.data.SubjectID, "Updated subject info" , oldSubj, data.data, "" ); return
+                    ContentService.createTextOutput(JSON.stringify({'result': 'success'
+                    })).setMimeType(ContentService.MimeType.JSON); } } } if (action==='deleteSubject' ) { var
+                    subjectId=data.data.SubjectID; var structSheet=doc.getSheetByName("Structure"); var
+                    sRows=structSheet.getDataRange().getValues(); for (var i=sRows.length - 1; i>= 1; i--) {
+                    if (sRows[i][1] == subjectId) structSheet.deleteRow(i + 1);
+                    }
+                    var catSheet = doc.getSheetByName("Category");
+                    var cRows = catSheet.getDataRange().getValues();
+                    for (var i = cRows.length - 1; i >= 1; i--) {
+                    if (cRows[i][1] == subjectId) catSheet.deleteRow(i + 1);
+                    }
+                    updateVersion();
+                    writeAdminLog(user, role, "STRUCTURE", "DELETE_SUBJ", subjectId, "Deleted subject and all associated
+                    categories", subjectId, "", "");
+                    return ContentService.createTextOutput(JSON.stringify({'result':
+                    'success'})).setMimeType(ContentService.MimeType.JSON);
+                    }
+                    } // ปิด if (adminActions.indexOf(action) > -1)
 
-// Hide sidebar login button
-$('#btn-sidebar-login').hide();
-$('#user-status-display').html(`Logged in as:<br><b>${currentUser.displayName}</b>`).css('color', '#fff');
+                    return ContentService.createTextOutput(JSON.stringify({
+                    'result': 'error',
+                    'message': 'Action "' + action + '" not found or logic failed'
+                    })).setMimeType(ContentService.MimeType.JSON);
 
-
-} else {
-$('#auth-guest-view').removeClass('hidden');
-$('#auth-user-view').addClass('hidden').removeClass('d-flex');
-
-$('.admin-only').hide();
-$('#btn-sidebar-login').show();
-$('#user-status-display').text('Guest User').css('color', 'rgba(255,255,255,0.6)');
-}
-}
-
-// ... (rest of the code for sendAdminAction, formatDate, hashPassword, toggleLogin, confirmAdmin) ...
+                    } catch (e) {
+                    return ContentService.createTextOutput(JSON.stringify({
+                    'result': 'error',
+                    'message': e.toString()
+                    })).setMimeType(ContentService.MimeType.JSON);
+                    } finally {
+                    lock.releaseLock();
+                    }
+                    }
+                    }
+                    return ContentService
+                    .createTextOutput(
+                    JSON.stringify({'result' : 'error', 'message' : 'Action not found'}))
+                    .setMimeType(ContentService.MimeType.JSON);
+                    }
+                    catch (e) {
+                    return ContentService
+                    .createTextOutput(
+                    JSON.stringify({'result' : 'error', 'message' : e.toString()}))
+                    .setMimeType(ContentService.MimeType.JSON);
+                    }
+                    finally { lock.releaseLock(); }
+                    }
+                    /*=========================================ส่วนที่ 4: ระบบช่วยเหลือ
+                    (Utils)=========================================*/
+                    /** * ฟังก์ชัน Log เดิม
+                    (เก็บไว้เพื่อความปลอดภัยตามคำขอ) */
+                    function writelog(user, action, targetId, details) {
+                    try {
+                    var ss = SpreadsheetApp.openById(SHEET_ID);
+                    var logSheet = ss.getSheetByName("Logs") || ss.insertSheet("Logs");
+                    logSheet.appendRow([ new Date(), user, action, targetId, details ]);
+                    } catch (err) {
+                    }
+                    }
+                    function verifyAdmin(username, password) {
+                    var ss = SpreadsheetApp.openById(SHEET_ID);
+                    var sheet = ss.getSheetByName("Admins");
+                    if (!sheet) return null;
+                    var hashedInput = hashPasswordInternal(password);
+                    var data = sheet.getDataRange().getValues();
+                    for (var i = 1; i < data.length; i++) { if (data[i][0]==username && (data[i][1]==password ||
+                        data[i][1]==hashedInput)) { return { username : data[i][0], displayName : data[i][2], avatar :
+                        data[i][3], role : data[i][4], prefix : data[i][6], fullName : data[i][7], studentId :
+                        data[i][8], year : data[i][9], contact : data[i][10] }; } } return null; } function
+                        hashPasswordInternal(password) { if (!password) return "" ; var
+                        signature=Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, password); return signature
+                        .map(function(byte) { var v=(byte < 0) ? (byte + 256) : byte; return ("0" +
+                        v.toString(16)).slice(-2); }) .join(""); } function uploadToDrive(base64Data, filename,
+                        mimeType) { try { var parentFolder=DriveApp.getFolderById(DRIVE_FOLDER_ID); var targetFolder;
+                        var folders=parentFolder.getFoldersByName("User"); targetFolder=folders.hasNext() ?
+                        folders.next() : parentFolder.createFolder("User"); var cleanBase64=base64Data.split(',')[1] ||
+                        base64Data; var fileBlob=Utilities.newBlob(Utilities.base64Decode(cleanBase64), mimeType,
+                        filename); var existingFiles=targetFolder.getFilesByName(filename); while
+                        (existingFiles.hasNext()) { existingFiles.next().setTrashed(true); } var
+                        file=targetFolder.createFile(fileBlob); file.setSharing(DriveApp.Access.ANYONE_WITH_LINK,
+                        DriveApp.Permission.VIEW); return 'https://drive.google.com/uc?export=view&id=' + file.getId();
+                        } catch (e) { return "" ; } }
