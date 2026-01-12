@@ -5078,7 +5078,6 @@
                 const avatarMimeType = regAvatarMimeType;
                 let finalAvatar = regAvatarBase64;
                 if (finalAvatar) {
-                    $feedbackSave.text("กำลังย่อขนาดรูปภาพ...").show();
                     finalAvatar = await compressImage(finalAvatar); // ย่อรูปก่อนส่ง
                 }
 
