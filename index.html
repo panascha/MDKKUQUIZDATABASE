@@ -2948,6 +2948,52 @@
     // 3. DATA FETCHING & SYNCHRONIZATION
     // ====================================================================
 
+    const dbName = "MDKKU_Admin_DB";
+        const storeName = "admin_cache";
+
+        function openDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(dbName, 1);
+                request.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(storeName)) {
+                        db.createObjectStore(storeName);
+                    }
+                };
+                request.onsuccess = (e) => resolve(e.target.result);
+                request.onerror = (e) => reject(e.target.error);
+            });
+        }
+
+        async function setCacheDB(key, data) {
+            const db = await openDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(storeName, "readwrite");
+                const store = transaction.objectStore(storeName);
+                store.put(data, key);
+                transaction.oncomplete = () => resolve();
+                transaction.onerror = (e) => reject(e.target.error);
+            });
+        }
+
+        async function getCacheDB(key) {
+            const db = await openDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(storeName, "readonly");
+                const store = transaction.objectStore(storeName);
+                const request = store.get(key);
+                request.onsuccess = (e) => resolve(e.target.result);
+                request.onerror = (e) => reject(e.target.error);
+            });
+        }
+
+        // ฟังก์ชันล้าง Cache เมื่อ Admin ทำการแก้ไขข้อมูล
+        async function clearAdminCache() {
+            const db = await openDB();
+            const transaction = db.transaction(storeName, "readwrite");
+            transaction.objectStore(storeName).clear();
+        }
+
     async function fetchData() {
         const localData = localStorage.getItem('mdkku_quiz_cache');
         const localVer = localStorage.getItem('mdkku_quiz_ver');
@@ -5194,7 +5240,6 @@
             }
         }
     async function sendAdminAction(actionName, dataObj) {
-        // ... (โค้ด sendAdminAction เดิม) ...
         $('#loading-overlay').show();
         try {
             const resJson = await sendWithRetry({
@@ -5206,23 +5251,24 @@
             });
 
             if (resJson.result === 'success') {
-                // ใช้ setTimeout เล็กน้อยเพื่อให้ Modal ปิดแล้วค่อยแจ้งเตือน
+                // --- ส่วนที่เพิ่ม: ล้าง Cache เมื่อมีการเปลี่ยนแปลงข้อมูลบน Server ---
+                await clearAdminCache();
+                // -----------------------------------------------------------
+
                 setTimeout(() => {
                     Swal.fire('Success', 'บันทึกข้อมูลเรียบร้อยแล้ว', 'success');
-                    fetchData(); // โหลดข้อมูลใหม่
+                    fetchData(); // fetchData จะเห็นว่าไม่มี Cache แล้วไปโหลดใหม่เอง
                 }, 500);
             } else {
                 throw new Error(resJson.message || resJson.error || 'Unknown Error');
             }
         } catch (e) {
-            console.error("Fetch Error:", e);
+            console.error("Action Error:", e);
             Swal.fire('Error', 'เกิดข้อผิดพลาด: ' + e.message, 'error');
         } finally {
             $('#loading-overlay').hide();
         }
-        // ... (จบโค้ด sendAdminAction เดิม) ...
     }
-
     function formatDate(dateString) {
         // ... (โค้ด formatDate เดิม) ...
         if (!dateString) return '';
