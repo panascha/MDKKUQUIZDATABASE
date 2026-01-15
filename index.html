@@ -267,6 +267,72 @@
 .developer-only {
     display: none; 
 }
+
+/* --- Diff Viewer Styles --- */
+.modal-dialog.modal-xl {
+    max-width: 95% !important; /* ขยายให้กว้าง */
+}
+
+/* Header ของแต่ละฝั่ง */
+.diff-col-header {
+    padding: 10px;
+    text-align: center;
+    font-weight: 800;
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-radius: 5px 5px 0 0;
+    margin-bottom: 15px;
+}
+.header-old { background-color: #e74a3b; } /* สีแดง */
+.header-new { background-color: #1cc88a; } /* สีเขียว */
+
+/* กรอบเนื้อหา */
+.diff-content-box {
+    border: 1px solid #e3e6f0;
+    padding: 15px;
+    border-radius: 0 0 5px 5px;
+    height: 100%;
+    background-color: #fff;
+}
+
+/* Highlight ส่วนที่เปลี่ยนแปลง (สีเหลือง) */
+.diff-changed {
+    background-color: #fff3cd !important;
+    border: 1px solid #ffc107 !important;
+    position: relative;
+}
+.diff-changed::after {
+    content: "CHANGED";
+    position: absolute;
+    top: -8px;
+    right: 5px;
+    font-size: 0.6rem;
+    background: #ffc107;
+    color: #000;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-weight: bold;
+    z-index: 1;
+}
+
+/* Style ของ Choice ใน Diff */
+.diff-choice-item {
+    padding: 8px 12px;
+    border: 1px solid #eaecf4;
+    margin-bottom: 5px;
+    border-radius: 5px;
+    background: #fff;
+}
+
+/* เฉลยที่ถูกต้อง (สีเขียว) */
+.diff-correct {
+    background-color: #d1e7dd !important;
+    border-color: #0f5132 !important;
+    color: #0f5132;
+    font-weight: bold;
+}
+
 /* New Form/Modal enhancements */
 .form-label.small {
     font-size: 0.85rem;
@@ -970,6 +1036,7 @@
             border: none;
             width: 100%;
             overflow-x: auto;
+            wrap: nowrap;
             -webkit-overflow-scrolling: touch;
             /* smooth scrolling on iOS */
         }
@@ -1558,10 +1625,10 @@
                             <table class="table table-bordered" width="100%" cellspacing="0" id="dashboardRecentTable">
                                 <thead>
                                     <tr>
-                                        <th style="width: 15%;">วันที่</th>
-                                        <th style="width: 30%;">ข้อที่แก้ไข (คลิกดู)</th>
-                                        <th style="width: 10%;">Report Detail</th>
-                                        <th>การตอบกลับ (Admin Note)</th>
+                                        <th style="width: 10%;">วันที่</th>
+                                        <th style="width: 20%;">ข้อที่แก้ไข (คลิกดู)</th>
+                                        <th style="width: 30%;">Report Detail</th>
+                                        <th style="width: 30%;">การตอบกลับ (Admin Note)</th>
                                         <th style="width: 10%;">สถานะ</th>
                                     </tr>
                                 </thead>
@@ -1960,7 +2027,7 @@
                 <div class="card card-dashboard">
                     <div class="card-header-custom">
                         <span><i class="fas fa-history me-2"></i> บันทึกกิจกรรม (Admin Logs)</span>
-                        <button class="btn btn-outline-secondary btn-sm" onclick="fetchData()">
+                        <button class="btn btn-outline-secondary btn-sm" onclick="fetchData(true)">
                             <i class="fas fa-sync"></i> Refresh
                         </button>
                     </div>
@@ -1974,6 +2041,7 @@
                                         <th>การกระทำ</th>
                                         <th>เป้าหมาย (ID)</th>
                                         <th>รายละเอียด</th>
+                                        <th>ตรวจสอบ</th>
                                     </tr>
                                 </thead>
                                 <tbody></tbody>
@@ -2015,6 +2083,45 @@
 <!-- ==================================================================== -->
 <!-- 3. MODALS -->
 <!-- ==================================================================== -->
+
+<!-- Modal: View Diff (Side-by-Side Comparison) -->
+<div class="modal fade" id="diffModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title text-primary"><i class="fas fa-exchange-alt me-2"></i> เปรียบเทียบข้อมูล (Compare
+                    Changes)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body bg-light">
+                <div class="row h-100">
+                    <!-- ฝั่งซ้าย: ข้อมูลเก่า -->
+                    <div class="col-md-6 border-end">
+                        <div class="diff-col-header header-old">
+                            <i class="fas fa-history"></i> ข้อมูลเดิม (Old Version)
+                        </div>
+                        <div id="diff-container-old" class="diff-content-box">
+                            <!-- JS จะ Gen ข้อมูลมาใส่ตรงนี้ -->
+                        </div>
+                    </div>
+
+                    <!-- ฝั่งขวา: ข้อมูลใหม่ -->
+                    <div class="col-md-6">
+                        <div class="diff-col-header header-new">
+                            <i class="fas fa-check-circle"></i> ข้อมูลใหม่ (New Version)
+                        </div>
+                        <div id="diff-container-new" class="diff-content-box">
+                            <!-- JS จะ Gen ข้อมูลมาใส่ตรงนี้ -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- Modal: Edit Profile (สำหรับผู้ใช้ที่ login) -->
 <div class="modal fade" id="editProfileModal" tabindex="-1">
@@ -2588,7 +2695,7 @@
     // ====================================================================
     // 1. GLOBAL CONFIGURATION & VARIABLES
     // ====================================================================
-    const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw-1tSqMEhZWsqKxcsCqd1WABbH3xULEFSdkTNpTloEspiG0kV6Lly2ZXitMsfKqFnd/exec';
+    const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzx1Vwd2v5QLq3mKiloME2nE2eK44sC7xkgf1gJU03_Mv3OGKXVLDYANUMCjDXy1-kW/exec';
 
     let globalData = {
         questions: [],
@@ -2813,6 +2920,8 @@
         setupConverterMultiEdit();
 
         fetchData();
+
+        startVersionPolling();
     });
 
     // ====================================================================
@@ -2950,6 +3059,8 @@
 
     const dbName = "MDKKU_Admin_DB";
         const storeName = "admin_cache";
+            let versionCheckInterval = null;
+
 
         function openDB() {
             return new Promise((resolve, reject) => {
@@ -2994,72 +3105,92 @@
             transaction.objectStore(storeName).clear();
         }
 
-    async function fetchData() {
+    async function fetchData(forceRefresh = false) {
         const cacheKey = 'global_admin_data';
         const verKey = 'global_admin_ver';
 
-        $('#loading-overlay').css('display', 'flex');
+        // แสดง Loading เฉพาะตอนโหลดครั้งแรก หรือตอนกด Refresh เอง
+        if (forceRefresh || !globalData.questions || globalData.questions.length === 0) {
+            $('#loading-overlay').css('display', 'flex');
+        }
 
         try {
-            // 1. ตรวจสอบเวอร์ชันและดึงข้อมูลจาก Cache ในเครื่อง
-            const [resVer, localData, localVer] = await Promise.all([
-                fetch(`${APPSCRIPT_URL}?action=checkVersion`).then(r => r.json()),
+            // 1. ถาม Server ว่าเวอร์ชันล่าสุดคืออะไร
+            const resVer = await fetch(`${APPSCRIPT_URL}?action=checkVersion`).then(r => r.json());
+            const serverVersion = resVer.v;
+
+            // 2. ดูว่าเรามี Cache อะไรอยู่บ้าง
+            const [localData, localVer] = await Promise.all([
                 getCacheDB(cacheKey),
                 getCacheDB(verKey)
             ]);
 
-            const serverVersion = resVer.v;
+            console.log(`Version Check: Server(${serverVersion}) vs Local(${localVer})`);
 
-            // 2. ถ้าเวอร์ชันตรงกัน ให้ใช้ข้อมูลจาก Cache
-            if (localData && localVer === serverVersion) {
-                console.log("Admin Data loaded from IndexedDB cache.");
+            // 3. เปรียบเทียบเวอร์ชัน
+            if (!forceRefresh && localData && localVer === serverVersion) {
+                console.log("✅ Data is up-to-date. Using Cache.");
+
+                // โหลดข้อมูลจาก Cache เข้าตัวแปร
                 globalData = localData;
 
-                updateDashboard();
-                populateFilters();
-                renderReportList();
-                refreshTables();
+                // อัปเดต UI
+                finalizeDataLoading();
 
-                $('#loading-overlay').hide();
-                return;
+            } else {
+                console.log("🔄 Data changed or Force Refresh. Fetching from Server...");
+
+                // แจ้งเตือนเล็กน้อยถ้าเป็นการอัปเดตเบื้องหลัง (ไม่ใช่การโหลดครั้งแรก)
+                if (!forceRefresh && globalData.questions && globalData.questions.length > 0) {
+                    const Toast = Swal.mixin({
+                        toast: true, position: 'top-end', showConfirmButton: false, timer: 3000
+                    });
+                    Toast.fire({ icon: 'info', title: 'พบข้อมูลใหม่ กำลังอัปเดต...' });
+                }
+
+                // ดึงข้อมูลทั้งหมดใหม่
+                const response = await fetch(`${APPSCRIPT_URL}?action=getAllData`);
+                const data = await response.json();
+
+                // --- Data Processing (เหมือนเดิม) ---
+                globalData.questions = (data.questions || []).map(q => {
+                    if (typeof q.category === 'string' && q.category.startsWith('[')) {
+                        try { q.category = JSON.parse(q.category.replace(/'/g, '"')); }
+                        catch (e) { q.category = [q.category]; }
+                    } else if (typeof q.category === 'string') {
+                        q.category = [q.category];
+                    }
+                    return q;
+                });
+
+                globalData.report = (data.report || []).map(r => {
+                    if (String(r.Done).toUpperCase() === 'TRUE' && r.Status === 'Pending') {
+                        r.Status = 'Resolved';
+                    }
+                    return r;
+                });
+
+                globalData.structure = data.structure || [];
+                globalData.category = data.category || [];
+                globalData.votes = data.votes || [];
+                globalData.logs = data.logs || [];
+                globalData.admins = data.admins || [];
+
+
+                // 4. บันทึกลง Cache และอัปเดตเวอร์ชัน
+                await setCacheDB(cacheKey, globalData);
+                await setCacheDB(verKey, serverVersion);
+
+                finalizeDataLoading();
+
+                if (!forceRefresh && $('#loading-overlay').is(':visible')) {
+                    // ปิด overlay ถ้ามันเปิดอยู่
+                } else {
+                    // ถ้าเป็นการ update เบื้องหลัง ให้แจ้งเตือนเมื่อเสร็จ
+                    const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 2000 });
+                    Toast.fire({ icon: 'success', title: 'อัปเดตข้อมูลล่าสุดแล้ว' });
+                }
             }
-
-            // 3. ถ้าเวอร์ชันไม่ตรง หรือไม่มี Cache ให้โหลดใหม่จาก Server
-            console.log("Admin Data: Fetching fresh data from server...");
-            const response = await fetch(`${APPSCRIPT_URL}?action=getAllData`);
-            const data = await response.json();
-
-            // --- ทำความสะอาดข้อมูลเหมือนเดิม ---
-            globalData.questions = (data.questions || []).map(q => {
-                if (typeof q.category === 'string' && q.category.startsWith('[')) {
-                    try { q.category = JSON.parse(q.category.replace(/'/g, '"')); }
-                    catch (e) { q.category = [q.category]; }
-                } else if (typeof q.category === 'string') {
-                    q.category = [q.category];
-                }
-                return q;
-            });
-
-            globalData.report = (data.report || []).map(r => {
-                if (String(r.Done).toUpperCase() === 'TRUE' && r.Status === 'Pending') {
-                    r.Status = 'Resolved';
-                }
-                return r;
-            });
-
-            globalData.structure = data.structure || [];
-            globalData.category = data.category || [];
-            globalData.votes = data.votes || [];
-            globalData.logs = data.logs || [];
-
-            // 4. บันทึกข้อมูลใหม่ลง IndexedDB
-            await setCacheDB(cacheKey, globalData);
-            await setCacheDB(verKey, serverVersion);
-
-            updateDashboard();
-            populateFilters();
-            renderReportList();
-            refreshTables();
 
         } catch (error) {
             console.error("Fetch Data Error:", error);
@@ -3068,6 +3199,26 @@
             $('#loading-overlay').hide();
         }
     }
+    function finalizeDataLoading() {
+            updateDashboard();
+            populateFilters();
+            renderReportList();
+            refreshTables();
+
+            if (!$('#sec-structure').hasClass('hidden')) {
+                renderStructureTree($('#struct-subject-filter').val());
+            }
+        }
+        function startVersionPolling() {
+                if (versionCheckInterval) clearInterval(versionCheckInterval);
+
+                // เช็คเวอร์ชันทุกๆ 60 วินาที
+                versionCheckInterval = setInterval(() => {
+                    // เรียก fetchData แบบไม่ Force Refresh (มันจะเช็คเวอร์ชันก่อน ถ้าตรงกันก็ไม่โหลดอะไรเพิ่ม)
+                    console.log("Auto-checking for data updates...");
+                    fetchData(false);
+                }, 60000);
+            }
     function refreshTables() {
         if ($.fn.DataTable.isDataTable('#publicTable')) {
             $('#publicTable').DataTable().clear().rows.add(globalData.questions).draw();
@@ -3094,60 +3245,87 @@
     }
 
     function updateDashboard() {
-        // ... (โค้ด updateDashboard เดิม) ...
-        $('#stat-total-q').text(globalData.questions.length + " ข้อ");
-        $('#stat-subjects').text(globalData.structure.length + " วิชา");
+            // 1. Stats Cards (คงเดิม)
+            $('#stat-total-q').text(globalData.questions ? globalData.questions.length + " ข้อ" : "0 ข้อ");
 
-        const pendingCount = globalData.report.filter(r => !r.Done || r.Done.toString().toUpperCase() === 'FALSE').length;
-        $('#stat-pending-q').text(pendingCount + " รายการ");
-        $('#sidebar-report-count').text(pendingCount);
+            const pendingCount = (globalData.report || []).filter(r => !r.Done || String(r.Done).toUpperCase() === 'FALSE').length;
+            $('#stat-pending-q').text(pendingCount + " รายการ");
 
-        const resolvedCount = globalData.report.filter(r => r.Done && r.Done.toString().toUpperCase() === 'TRUE').length;
-        $('#stat-resolved-q').text(resolvedCount + " รายการ");
+            const $sidebarBadge = $('#sidebar-report-count');
+            $sidebarBadge.text(pendingCount);
+            pendingCount > 0 ? $sidebarBadge.show() : $sidebarBadge.hide();
 
-        const recentResolved = globalData.report
-            .filter(r => r.Done && r.Done.toString().toUpperCase() === 'TRUE')
-            .sort((a, b) => new Date(b.Time) - new Date(a.Time))
-            .slice(0, 5);
+            const resolvedCount = (globalData.report || []).filter(r => String(r.Done).toUpperCase() === 'TRUE').length;
+            $('#stat-resolved-q').text(resolvedCount + " รายการ");
 
-        let html = '';
-        recentResolved.forEach(r => {
-            let qDB = globalData.questions.find(q => q.problem.trim() === (r.Question || '').trim());
-            let dateStr = formatDate(r.Time).split(' ')[0];
-            let linkHtml = '<span class="text-muted">ไม่พบข้อมูลโจทย์</span>';
-            let answerDisplay = '-';
-            let statusBadge = '';
+            // 2. Table Data: ดึงจาก Report เป็นหลัก (ตาม Requirement)
+            const reports = (globalData.report || []).sort((a, b) => new Date(b.Time) - new Date(a.Time)); // ใหม่ไปเก่า
 
-            if (qDB) {
-                linkHtml = `<a href="#" onclick="showQuestionDetail('${qDB.questionId}')" class="fw-bold text-decoration-none">${qDB.questionId}</a>`;
+            // แสดงสูงสุด 20 รายการล่าสุด เพื่อไม่ให้โหลดหนักเกินไป
+            const recentReports = reports.slice(0, 20);
+
+            let html = '';
+
+            if (recentReports.length === 0) {
+                html = '<tr><td colspan="5" class="text-center text-muted py-4">ยังไม่มีประวัติการแจ้งปัญหา</td></tr>';
             } else {
-                linkHtml = `<span class="text-secondary small">${r.Category} (Deleted)</span>`;
+                recentReports.forEach(r => {
+                    // 1. วันที่
+                    let dateStr = formatDate(r.Time);
+
+                    // 2. ชื่อข้อสอบ & ลิงก์ Diff
+                    // Logic: เอาเนื้อหาโจทย์จาก Report ไปหา QuestionID ใน DB -> แล้วเอา QuestionID ไปหา Log ล่าสุดเพื่อเอาค่า Old/New
+                    let questionTextShort = r.Question ? r.Question.substring(0, 60) + (r.Question.length > 60 ? '...' : '') : '(ไม่ระบุโจทย์)';
+                    let displayLink = `<span class="text-muted">${questionTextShort}</span>`;
+
+                    // หา Question ID
+                    const qObj = globalData.questions.find(q => q.problem.trim() === (r.Question || '').trim());
+
+                    if (qObj) {
+                        // ถ้าเจอโจทย์ใน DB ให้ไปหา Log การแก้ไขล่าสุดของโจทย์ข้อนี้
+                        const relatedLog = (globalData.logs || []).find(l =>
+                            l.TargetID === qObj.questionId &&
+                            (String(l.ActionType).includes('EDIT') || String(l.ActionType).includes('UPDATE')) &&
+                            (l.OldValue && l.NewValue) // ต้องมีข้อมูลเปรียบเทียบ
+                        );
+
+                        if (relatedLog) {
+                            const oldValSafe = encodeURIComponent(relatedLog.OldValue);
+                            const newValSafe = encodeURIComponent(relatedLog.NewValue);
+                            displayLink = `<a href="#" class="question-link" onclick="viewDiff('${oldValSafe}', '${newValSafe}'); return false;" title="คลิกเพื่อดูประวัติการแก้ไข">
+                                    <i class="fas fa-search me-1"></i> ${questionTextShort}
+                                   </a>`;
+                        }
+                    }
+
+                    // 3. Report Detail
+                    let reportDetail = r.ReportDetail || r.SuggestedAnswer || '-';
+
+                    // 4. Admin Note (การตอบกลับ)
+                    let adminNote = r.AdminNote ? `<span class="text-primary">${r.AdminNote}</span>` : '-';
+
+                    // 5. สถานะ
+                    let statusBadge = '';
+                    if (String(r.Done).toUpperCase() === 'TRUE') {
+                        if (r.Status === 'Rejected') statusBadge = '<span class="badge bg-danger rounded-pill">Rejected</span>';
+                        else statusBadge = '<span class="badge bg-success rounded-pill">Resolved</span>';
+                    } else {
+                        statusBadge = '<span class="badge bg-warning text-dark rounded-pill">Pending</span>';
+                    }
+
+                    html += `<tr>
+                <td style="white-space:nowrap; font-size:0.85rem;">${dateStr}</td>
+                <td>${displayLink}</td>
+                <td><small>${reportDetail}</small></td>
+                <td><small>${adminNote}</small></td>
+                <td class="text-center">${statusBadge}</td>
+            </tr>`;
+                });
             }
 
-            let statusText = r.Status || 'Resolved';
-            if (statusText === 'Rejected') {
-                statusBadge = `<span class="badge bg-danger badge-pill">Rejected</span>`;
-            } else {
-                statusBadge = `<span class="badge bg-success badge-pill">${statusText}</span>`;
-            }
-
-            html += `<tr>
-                    <td>${dateStr}</td>
-                    <td>${linkHtml}</td>
-                    <td style="min-width: 200px;">${r.ReportDetail || '-' }</td>
-                    <td style="min-width: 200px;">${r.AdminNote || '-'}</td>
-                    <td>${statusBadge}</td>
-                </tr>`;
-        });
-
-        if (html === '') {
-            html = '<tr><td colspan="5" class="text-center text-muted py-3">ยังไม่มีประวัติการแก้ไข</td></tr>';
+            $('#dashboardRecentTable tbody').html(html);
         }
-        $('#dashboardRecentTable tbody').html(html);
-        // ... (จบโค้ด updateDashboard เดิม) ...
-    }
-
-    function populateFilters() {
+        function populateFilters() {
         // ... (โค้ด populateFilters เดิม) ...
         const subjects = [...new Set(globalData.structure.map(s => s.SubjectID))].sort();
 
@@ -3369,39 +3547,180 @@
         }
         $('#logsTable').DataTable({
             data: globalData.logs,
-            order: [[0, 'desc']],
+            order: [[0, 'desc']], // เรียงตามเวลาล่าสุด
             columns: [
                 {
                     data: 'Timestamp',
+                    width: '15%',
                     render: function (data) { return formatDate(data); }
                 },
-                { data: 'User', defaultContent: 'Guest' },
+                { data: 'User', width: '10%' },
                 {
-                    // Changed from 'Action' to 'ActionType' to match code.gs headers
                     data: 'ActionType',
-                    defaultContent: '-',
+                    width: '10%',
                     render: function (data) {
-                        if (!data) return '<span class="badge bg-secondary">-</span>';
-
                         let badge = 'bg-secondary';
-                        const upperData = data.toString().toUpperCase();
-
-                        if (upperData.includes('EDIT') || upperData.includes('UPDATE')) badge = 'bg-info';
-                        if (upperData.includes('DELETE') || upperData.includes('REJECT')) badge = 'bg-danger';
-                        if (upperData.includes('IMPORT') || upperData.includes('ADD') || upperData.includes('REGISTER')) badge = 'bg-success';
-
+                        const upper = String(data).toUpperCase();
+                        if (upper.includes('EDIT') || upper.includes('UPDATE')) badge = 'bg-warning text-dark';
+                        if (upper.includes('DELETE') || upper.includes('REJECT')) badge = 'bg-danger';
+                        if (upper.includes('ADD') || upper.includes('IMPORT') || upper.includes('REGISTER')) badge = 'bg-success';
                         return `<span class="badge ${badge}">${data}</span>`;
                     }
                 },
+                { data: 'TargetID', width: '15%' },
                 {
-                    data: 'TargetID',
-                    defaultContent: '-'
+                    data: 'Details',
+                    width: '35%'
                 },
-                { data: 'Details', defaultContent: '' }
+                {
+                    // ปุ่มดูความเปลี่ยนแปลง
+                    data: null,
+                    width: '15%',
+                    render: function (data, type, row) {
+                        // เช็คว่ามีข้อมูลเปรียบเทียบหรือไม่
+                        if ((row.OldValue && row.OldValue !== "") || (row.NewValue && row.NewValue !== "")) {
+                            // เก็บข้อมูลไว้ใน data attribute เพื่อดึงไปใช้ตอนคลิก
+                            // ต้อง Encode JSON เพื่อป้องกัน error เครื่องหมายคำพูด
+                            const oldValSafe = encodeURIComponent(row.OldValue);
+                            const newValSafe = encodeURIComponent(row.NewValue);
+                            return `<button class="btn btn-sm btn-outline-info" onclick="viewDiff('${oldValSafe}', '${newValSafe}')">
+                                    <i class="fas fa-eye"></i> ดูส่วนที่แก้
+                                </button>`;
+                        }
+                        return '-';
+                    }
+                }
             ]
         });
     }
 
+function viewDiff(oldValEnc, newValEnc) {
+    let oldRaw = {}, newRaw = {};
+    
+
+    // 1. Decode & Parse JSON
+    try { oldRaw = JSON.parse(decodeURIComponent(oldValEnc)); } catch(e) { oldRaw = decodeURIComponent(oldValEnc); }
+    try { newRaw = JSON.parse(decodeURIComponent(newValEnc)); } catch(e) { newRaw = decodeURIComponent(newValEnc); }
+
+    // 2. Normalize Data (แปลง Key ให้เป็นมาตรฐานเดียวกัน เพื่อเปรียบเทียบง่าย)
+    const oldObj = normalizeData(oldRaw);
+    const newObj = normalizeData(newRaw);
+
+    // 3. Render แต่ละฝั่ง
+    $('#diff-container-old').html(renderDiffPanel(oldObj, newObj));
+    $('#diff-container-new').html(renderDiffPanel(newObj, oldObj));
+
+    $('#diffModal').modal('show');
+}
+
+/**
+ * แปลง Key ต่างๆ (Problem, problem, QuestionID, id) ให้เป็นมาตรฐานเดียวกัน
+ */
+function normalizeData(obj) {
+    if (!obj || typeof obj !== 'object') return {};
+    
+    // Helper แปลง Category String เป็น Array
+    let cats = obj.category || obj.Category || [];
+    if (typeof cats === 'string') {
+        try { cats = JSON.parse(cats); } catch(e) { cats = [cats]; }
+    }
+
+    return {
+        id: obj.id || obj.QuestionID || obj.questionId || '-',
+        problem: obj.problem || obj.Problem || '',
+        img: obj.img || obj.Image || '',
+        choices: obj.choices || obj.Choices || '',
+        answer: obj.answer || obj.Answer || '',
+        explain: obj.explain || obj.Explanation || '',
+        category: cats
+    };
+}
+    function renderDiffPanel(data, compare) {
+        // 1. Header (ID & Category)
+        // เทียบ Category (แปลงเป็น string ก่อนเทียบ)
+        const catStr = Array.isArray(data.category) ? data.category.join(', ') : String(data.category);
+        const compareCatStr = Array.isArray(compare.category) ? compare.category.join(', ') : String(compare.category);
+        const isCatChanged = catStr !== compareCatStr;
+        const catClass = isCatChanged ? 'diff-changed' : '';
+
+        let html = `
+        <h5 class="mb-3">
+            <span class="badge bg-secondary me-1">${data.id}</span>
+            <span class="badge bg-primary ${catClass}">${catStr || 'No Category'}</span>
+        </h5>
+    `;
+
+        // 2. Problem Text
+        const isProbChanged = data.problem !== compare.problem;
+        const probClass = isProbChanged ? 'diff-changed' : '';
+        html += `<p class="lead mt-3 ${probClass}" style="font-weight: 500;">${escapeHtml(data.problem) || '-'}</p>`;
+
+        // 3. Images
+        const isImgChanged = data.img !== compare.img;
+        const imgClass = isImgChanged ? 'diff-changed' : '';
+        html += `<div class="text-center mb-3 p-2 ${imgClass}">`;
+        if (data.img) {
+            const imgs = data.img.split('///').filter(Boolean);
+            imgs.forEach(url => {
+                html += `<img src="${transformUrl(url)}" class="img-fluid mb-2 border rounded" style="max-height:200px;">`;
+            });
+        } else {
+            html += `<span class="text-muted small font-italic">- ไม่มีรูปภาพ -</span>`;
+        }
+        html += `</div>`;
+
+        // 4. Choices
+        html += `<div class="list-group mb-3">`;
+
+        const choices = (data.choices || "").split('///').map(s => s.trim());
+        const compareChoices = (compare.choices || "").split('///').map(s => s.trim());
+        const correctAns = (data.answer || "").trim();
+
+        // วนลูปสร้าง Choice (อย่างน้อย 4 ข้อ ถ้าไม่มีข้อมูล)
+        const count = Math.max(choices.length, 4);
+        for (let i = 0; i < count; i++) {
+            const txt = choices[i] || "";
+            const compareTxt = compareChoices[i] || "";
+
+            let classes = "list-group-item diff-choice-item";
+
+            // เช็คว่าเฉลยถูกหรือไม่
+            if (txt !== "" && txt === correctAns) {
+                classes += " diff-correct"; // สีเขียว
+            }
+
+            // เช็คว่าข้อความเปลี่ยนหรือไม่
+            if (txt !== compareTxt) {
+                classes += " diff-changed"; // สีเหลือง (Changed)
+            }
+
+            const prefix = String.fromCharCode(65 + i) + ". ";
+            html += `<div class="${classes}">${prefix}${escapeHtml(txt) || '<span class="text-muted font-italic">(ว่าง)</span>'}</div>`;
+        }
+        html += `</div>`;
+
+        // 5. Explanation
+        const isExplainChanged = data.explain !== compare.explain;
+        const explainClass = isExplainChanged ? 'diff-changed' : '';
+
+        html += `<div class="alert alert-secondary ${explainClass}">
+                <strong>Explanation:</strong> 
+                <span class="d-block mt-1">${escapeHtml(data.explain) || '-'}</span>
+             </div>`;
+
+        return html;
+    }        
+
+    // Helper ป้องกัน XSS
+    function escapeHtml(text) {
+        if (!text) return text;
+        return text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
 
     // ====================================================================
     // 5. QUESTION VIEW & EDIT MODALS
@@ -4907,29 +5226,36 @@
         }
 
         // 4. ฟังก์ชันจัดการ Admin สำหรับ Developer
-        async function loadAdminManager() {
-            $('#admin-user-list').html('<tr><td colspan="6" class="text-center">กำลังโหลด...</td></tr>');
-            const response = await fetch(`${APPSCRIPT_URL}?action=getAllData`); // หรือสร้าง action แยก
-            const data = await response.json();
-            const admins = data.admins || []; // ต้องแน่ใจว่า backend ส่ง admins มาใน getAllData
+    function loadAdminManager() {
+        const listContainer = $('#admin-user-list');
+        listContainer.empty();
 
-            let html = '';
-            admins.forEach(u => {
-                html += `
-        <tr>
-            <td><img src="${u.AvatarURL}" width="30" class="rounded-circle"></td>
-            <td>${u.Username}</td>
-            <td>${u.FullName}</td>
-            <td><span class="badge ${u.Role === 'DEVELOPER' ? 'bg-danger' : 'bg-primary'}">${u.Role}</span></td>
-            <td>${u.KKUMail}</td>
-            <td>
-                <button class="btn btn-sm btn-outline-primary" onclick="devEditUser('${u.Username}')"><i class="fas fa-edit"></i></button>
-            </td>
-        </tr>`;
-            });
-            $('#admin-user-list').html(html);
+        if (!globalData.admins || globalData.admins.length === 0) {
+            listContainer.html('<tr><td colspan="6" class="text-center">ไม่พบข้อมูล Admin (หรือยังไม่ได้โหลด)</td></tr>');
+            return;
         }
 
+        let html = '';
+        globalData.admins.forEach(u => {
+            // ป้องกัน Error กรณี field ไม่มีค่า
+            const avatar = u.AvatarURL || 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+            const roleBadge = u.Role === 'DEVELOPER' ? 'bg-danger' : 'bg-primary';
+
+            html += `
+        <tr>
+            <td class="text-center"><img src="${avatar}" width="40" height="40" class="rounded-circle border"></td>
+            <td class="align-middle fw-bold">${u.Username}</td>
+            <td class="align-middle">${u.FullName || '-'}</td>
+            <td class="align-middle"><span class="badge ${roleBadge}">${u.Role}</span></td>
+            <td class="align-middle small">${u.KKUMail || '-'}</td>
+            <td class="align-middle">
+                 <!-- ปุ่ม Action (ถ้ามีฟังก์ชัน Edit User ในอนาคต) -->
+                <button class="btn btn-sm btn-outline-secondary" disabled title="Coming Soon"><i class="fas fa-cog"></i></button>
+            </td>
+        </tr>`;
+        });
+        listContainer.html(html);
+    }
         if (sectionId === 'admin-manager') {
             if (currentUser.role !== 'DEVELOPER') {
                 Swal.fire('Access Denied', 'คุณไม่มีสิทธิ์เข้าถึงหน้านี้', 'error');
