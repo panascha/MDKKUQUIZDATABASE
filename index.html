@@ -3185,9 +3185,10 @@
 
                 if (!forceRefresh && $('#loading-overlay').is(':visible')) {
                     // ปิด overlay ถ้ามันเปิดอยู่
+                    $('#loading-overlay').hide();
                 } else {
                     // ถ้าเป็นการ update เบื้องหลัง ให้แจ้งเตือนเมื่อเสร็จ
-                    const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 2000 });
+                    const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 });
                     Toast.fire({ icon: 'success', title: 'อัปเดตข้อมูลล่าสุดแล้ว' });
                 }
             }
@@ -3212,12 +3213,12 @@
         function startVersionPolling() {
                 if (versionCheckInterval) clearInterval(versionCheckInterval);
 
-                // เช็คเวอร์ชันทุกๆ 60 วินาที
+                // เช็คเวอร์ชันทุกๆ 600 วินาที
                 versionCheckInterval = setInterval(() => {
                     // เรียก fetchData แบบไม่ Force Refresh (มันจะเช็คเวอร์ชันก่อน ถ้าตรงกันก็ไม่โหลดอะไรเพิ่ม)
                     console.log("Auto-checking for data updates...");
                     fetchData(false);
-                }, 60000);
+                }, 600000);
             }
     function refreshTables() {
         if ($.fn.DataTable.isDataTable('#publicTable')) {
