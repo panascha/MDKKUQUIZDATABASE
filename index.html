@@ -2695,7 +2695,7 @@
     // ====================================================================
     // 1. GLOBAL CONFIGURATION & VARIABLES
     // ====================================================================
-    const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyiUMJbbT-4WF0HxSrGUzQphFn97KcKQ9xc56T3B3TZ3KpfaspXHgzhVru5MtK5aAGB/exec';
+    const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzdIzxDDumFu3pfaMOvQgV4Lh7eJvCMC0zKtY210j3hA3RdhCKLh0rEjQMRXgX9NC4o/exec';
 
     let globalData = {
         questions: [],
@@ -4566,55 +4566,54 @@ function normalizeData(obj) {
         // ... (จบโค้ด addVoteRow เดิม) ...
     }
 
-    function submitSingleVote(categoryId) {
-        // ... (โค้ด submitSingleVote เดิม) ...
-        submitVoteData([categoryId], true);
-        // ... (จบโค้ด submitSingleVote เดิม) ...
-    }
+    function submitSingleVote(categoryId, shouldRefreshUI = false, delta = 1) {
+            submitVoteData([categoryId], shouldRefreshUI, delta);
+        }
 
-    function submitVoteData(categoryArray, single = false) {
-        // ... (โค้ด submitVoteData เดิม) ...
+    async function submitVoteData(categoryArray, shouldRefreshUI = false, delta = 1) {
         $('#btn-submit-vote').prop('disabled', true).text('กำลังส่ง...');
-        const successMsg = single ? "บันทึกโหวตเห็นด้วยเรียบร้อย! 🙏" : "บันทึกข้อมูลเรียบร้อย ขอบคุณครับ! 🙏";
+        const successMsg = delta > 0 ? "บันทึกโหวตเรียบร้อย! 🙏" : "บันทึกโหวตลบเรียบร้อย! 🗳️";
 
         const payload = {
             action: 'submitVote',
             questionId: current_question.questionId,
             questionText: current_question.problem,
-            suggestedCategory: categoryArray
+            suggestedCategory: categoryArray,
+            delta: delta // ส่งค่าที่รับมาไป Backend
         };
 
-        fetch(APPSCRIPT_URL, {
-            method: 'POST',
-            headers: { "Content-Type": "text/plain;charset=utf-8" },
-            body: JSON.stringify(payload)
-        }).then(() => {
+        try {
+            const response = await fetch(APPSCRIPT_URL, {
+                method: 'POST',
+                headers: { "Content-Type": "text/plain;charset=utf-8" },
+                body: JSON.stringify(payload)
+            });
+
             Swal.fire('Success', successMsg, 'success');
             $('#vote-category-modal').css('display', 'none');
             $('#btn-submit-vote').prop('disabled', false).text('ยืนยัน');
-            fetchPendingVotes(current_question.questionId); // อัปเดตผลโหวตทันที
-        }).catch(err => {
-            Swal.fire('Error', 'เกิดข้อผิดพลาดในการส่งข้อมูล: ' + err, 'error');
+
+            if (current_question.questionId) {
+                fetchPendingVotes(current_question.questionId);
+            }
+        } catch (err) {
+            Swal.fire('Error', 'เกิดข้อผิดพลาด: ' + err, 'error');
             $('#btn-submit-vote').prop('disabled', false).text('ยืนยัน');
-        });
-        // ... (จบโค้ด submitVoteData เดิม) ...
+        }
     }
-
     function fetchPendingVotes(questionId) {
-        // ... (โค้ด fetchPendingVotes เดิม) ...
         const $container = $('#suggested-category-container');
-
-        $container.html('<span class="empty-state-text"><i class="fas fa-spinner fa-spin"></i> กำลังดึงข้อมูลผลโหวต...</span>');
+        $container.html('<span class="empty-state-text"><i class="fas fa-spinner fa-spin"></i> กำลังโหลด...</span>');
 
         fetch(`${APPSCRIPT_URL}?action=getPendingVotes&qid=${questionId}`)
             .then(response => response.json())
             .then(data => {
                 $container.empty();
-
+                const votes = data.votes || [];
                 const currentCats = Array.isArray(current_question.category) ? current_question.category : [current_question.category];
-                const filteredData = data.filter(item => !currentCats.includes(item.categoryId));
+                const filteredData = votes.filter(item => !currentCats.includes(item.categoryId));
 
-                if (!filteredData || filteredData.length === 0) {
+                if (filteredData.length === 0) {
                     $container.html('<span class="empty-state-text">- ยังไม่มีข้อเสนอใหม่ -</span>');
                     return;
                 }
@@ -4622,7 +4621,7 @@ function normalizeData(obj) {
                 filteredData.forEach(item => {
                     const categoryName = getCategoryNameById(item.categoryId);
                     const $badge = $(`
-                        <div class="category-badge suggested" title="คลิกเพื่อโหวตเห็นด้วย (+1)">
+                        <div class="category-badge suggested" title="คลิกเพื่อโหวต">
                             ${categoryName}
                             <span class="vote-count-badge">${item.count} <i class="fas fa-user"></i></span>
                         </div>
@@ -4630,29 +4629,28 @@ function normalizeData(obj) {
 
                     $badge.on('click', function () {
                         Swal.fire({
-                            title: 'ยืนยันการโหวต',
-                            text: `คุณเห็นด้วยว่าข้อสอบนี้ควรอยู่ในหัวข้อ "${categoryName}" ใช่หรือไม่?`,
+                            title: 'คุณเห็นด้วยกับหัวข้อนี้หรือไม่?',
+                            html: `หัวข้อ: <b>"${categoryName}"</b>`,
                             icon: 'question',
+                            showDenyButton: true,
                             showCancelButton: true,
-                            confirmButtonText: 'ใช่, เห็นด้วย',
-                            cancelButtonText: 'ยกเลิก'
+                            confirmButtonText: 'เห็นด้วย (+1)',
+                            denyButtonText: 'ไม่เห็นด้วย (-1)',
+                            cancelButtonText: 'ยกเลิก',
+                            confirmButtonColor: '#1cc88a',
+                            denyButtonColor: '#e74a3b'
                         }).then((result) => {
                             if (result.isConfirmed) {
-                                submitSingleVote(item.categoryId);
+                                submitSingleVote(item.categoryId, true, 1);
+                            } else if (result.isDenied) {
+                                submitSingleVote(item.categoryId, true, -1);
                             }
                         });
                     });
-
                     $container.append($badge);
                 });
-            })
-            .catch(err => {
-                console.error('Fetch Pending Votes Error:', err);
-                $container.html('<span class="text-danger small"><i class="fas fa-exclamation-triangle"></i> โหลดข้อมูลล้มเหลว</span>');
             });
-        // ... (จบโค้ด fetchPendingVotes เดิม) ...
     }
-
 
     // ====================================================================
     // 9. STRUCTURE (Subject/Group/Category) CRUD SYSTEM
