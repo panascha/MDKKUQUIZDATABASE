@@ -2758,6 +2758,13 @@
             }
         });
 
+        $(document).on('click', '.dashboard-diff-btn', function (e) {
+            e.preventDefault();
+            const oldVal = $(this).attr('data-old');
+            const newVal = $(this).attr('data-new');
+            viewDiff(oldVal, newVal);
+        });
+
         // Initial Responsive State
         if ($(window).width() < 768) {
             $("#wrapper").removeClass("toggled");
@@ -3293,9 +3300,13 @@
                         if (relatedLog) {
                             const oldValSafe = encodeURIComponent(relatedLog.OldValue);
                             const newValSafe = encodeURIComponent(relatedLog.NewValue);
-                            displayLink = `<a href="#" class="question-link" onclick="viewDiff('${oldValSafe}', '${newValSafe}'); return false;" title="คลิกเพื่อดูประวัติการแก้ไข">
-                                    <i class="fas fa-search me-1"></i> ${questionTextShort}
-                                   </a>`;
+
+                            displayLink = `<a href="#" class="question-link dashboard-diff-btn" 
+                      data-old="${oldValSafe}" 
+                      data-new="${newValSafe}" 
+                      title="คลิกเพื่อดูประวัติการแก้ไข">
+                        <i class="fas fa-search me-1"></i> ${questionTextShort}
+                   </a>`;
                         }
                     }
 
