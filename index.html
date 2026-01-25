@@ -3107,59 +3107,48 @@
 
         // ฟังก์ชันล้าง Cache เมื่อ Admin ทำการแก้ไขข้อมูล
         async function clearAdminCache() {
-            const db = await openDB();
-            const transaction = db.transaction(storeName, "readwrite");
-            transaction.objectStore(storeName).clear();
-        }
+                const db = await openDB();
+                return new Promise((resolve, reject) => {
+                    const transaction = db.transaction(storeName, "readwrite");
+                    const store = transaction.objectStore(storeName);
+                    const request = store.clear();
+                    request.onsuccess = () => resolve();
+                    request.onerror = (e) => reject(e.target.error);
+                });
+            }
 
     async function fetchData(forceRefresh = false) {
-        const cacheKey = 'global_admin_data';
-        const verKey = 'global_admin_ver';
+            const cacheKey = 'global_admin_data';
+            const verKey = 'global_admin_ver';
 
-        // แสดง Loading เฉพาะตอนโหลดครั้งแรก หรือตอนกด Refresh เอง
-        if (forceRefresh || !globalData.questions || globalData.questions.length === 0) {
+            // แสดง Loading
             $('#loading-overlay').css('display', 'flex');
-        }
 
-        try {
-            // 1. ถาม Server ว่าเวอร์ชันล่าสุดคืออะไร
-            const resVer = await fetch(`${APPSCRIPT_URL}?action=checkVersion`).then(r => r.json());
-            const serverVersion = resVer.v;
+            try {
+                // 1. ตรวจสอบเวอร์ชันจาก Server
+                const resVer = await fetch(`${APPSCRIPT_URL}?action=checkVersion`).then(r => r.json());
+                const serverVersion = resVer.v;
 
-            // 2. ดูว่าเรามี Cache อะไรอยู่บ้าง
-            const [localData, localVer] = await Promise.all([
-                getCacheDB(cacheKey),
-                getCacheDB(verKey)
-            ]);
+                // 2. ดึงข้อมูลจาก IndexedDB
+                const localData = await getCacheDB(cacheKey);
+                const localVer = await getCacheDB(verKey);
 
-            console.log(`Version Check: Server(${serverVersion}) vs Local(${localVer})`);
-
-            // 3. เปรียบเทียบเวอร์ชัน
-            if (!forceRefresh && localData && localVer === serverVersion) {
-                console.log("✅ Data is up-to-date. Using Cache.");
-
-                // โหลดข้อมูลจาก Cache เข้าตัวแปร
-                globalData = localData;
-
-                // อัปเดต UI
-                finalizeDataLoading();
-
-            } else {
-                console.log("🔄 Data changed or Force Refresh. Fetching from Server...");
-
-                // แจ้งเตือนเล็กน้อยถ้าเป็นการอัปเดตเบื้องหลัง (ไม่ใช่การโหลดครั้งแรก)
-                if (!forceRefresh && globalData.questions && globalData.questions.length > 0) {
-                    const Toast = Swal.mixin({
-                        toast: true, position: 'top-end', showConfirmButton: false, timer: 3000
-                    });
-                    Toast.fire({ icon: 'info', title: 'พบข้อมูลใหม่ กำลังอัปเดต...' });
+                // 3. ตรวจสอบเงื่อนไข: ถ้าไม่ใช่การกด Refresh และ Version ตรงกัน ให้โหลดจาก Cache
+                if (!forceRefresh && localData && localVer === serverVersion) {
+                    console.log("🚀 Loading from IndexedDB Cache");
+                    globalData = localData;
+                    finalizeDataLoading();
+                    return;
                 }
 
-                // ดึงข้อมูลทั้งหมดใหม่
+                // 4. ถ้าไม่มี Cache หรือ Version ไม่ตรง ให้โหลดใหม่จาก Server
+                console.log("🔄 Fetching fresh data from Server...");
+
+                // แยกดึงข้อมูลเหมือนหน้า Quiz เพื่อประสิทธิภาพ (หรือใช้ getAllData ตามเดิมแต่เก็บลง Cache)
                 const response = await fetch(`${APPSCRIPT_URL}?action=getAllData`);
                 const data = await response.json();
 
-                // --- Data Processing (เหมือนเดิม) ---
+                // Data Processing (จัดการ Format ข้อมูลให้พร้อมใช้งาน)
                 globalData.questions = (data.questions || []).map(q => {
                     if (typeof q.category === 'string' && q.category.startsWith('[')) {
                         try { q.category = JSON.parse(q.category.replace(/'/g, '"')); }
@@ -3169,44 +3158,26 @@
                     }
                     return q;
                 });
-
-                globalData.report = (data.report || []).map(r => {
-                    if (String(r.Done).toUpperCase() === 'TRUE' && r.Status === 'Pending') {
-                        r.Status = 'Resolved';
-                    }
-                    return r;
-                });
-
+                globalData.report = data.report || [];
                 globalData.structure = data.structure || [];
                 globalData.category = data.category || [];
                 globalData.votes = data.votes || [];
                 globalData.logs = data.logs || [];
                 globalData.admins = data.admins || [];
 
-
-                // 4. บันทึกลง Cache และอัปเดตเวอร์ชัน
+                // 5. บันทึกลง IndexedDB
                 await setCacheDB(cacheKey, globalData);
                 await setCacheDB(verKey, serverVersion);
 
                 finalizeDataLoading();
 
-                if (!forceRefresh && $('#loading-overlay').is(':visible')) {
-                    // ปิด overlay ถ้ามันเปิดอยู่
-                    $('#loading-overlay').hide();
-                } else {
-                    // ถ้าเป็นการ update เบื้องหลัง ให้แจ้งเตือนเมื่อเสร็จ
-                    const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 });
-                    Toast.fire({ icon: 'success', title: 'อัปเดตข้อมูลล่าสุดแล้ว' });
-                }
+            } catch (error) {
+                console.error("Fetch Data Error:", error);
+                Swal.fire('Error', 'ไม่สามารถโหลดข้อมูลได้: ' + error.message, 'error');
+            } finally {
+                $('#loading-overlay').hide();
             }
-
-        } catch (error) {
-            console.error("Fetch Data Error:", error);
-            Swal.fire('Error', 'ไม่สามารถโหลดข้อมูลได้: ' + error.message, 'error');
-        } finally {
-            $('#loading-overlay').hide();
         }
-    }
     function finalizeDataLoading() {
             updateDashboard();
             populateFilters();
@@ -5592,38 +5563,34 @@ function normalizeData(obj) {
     async function sendAdminAction(actionName, dataObj) {
             $('#loading-overlay').show();
             try {
-                // สร้าง Payload และเพิ่ม Metadata (User Agent)
                 const payload = {
                     action: actionName,
                     username: currentUser.username,
                     adminPass: adminPass,
                     user: currentUser.displayName,
                     data: dataObj,
-                    metadata: navigator.userAgent // [NEW] เพิ่มข้อมูล Browser/Device เพื่อบันทึก Log
+                    metadata: navigator.userAgent
                 };
 
-                // ส่งข้อมูลด้วยฟังก์ชัน sendWithRetry
                 const resJson = await sendWithRetry(payload);
 
                 if (resJson.result === 'success') {
-                    // ล้าง Cache ในเครื่องเมื่อมีการเปลี่ยนแปลงข้อมูลบน Server
-                    await clearAdminCache();
+                    // --- ส่วนที่เพิ่ม/แก้ไข ---
+                    await clearAdminCache(); // ลบ Cache ทันทีเมื่อมีการเปลี่ยนแปลงข้อมูล
 
-                    setTimeout(async () => {
-                        await fetchData(); // โหลดข้อมูลใหม่จาก Server
-                        Swal.fire('Success', 'บันทึกข้อมูลเรียบร้อยแล้ว', 'success');
-                    }, 1000);
+                    Swal.fire('Success', 'บันทึกข้อมูลเรียบร้อยแล้ว', 'success');
+                    await fetchData(true); // บังคับโหลดข้อมูลใหม่จาก Server
+                    // -----------------------
                 } else {
                     throw new Error(resJson.message || resJson.error || 'Unknown Error');
                 }
             } catch (e) {
-                console.error("Action Error:", e);
                 Swal.fire('Error', 'เกิดข้อผิดพลาด: ' + e.message, 'error');
             } finally {
                 $('#loading-overlay').hide();
             }
         }
-    function formatDate(dateString) {
+        function formatDate(dateString) {
         // ... (โค้ด formatDate เดิม) ...
         if (!dateString) return '';
         const d = new Date(dateString);
