@@ -2695,7 +2695,7 @@
     // ====================================================================
     // 1. GLOBAL CONFIGURATION & VARIABLES
     // ====================================================================
-    const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzdIzxDDumFu3pfaMOvQgV4Lh7eJvCMC0zKtY210j3hA3RdhCKLh0rEjQMRXgX9NC4o/exec';
+    const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwDEE9_7h8eDnQKeAyu2fzgI2f2J4L1PDOKWN97yD2_3tB5XuRJGMAAbHvxg2_OUmJQ/exec';
 
     let globalData = {
         questions: [],
@@ -5736,6 +5736,7 @@ function normalizeData(obj) {
                                     break;
                                 }
                             }
+                            group = subjectID + " " + group; 
                             const structKey = `${subjectID}-${group}`;
                             if (!structMap.has(structKey)) {
                                 structMap.set(structKey, [year, subjectID, subjectName, group]);
@@ -5793,6 +5794,8 @@ function normalizeData(obj) {
                                         break;
                                     }
                                 }
+                                group = subjectID + " " + group; 
+
 
                                 const structKey = `${subjectID}-${group}`;
                                 if (!structMap.has(structKey)) {
@@ -5908,15 +5911,16 @@ function normalizeData(obj) {
             { name: 'Questions', key: 'ques' }
         ];
 
-        let totalRowsImported = 0;
+        let totalNew = 0;
+        let totalSkipped = 0;
         let importLog = "";
 
         const isConfirmed = await Swal.fire({
-            title: 'ยืนยันการนำเข้าข้อมูลทั้งหมด?',
-            text: `คุณกำลังจะนำเข้าข้อมูล 3 ส่วน (Structure, Category, Questions) ที่อยู่ใน Converter Tool เข้าสู่ระบบ`,
+            title: 'ยืนยันการนำเข้าข้อมูล?',
+            text: `ระบบจะตรวจสอบและข้ามข้อมูลที่มีอยู่แล้วในฐานข้อมูลโดยอัตโนมัติ`,
             icon: 'question',
             showCancelButton: true,
-            confirmButtonText: 'ใช่, Import ทั้งหมด'
+            confirmButtonText: 'ใช่, เริ่มนำเข้า'
         });
 
         if (!isConfirmed.isConfirmed) return;
@@ -5928,31 +5932,55 @@ function normalizeData(obj) {
                 const dataToImport = converterStorage[sheet.key];
 
                 if (dataToImport.length > 0) {
-                    const BATCH_SIZE = 200;
-                    const totalBatches = Math.ceil(dataToImport.length / BATCH_SIZE);
+                    // ส่งข้อมูลไปประมวลผลที่ละส่วน
+                    const response = await fetch(APPSCRIPT_URL, {
+                        method: 'POST',
+                        headers: { "Content-Type": "text/plain;charset=utf-8" },
+                        body: JSON.stringify({
+                            action: 'adminImport',
+                            username: currentUser.username,
+                            adminPass: adminPass,
+                            data: {
+                                sheetName: sheet.key,
+                                data: dataToImport
+                            }
+                        })
+                    });
 
-                    for (let i = 0; i < totalBatches; i++) {
-                        const chunk = dataToImport.slice(i * BATCH_SIZE, (i + 1) * BATCH_SIZE);
+                    const resJson = await response.json();
 
-                        await sendAdminAction('adminImport', {
-                            sheetName: sheet.key,
-                            data: chunk
-                        });
-                        totalRowsImported += chunk.length;
+                    if (resJson.result === 'success') {
+                        totalNew += (resJson.count || 0);
+                        totalSkipped += (resJson.skipped || 0);
+                        importLog += `• ${sheet.name}: เพิ่มใหม่ ${resJson.count} แถว (ซ้ำ ${resJson.skipped})\n`;
+                    } else {
+                        console.error(`Error importing ${sheet.name}:`, resJson.message);
                     }
-                    importLog += `นำเข้า ${sheet.name}: ${dataToImport.length} แถว\n`;
                 }
             }
 
-            Swal.fire('Completed', `นำเข้าข้อมูลสำเร็จทั้งหมด ${totalRowsImported} แถว\n\n${importLog}`, 'success');
-            fetchData();
-        } catch (err) {
-            Swal.fire('Error', 'การ Import ขัดข้อง: ' + err.message, 'error');
-        } finally {
             $('#loading-overlay').hide();
+
+            if (totalNew > 0 || totalSkipped > 0) {
+                Swal.fire({
+                    title: 'นำเข้าข้อมูลเสร็จสิ้น',
+                    html: `<div class="text-start small">
+                        <p class="mb-1 text-success fw-bold">สรุปผลการดำเนินการ:</p>
+                        <pre class="bg-light p-2 border rounded">${importLog}</pre>
+                        <p class="mt-2 text-muted">รวมเพิ่มข้อมูลใหม่ทั้งหมด: ${totalNew} แถว</p>
+                      </div>`,
+                    icon: 'success'
+                });
+                fetchData(true); // โหลดข้อมูลใหม่เพื่ออัปเดต UI
+            } else {
+                Swal.fire('ไม่มีข้อมูลใหม่', 'ข้อมูลทั้งหมดที่คุณต้องการนำเข้า มีอยู่ในระบบเรียบร้อยแล้ว', 'info');
+            }
+
+        } catch (err) {
+            $('#loading-overlay').hide();
+            Swal.fire('Error', 'การ Import ขัดข้อง: ' + err.message, 'error');
         }
     }
-
         </script>
 </body>
 
