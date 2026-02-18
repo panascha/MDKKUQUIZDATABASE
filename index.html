@@ -45,10 +45,10 @@
             /* สำหรับ Vote Modal */
             --color-dark: #5a5c69;
             /* สำหรับ Vote Modal */
-                --sidebar-bg: linear-gradient(180deg, #1a2a6c 0%, #2a4858 100%);
-    --sidebar-width: 270px;
-    --transition-speed: 0.3s;
-    --item-radius: 12px;
+            --sidebar-bg: linear-gradient(180deg, #1a2a6c 0%, #2a4858 100%);
+            --sidebar-width: 270px;
+            --transition-speed: 0.3s;
+            --item-radius: 12px;
         }
 
         body {
@@ -59,9 +59,9 @@
             width: 100%;
         }
 
-         .hidden {
-        display: none !important;
-    }
+        .hidden {
+            display: none !important;
+        }
 
         .admin-only {
             display: none;
@@ -71,17 +71,17 @@
         /* 4.2 Sidebar Styles */
         /* -------------------------------------------------------------------- */
         #sidebar-wrapper {
-    min-height: 100vh;
-    width: var(--sidebar-width);
-    position: fixed;
-    z-index: 1050;
-    margin-left: calc(-1 * var(--sidebar-width));
-    transition: all var(--transition-speed) cubic-bezier(0.4, 0, 0.2, 1);
-    background: var(--sidebar-bg);
-    box-shadow: 4px 0 15px rgba(0, 0, 0, 0.1);
-    display: flex;
-    flex-direction: column;
-}
+            min-height: 100vh;
+            width: var(--sidebar-width);
+            position: fixed;
+            z-index: 1050;
+            margin-left: calc(-1 * var(--sidebar-width));
+            transition: all var(--transition-speed) cubic-bezier(0.4, 0, 0.2, 1);
+            background: var(--sidebar-bg);
+            box-shadow: 4px 0 15px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+        }
 
         /* Mobile: Sidebar เปิดเมื่อมี class 'toggled' (เดิมถูกซ่อน) */
         #wrapper.toggled #sidebar-wrapper {
@@ -103,18 +103,19 @@
             }
         }
 
-#sidebar-wrapper .sidebar-heading {
-    padding: 0.8rem 0.5rem;
-    font-size: 1.4rem;
-    font-weight: 800;
-    color: #fff;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
+        #sidebar-wrapper .sidebar-heading {
+            padding: 0.8rem 0.5rem;
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: #fff;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
         /* Style สำหรับปุ่มปิด Sidebar บนมือถือ */
         #sidebar-close-btn {
             position: absolute;
@@ -243,105 +244,120 @@
 
         /* เพิ่มในส่วน 4.3 Page Content & Topbar Styles */
         #topbar-avatar {
-        object-fit: cover;
-        cursor: pointer;
-        border: 2px solid #eee;
-        transition: transform 0.2s;
-    }
-    #topbar-avatar:hover {
-        transform: scale(1.1);
-        border-color: var(--primary-color);
-    }
+            object-fit: cover;
+            cursor: pointer;
+            border: 2px solid #eee;
+            transition: transform 0.2s;
+        }
+
+        #topbar-avatar:hover {
+            transform: scale(1.1);
+            border-color: var(--primary-color);
+        }
+
         .topbar-profile-actions {
-    margin-right: 15px;
-    font-size: 0.9rem;
-    cursor: pointer;
-    color: var(--dark-text);
-}
-.topbar-profile-actions:hover {
-    color: var(--primary-color);
-}
+            margin-right: 15px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            color: var(--dark-text);
+        }
 
-/* เพิ่มในส่วน 4.8 Data Tables & Responsive Table Styles */
-/* DEV Role Check Styling */
-.developer-only {
-    display: none; 
-}
+        .topbar-profile-actions:hover {
+            color: var(--primary-color);
+        }
 
-/* --- Diff Viewer Styles --- */
-.modal-dialog.modal-xl {
-    max-width: 95% !important; /* ขยายให้กว้าง */
-}
+        /* เพิ่มในส่วน 4.8 Data Tables & Responsive Table Styles */
+        /* DEV Role Check Styling */
+        .developer-only {
+            display: none;
+        }
 
-/* Header ของแต่ละฝั่ง */
-.diff-col-header {
-    padding: 10px;
-    text-align: center;
-    font-weight: 800;
-    color: #fff;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    border-radius: 5px 5px 0 0;
-    margin-bottom: 15px;
-}
-.header-old { background-color: #e74a3b; } /* สีแดง */
-.header-new { background-color: #1cc88a; } /* สีเขียว */
+        /* --- Diff Viewer Styles --- */
+        .modal-dialog.modal-xl {
+            max-width: 95% !important;
+            /* ขยายให้กว้าง */
+        }
 
-/* กรอบเนื้อหา */
-.diff-content-box {
-    border: 1px solid #e3e6f0;
-    padding: 15px;
-    border-radius: 0 0 5px 5px;
-    height: 100%;
-    background-color: #fff;
-}
+        /* Header ของแต่ละฝั่ง */
+        .diff-col-header {
+            padding: 10px;
+            text-align: center;
+            font-weight: 800;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-radius: 5px 5px 0 0;
+            margin-bottom: 15px;
+        }
 
-/* Highlight ส่วนที่เปลี่ยนแปลง (สีเหลือง) */
-.diff-changed {
-    background-color: #fff3cd !important;
-    border: 1px solid #ffc107 !important;
-    position: relative;
-}
-.diff-changed::after {
-    content: "CHANGED";
-    position: absolute;
-    top: -8px;
-    right: 5px;
-    font-size: 0.6rem;
-    background: #ffc107;
-    color: #000;
-    padding: 1px 4px;
-    border-radius: 3px;
-    font-weight: bold;
-    z-index: 1;
-}
+        .header-old {
+            background-color: #e74a3b;
+        }
 
-/* Style ของ Choice ใน Diff */
-.diff-choice-item {
-    padding: 8px 12px;
-    border: 1px solid #eaecf4;
-    margin-bottom: 5px;
-    border-radius: 5px;
-    background: #fff;
-}
+        /* สีแดง */
+        .header-new {
+            background-color: #1cc88a;
+        }
 
-/* เฉลยที่ถูกต้อง (สีเขียว) */
-.diff-correct {
-    background-color: #d1e7dd !important;
-    border-color: #0f5132 !important;
-    color: #0f5132;
-    font-weight: bold;
-}
+        /* สีเขียว */
 
-/* New Form/Modal enhancements */
-.form-label.small {
-    font-size: 0.85rem;
-    margin-bottom: 0.2rem;
-}
-.form-control:focus:invalid {
-    border-color: #e74a3b;
-    box-shadow: 0 0 0 0.25rem rgba(231, 74, 59, 0.25);
-}
+        /* กรอบเนื้อหา */
+        .diff-content-box {
+            border: 1px solid #e3e6f0;
+            padding: 15px;
+            border-radius: 0 0 5px 5px;
+            height: 100%;
+            background-color: #fff;
+        }
+
+        /* Highlight ส่วนที่เปลี่ยนแปลง (สีเหลือง) */
+        .diff-changed {
+            background-color: #fff3cd !important;
+            border: 1px solid #ffc107 !important;
+            position: relative;
+        }
+
+        .diff-changed::after {
+            content: "CHANGED";
+            position: absolute;
+            top: -8px;
+            right: 5px;
+            font-size: 0.6rem;
+            background: #ffc107;
+            color: #000;
+            padding: 1px 4px;
+            border-radius: 3px;
+            font-weight: bold;
+            z-index: 1;
+        }
+
+        /* Style ของ Choice ใน Diff */
+        .diff-choice-item {
+            padding: 8px 12px;
+            border: 1px solid #eaecf4;
+            margin-bottom: 5px;
+            border-radius: 5px;
+            background: #fff;
+        }
+
+        /* เฉลยที่ถูกต้อง (สีเขียว) */
+        .diff-correct {
+            background-color: #d1e7dd !important;
+            border-color: #0f5132 !important;
+            color: #0f5132;
+            font-weight: bold;
+        }
+
+        /* New Form/Modal enhancements */
+        .form-label.small {
+            font-size: 0.85rem;
+            margin-bottom: 0.2rem;
+        }
+
+        .form-control:focus:invalid {
+            border-color: #e74a3b;
+            box-shadow: 0 0 0 0.25rem rgba(231, 74, 59, 0.25);
+        }
 
         @media (min-width: 576px) {
             #page-title {
@@ -1405,61 +1421,69 @@
         }
 
         /* Custom Form Styles */
-.form-floating-custom > label {
-    font-size: 0.85rem;
-    color: #6c757d;
-}
-.form-floating-custom > .form-control:focus ~ label {
-    color: var(--primary-color);
-}
-.avatar-upload-box {
-    width: 120px;
-    height: 120px;
-    border: 2px dashed #ced4da;
-    border-radius: 10px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    cursor: pointer;
-    transition: border-color 0.3s, background-color 0.3s;
-    overflow: hidden;
-}
-.avatar-upload-box:hover {
-    border-color: var(--primary-color);
-    background-color: #f8f9fa;
-}
-.avatar-upload-box img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-.avatar-upload-box i {
-    font-size: 2.5rem;
-    color: #6c757d;
-}
-.hidden-file-input {
-    display: none;
-}
-/* Auth Buttons in Topbar */
-.auth-buttons-container {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-.modal-header-auth {
-    background: linear-gradient(135deg, #4e73df 0%, #224abe 100%);
-    color: white;
-    border-top-left-radius: 10px;
-    border-top-right-radius: 10px;
-    padding: 1.5rem;
-    text-align: center;
-}
-.modal-auth-content {
-    border: none;
-    border-radius: 10px;
-    overflow: hidden;
-}
+        .form-floating-custom>label {
+            font-size: 0.85rem;
+            color: #6c757d;
+        }
 
+        .form-floating-custom>.form-control:focus~label {
+            color: var(--primary-color);
+        }
+
+        .avatar-upload-box {
+            width: 120px;
+            height: 120px;
+            border: 2px dashed #ced4da;
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: border-color 0.3s, background-color 0.3s;
+            overflow: hidden;
+        }
+
+        .avatar-upload-box:hover {
+            border-color: var(--primary-color);
+            background-color: #f8f9fa;
+        }
+
+        .avatar-upload-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .avatar-upload-box i {
+            font-size: 2.5rem;
+            color: #6c757d;
+        }
+
+        .hidden-file-input {
+            display: none;
+        }
+
+        /* Auth Buttons in Topbar */
+        .auth-buttons-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .modal-header-auth {
+            background: linear-gradient(135deg, #4e73df 0%, #224abe 100%);
+            color: white;
+            border-top-left-radius: 10px;
+            border-top-right-radius: 10px;
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .modal-auth-content {
+            border: none;
+            border-radius: 10px;
+            overflow: hidden;
+        }
     </style>
 </head>
 
@@ -1507,7 +1531,8 @@
                     <i class="fas fa-list-ul"></i> Activity Logs
                 </a>
 
-                <a href="#" class="list-group-item list-group-item-action developer-only" onclick="showSection('admin-manager')">
+                <a href="#" class="list-group-item list-group-item-action developer-only"
+                    onclick="showSection('admin-manager')">
                     <i class="fas fa-users-cog"></i> Manage Admins
                 </a>
             </div>
@@ -1534,7 +1559,7 @@
                 <i class="fa fa-bars text-secondary"></i>
             </button>
             <h4 class="m-0 font-weight-bold text-primary" id="page-title">Dashboard</h4>
-        
+
             <!-- AUTH SECTION (RIGHT SIDE) -->
             <div class="d-flex align-items-center ms-auto"> <!-- ms-auto pushes to right -->
                 <div id="auth-guest-view" class="auth-buttons-container">
@@ -1545,11 +1570,13 @@
                         <i class="fas fa-user-plus me-1"></i> Register
                     </button>
                 </div>
-        
+
                 <div id="auth-user-view" class="align-items-center hidden">
                     <span class="mr-2 d-none d-lg-inline text-gray-600 small me-2" id="topbar-user">Guest</span>
-                    <img id="topbar-avatar" class="img-profile rounded-circle me-2" style="width: 32px; height: 32px;" src="">
-                    <button class="btn btn-sm btn-light text-danger rounded-circle" onclick="logoutAdmin()" title="Logout">
+                    <img id="topbar-avatar" class="img-profile rounded-circle me-2" style="width: 32px; height: 32px;"
+                        src="">
+                    <button class="btn btn-sm btn-light text-danger rounded-circle" onclick="logoutAdmin()"
+                        title="Logout">
                         <i class="fas fa-sign-out-alt"></i>
                     </button>
                 </div>
@@ -1618,13 +1645,15 @@
                     </div>
                     <!-- Card: Require Images -->
                     <div class="col-xl-3 col-md-6 mb-4">
-                        <div class="card card-dashboard h-100 py-2" style="border-left: 4px solid var(--warning-color);">
+                        <div class="card card-dashboard h-100 py-2"
+                            style="border-left: 4px solid var(--warning-color);">
                             <div class="card-body">
                                 <div class="row no-gutters align-items-center">
                                     <div class="col mr-2">
                                         <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
                                             รอเพิ่มรูปภาพ (Require Img)</div>
-                                        <div class="h5 mb-0 font-weight-bold text-gray-800" id="stat-require-img">0 ข้อ</div>
+                                        <div class="h5 mb-0 font-weight-bold text-gray-800" id="stat-require-img">0 ข้อ
+                                        </div>
                                     </div>
                                     <div class="col-auto"><i class="fas fa-image fa-2x text-gray-300"></i></div>
                                 </div>
@@ -1657,7 +1686,7 @@
                         </div>
                     </div>
                 </div>
-                
+
             </div>
 
             <!-- SECTION: Public Search -->
@@ -1829,56 +1858,60 @@
                 </div>
             </div>
 
-<!-- SECTION: Converter Tool -->
-<div id="sec-converter" class="content-section hidden">
-    <div class="converter-area">
-        <h4><i class="fas fa-file-code text-primary"></i> Quiz & Structure Converter V4</h4>
-        <p class="text-muted small">เครื่องมือช่วยแปลง Code หรือรายชื่อหัวข้อ ให้เป็น Format
-            ที่พร้อมนำไปวางใน Google Sheets (Admin Only)</p>
+            <!-- SECTION: Converter Tool -->
+            <div id="sec-converter" class="content-section hidden">
+                <div class="converter-area">
+                    <h4><i class="fas fa-file-code text-primary"></i> Quiz & Structure Converter V4</h4>
+                    <p class="text-muted small">เครื่องมือช่วยแปลง Code หรือรายชื่อหัวข้อ ให้เป็น Format
+                        ที่พร้อมนำไปวางใน Google Sheets (Admin Only)</p>
 
-        <!-- NEW: Instructions Section (ไม่ได้เปลี่ยนแปลง) -->
-        <div class="card card-dashboard mb-4">
-            <div class="card-header-custom">
-                <span><i class="fas fa-info-circle me-2"></i> คู่มือการใช้งานและตัวอย่าง Format</span>
-                <a class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" href="#converterInstructions"
-                    role="button" aria-expanded="true" aria-controls="converterInstructions">
-                    Show/Hide
-                </a>
-            </div>
-            <div class="collapse show" id="converterInstructions">
-                <div class="card-body">
-                    <!-- Tabs for Instructions -->
-                    <ul class="nav nav-tabs" id="instructionTab" role="tablist">
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="tab1-tab" data-bs-toggle="tab" data-bs-target="#tab1"
-                                type="button" role="tab">1. เพิ่มหัวข้อ Lecture (ใช้ทำข้อสอบแยกเลค)</button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="tab2-tab" data-bs-toggle="tab" data-bs-target="#tab2"
-                                type="button" role="tab">2. เพิ่มคำถามทีละหลายๆชุด (ใช้แปลงข้อสอบเก่าเข้าเว็บ)</button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="tab3-tab" data-bs-toggle="tab" data-bs-target="#tab3"
-                                type="button" role="tab">3. เพิ่มคำถามทีละชุด (ใช้แปลงข้อสอบเก่าเข้าเว็บ)</button>
-                        </li>
-                    </ul>
-                    <div class="tab-content pt-3" id="instructionTabContent">
-                        <!-- Tab 1: Category List -->
-                        <div class="tab-pane fade show active" id="tab1" role="tabpanel">
-                            <h6 class="text-primary fw-bold">ใช้เมื่อ: ต้องการเพิ่มหัวข้อข้อสอบแยกเลค</h6>
-                            <p class="mb-0"><b>ตัวอย่าง:</b></p>
-                            <pre class="bg-light p-2 rounded small"><code>
+                    <!-- NEW: Instructions Section (ไม่ได้เปลี่ยนแปลง) -->
+                    <div class="card card-dashboard mb-4">
+                        <div class="card-header-custom">
+                            <span><i class="fas fa-info-circle me-2"></i> คู่มือการใช้งานและตัวอย่าง Format</span>
+                            <a class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse"
+                                href="#converterInstructions" role="button" aria-expanded="true"
+                                aria-controls="converterInstructions">
+                                Show/Hide
+                            </a>
+                        </div>
+                        <div class="collapse show" id="converterInstructions">
+                            <div class="card-body">
+                                <!-- Tabs for Instructions -->
+                                <ul class="nav nav-tabs" id="instructionTab" role="tablist">
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link active" id="tab1-tab" data-bs-toggle="tab"
+                                            data-bs-target="#tab1" type="button" role="tab">1. เพิ่มหัวข้อ Lecture
+                                            (ใช้ทำข้อสอบแยกเลค)</button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link" id="tab2-tab" data-bs-toggle="tab"
+                                            data-bs-target="#tab2" type="button" role="tab">2. เพิ่มคำถามทีละหลายๆชุด
+                                            (ใช้แปลงข้อสอบเก่าเข้าเว็บ)</button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link" id="tab3-tab" data-bs-toggle="tab"
+                                            data-bs-target="#tab3" type="button" role="tab">3. เพิ่มคำถามทีละชุด
+                                            (ใช้แปลงข้อสอบเก่าเข้าเว็บ)</button>
+                                    </li>
+                                </ul>
+                                <div class="tab-content pt-3" id="instructionTabContent">
+                                    <!-- Tab 1: Category List -->
+                                    <div class="tab-pane fade show active" id="tab1" role="tabpanel">
+                                        <h6 class="text-primary fw-bold">ใช้เมื่อ: ต้องการเพิ่มหัวข้อข้อสอบแยกเลค</h6>
+                                        <p class="mb-0"><b>ตัวอย่าง:</b></p>
+                                        <pre class="bg-light p-2 rounded small"><code>
     ตาม format นี้ "ชื่อย่อวิชา_กลุ่ม_ชื่อหัวข้อ"
     GI_Anatomy_Oral Cavity
     GI_Physiology_Gastric Secretion
     GI_Pathology_Bacterial GI Infections
                                     </code></pre>
-                        </div>
-                        <!-- Tab 2: Quiz JSON Object -->
-                        <div class="tab-pane fade" id="tab2" role="tabpanel">
-                            <h6 class="text-primary fw-bold">ใช้เมื่อ: เพิ่มคำถามทีละหลายๆชุด</h6>
-                            <!-- ... (ตัวอย่างเดิม) ... -->
-                            <pre class="bg-light p-2 rounded small"><code>
+                                    </div>
+                                    <!-- Tab 2: Quiz JSON Object -->
+                                    <div class="tab-pane fade" id="tab2" role="tabpanel">
+                                        <h6 class="text-primary fw-bold">ใช้เมื่อ: เพิ่มคำถามทีละหลายๆชุด</h6>
+                                        <!-- ... (ตัวอย่างเดิม) ... -->
+                                        <pre class="bg-light p-2 rounded small"><code>
     1. เก็บทุกอย่างในตัวแปรชื่อ quizdata
     ด้านในจะมี
     "ชื่อหัวข้อ1" : [ {คำถาม 1}, {คำถาม 2},... ],
@@ -1916,25 +1949,26 @@
     };
 
                                         </code></pre>
-                        </div>
-                        <!-- Tab 3: Question Array (NEW) -->
-                        <div class="tab-pane fade" id="tab3" role="tabpanel">
-                            <h6 class="text-danger fw-bold">ใช้เมื่อ: เพิ่มคำถามทีละ 1 ชุด</h6>
-                            <p><b>ใส่ชื่อหัวข้อ <span class="text-danger fw-bold">เช่น GI_52MCQ1_Anatomy,
-                                        GEN4_52FMT2</span> ด้านล่าง</b></p>
+                                    </div>
+                                    <!-- Tab 3: Question Array (NEW) -->
+                                    <div class="tab-pane fade" id="tab3" role="tabpanel">
+                                        <h6 class="text-danger fw-bold">ใช้เมื่อ: เพิ่มคำถามทีละ 1 ชุด</h6>
+                                        <p><b>ใส่ชื่อหัวข้อ <span class="text-danger fw-bold">เช่น GI_52MCQ1_Anatomy,
+                                                    GEN4_52FMT2</span> ด้านล่าง</b></p>
 
-                            <!-- 💥 ย้าย Input มาไว้ที่นี่ 💥 -->
-                            <div class="col-12 mt-2 p-3 bg-danger-subtle rounded border border-danger mb-3">
-                                <label class="small fw-bold text-danger"><i class="fas fa-exclamation-triangle"></i>
-                                    ใส่ชื่อหัวข้อ </label>
-                                <input type="text" id="arrayCategoryID"
-                                    class="form-control form-control-sm border-danger"
-                                    placeholder="ตาม format นี้ ชื่อวิชา_ปีและกลุ่ม_ชื่อหัวข้อ">
-                            </div>
-                            <!-- 💥 สิ้นสุด Input ที่ย้ายมา 💥 -->
+                                        <!-- 💥 ย้าย Input มาไว้ที่นี่ 💥 -->
+                                        <div class="col-12 mt-2 p-3 bg-danger-subtle rounded border border-danger mb-3">
+                                            <label class="small fw-bold text-danger"><i
+                                                    class="fas fa-exclamation-triangle"></i>
+                                                ใส่ชื่อหัวข้อ </label>
+                                            <input type="text" id="arrayCategoryID"
+                                                class="form-control form-control-sm border-danger"
+                                                placeholder="ตาม format นี้ ชื่อวิชา_ปีและกลุ่ม_ชื่อหัวข้อ">
+                                        </div>
+                                        <!-- 💥 สิ้นสุด Input ที่ย้ายมา 💥 -->
 
-                            <p><b>ตัวอย่าง Input:</b></p>
-                            <pre class="bg-light p-2 rounded small"><code>
+                                        <p><b>ตัวอย่าง Input:</b></p>
+                                        <pre class="bg-light p-2 rounded small"><code>
     1. เอามาแค่ [ {คำถาม1}, {คำถาม2},... ] แบบนี้เลย
     2. โครงสร้างของคำถาม
     {
@@ -1963,99 +1997,107 @@
     }
     ]
                                         </code></pre>
-                            <!-- <p class="mb-0"><b>การทำงานของ Group Keywords:</b> หาก Category ID ที่คุณระบุ
+                                        <!-- <p class="mb-0"><b>การทำงานของ Group Keywords:</b> หาก Category ID ที่คุณระบุ
                                             (เช่น
                                             `NS_MCQ1_CranialNerves`) มีคำที่ตรงกับ <code>Group Keywords</code> (เช่น
                                             `MCQ`)
                                             ระบบจะจัดให้อยู่ในกลุ่ม <b>MCQ</b> โดยอัตโนมัติ</p> -->
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </div>
-        </div>
-        <!-- END Instructions Section -->
+                    <!-- END Instructions Section -->
 
 
-        <div class="converter-control-panel">
-            <div>
-                <label class="mb-2 fw-bold">วาง Code หรือ รายชื่อ CategoryID ที่นี่</label>
-                <textarea id="jsonInput" class="form-control" rows="8" placeholder="วางโค้ดที่นี่..."></textarea>
-            </div>
-            <div>
-                <div class="row g-2">
-                    <div class="col-12 mt-3 d-flex gap-2">
-                        <button class="btn btn-outline-secondary" onclick="resetConverter()" title="ล้างข้อมูลทั้งหมด">
-                            <i class="fas fa-sync-alt"></i> รีเซ็ต
-                        </button>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="small">ชั้นปี (Year)</label>
-                        <input type="number" id="yearVal" class="form-control form-control-sm" placeholder="1,2,3">
-                    </div>
-                    <div class="col-md-4">
-                        <label class="small">รหัสวิชา (Subject ID)</label>
-                        <input type="text" id="subjID" list="subjectIdList" class="form-control form-control-sm" placeholder="GI, NS">
-                        <datalist id="subjectIdList"></datalist> <!-- เพิ่ม datalist -->
-                    </div>
-                    <div class="col-md-4">
-                        <label class="small">ชื่อวิชา</label>
-                        <input type="text" id="subjName" list="subjectNameList" class="form-control form-control-sm"
-                            placeholder="Full Name">
-                        <datalist id="subjectNameList"></datalist> <!-- เพิ่ม datalist -->
-                    </div>
-                    <div class="col-12">
-                        <label class="small">กลุ่มคำย่อ (Group Keywords)</label>
-                        <input type="text" id="groupKeys" class="form-control form-control-sm" value="MCQ1,MCQ2,MCQ3,MCQ4,FMT1,FMT2,by AI"
-                            placeholder="เช่น MCQ1,MCQ2,MCQ3,MCQ4,FMT1,FMT2,by AI">
+                    <div class="converter-control-panel">
+                        <div>
+                            <label class="mb-2 fw-bold">วาง Code หรือ รายชื่อ CategoryID ที่นี่</label>
+                            <textarea id="jsonInput" class="form-control" rows="8"
+                                placeholder="วางโค้ดที่นี่..."></textarea>
+                        </div>
+                        <div>
+                            <div class="row g-2">
+                                <div class="col-12 mt-3 d-flex gap-2">
+                                    <button class="btn btn-outline-secondary" onclick="resetConverter()"
+                                        title="ล้างข้อมูลทั้งหมด">
+                                        <i class="fas fa-sync-alt"></i> รีเซ็ต
+                                    </button>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="small">ชั้นปี (Year)</label>
+                                    <input type="number" id="yearVal" class="form-control form-control-sm"
+                                        placeholder="1,2,3">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="small">รหัสวิชา (Subject ID)</label>
+                                    <input type="text" id="subjID" list="subjectIdList"
+                                        class="form-control form-control-sm" placeholder="GI, NS">
+                                    <datalist id="subjectIdList"></datalist> <!-- เพิ่ม datalist -->
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="small">ชื่อวิชา</label>
+                                    <input type="text" id="subjName" list="subjectNameList"
+                                        class="form-control form-control-sm" placeholder="Full Name">
+                                    <datalist id="subjectNameList"></datalist> <!-- เพิ่ม datalist -->
+                                </div>
+                                <div class="col-12">
+                                    <label class="small">กลุ่มคำย่อ (Group Keywords)</label>
+                                    <input type="text" id="groupKeys" class="form-control form-control-sm"
+                                        value="MCQ1,MCQ2,MCQ3,MCQ4,FMT1,FMT2,by AI"
+                                        placeholder="เช่น MCQ1,MCQ2,MCQ3,MCQ4,FMT1,FMT2,by AI">
+                                </div>
+
+                                <!-- 🚫 ช่อง Input Array Category ID ถูกนำออกแล้ว เพื่อให้แสดงแค่ใน Instruction Tab 🚫 -->
+
+                                <div class="col-12 mt-3">
+                                    <button class="btn btn-primary w-100" onclick="processAll()"><i
+                                            class="fas fa-bolt"></i>
+                                        เริ่มประมวลผลข้อมูล</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    <!-- 🚫 ช่อง Input Array Category ID ถูกนำออกแล้ว เพื่อให้แสดงแค่ใน Instruction Tab 🚫 -->
-
-                    <div class="col-12 mt-3">
-                        <button class="btn btn-primary w-100" onclick="processAll()"><i class="fas fa-bolt"></i>
-                            เริ่มประมวลผลข้อมูล</button>
+                    <!-- ปรับปรุงชื่อ Tab ให้สื่อสารวัตถุประสงค์ -->
+                    <div class="tabs">
+                        <div class="tab" id="tab-struct" onclick="switchTab('struct')">1. Structure
+                            (โครงสร้างวิชา/กลุ่ม)</div>
+                        <div class="tab" id="tab-category" onclick="switchTab('category')">2. Category (หัวข้อ)
+                        </div>
+                        <div class="tab active" id="tab-ques" onclick="switchTab('ques')">3. Questions (ข้อมูลข้อสอบ)
+                        </div>
                     </div>
-                </div>
-            </div>
-        </div>
 
-        <!-- ปรับปรุงชื่อ Tab ให้สื่อสารวัตถุประสงค์ -->
-        <div class="tabs">
-            <div class="tab" id="tab-struct" onclick="switchTab('struct')">1. Structure
-                (โครงสร้างวิชา/กลุ่ม)</div>
-            <div class="tab" id="tab-category" onclick="switchTab('category')">2. Category (หัวข้อ)
-            </div>
-            <div class="tab active" id="tab-ques" onclick="switchTab('ques')">3. Questions (ข้อมูลข้อสอบ)
-            </div>
-        </div>
-
-        <div class="d-flex justify-content-between align-items-center mb-2">
-            <div>
-                <span id="previewText" class="small text-muted">รอข้อมูล...</span>
-                <span class="badge bg-warning text-dark ms-2"><i class="fas fa-pen"></i>
-                    แก้ไขในตารางได้เลย</span>
-            </div>
-            <div class="d-flex gap-2">
-                <!-- <button class="btn btn-warning btn-sm"
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <span id="previewText" class="small text-muted">รอข้อมูล...</span>
+                            <span class="badge bg-warning text-dark ms-2"><i class="fas fa-pen"></i>
+                                แก้ไขในตารางได้เลย</span>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <!-- <button class="btn btn-warning btn-sm"
                     onclick="deduplicateConverterData('struct', [1, 3]); deduplicateConverterData('category', [0]); deduplicateConverterData('ques', [0]);"><i
                         class="fas fa-filter"></i> ลบข้อมูลซ้ำ (Auto Deduplicate)</button> -->
-                <button class="btn btn-outline-primary btn-sm me-2" onclick="copyCurrentSheet()"><i class="fas fa-copy"></i>
-                    Copy to Clipboard</button>
-                <button class="btn btn-success btn-sm" onclick="importConvertedData()"><i class="fas fa-cloud-upload-alt"></i>
-                    💾 บันทึกเข้าระบบ (Import to DB)</button>
-            </div>
-        </div>
+                            <button class="btn btn-outline-primary btn-sm me-2" onclick="copyCurrentSheet()"><i
+                                    class="fas fa-copy"></i>
+                                Copy to Clipboard</button>
+                            <button class="btn btn-success btn-sm" onclick="importConvertedData()"><i
+                                    class="fas fa-cloud-upload-alt"></i>
+                                💾 บันทึกเข้าระบบ (Import to DB)</button>
+                        </div>
+                    </div>
 
-        <div class="table-scroll border rounded bg-light p-2">
-            <table class="table table-sm table-bordered bg-white mb-0" id="dataTable">
-                <thead>
-                    <tr id="tableHead"></tr>
-                </thead>
-                <tbody id="tableBody"></tbody>
-            </table>
-        </div>
-    </div>
-</div>
+                    <div class="table-scroll border rounded bg-light p-2">
+                        <table class="table table-sm table-bordered bg-white mb-0" id="dataTable">
+                            <thead>
+                                <tr id="tableHead"></tr>
+                            </thead>
+                            <tbody id="tableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
 
             <!-- SECTION: Logs (Admin) -->
             <div id="sec-logs" class="content-section hidden">
@@ -2166,46 +2208,47 @@
                 <h5 class="modal-title"><i class="fas fa-user-edit"></i> แก้ไขข้อมูลส่วนตัว</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-                        <div class="modal-body">
-                            <div class="text-center mb-3">
-                                <div class="avatar-upload-box mx-auto" onclick="$('#edit-avatar-input').click()"
-                                    style="width: 100px; height: 100px;">
-                                    <img id="edit-avatar-preview" src=""
-                                        style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
-                                    <div class="overlay-icon"><i class="fas fa-camera"></i></div>
-                                </div>
-                                <input type="file" id="edit-avatar-input" class="d-none" accept="image/*" onchange="previewEditAvatar(this)">
-                            </div>
-                            <div class="row g-2">
-                                <div class="col-md-4">
-                                    <label class="small fw-bold">คำนำหน้า</label>
-                                    <input type="text" id="ep-prefix" class="form-control form-control-sm">
-                                </div>
-                                <div class="col-md-8">
-                                    <label class="small fw-bold">ชื่อจริง-นามสกุล</label>
-                                    <input type="text" id="ep-fullname" class="form-control form-control-sm">
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="small fw-bold">Display Name</label>
-                                    <input type="text" id="ep-displayname" class="form-control form-control-sm">
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="small fw-bold">ชั้นปี</label>
-                                    <input type="number" id="ep-year" class="form-control form-control-sm">
-                                </div>
-                                <div class="col-12">
-                                    <label class="small fw-bold">Contact</label>
-                                    <input type="text" id="ep-contact" class="form-control form-control-sm">
-                                </div>
-                            </div>
-                                            <hr>
-                                            <!-- เพิ่มปุ่มเปลี่ยนรหัสตรงนี้ -->
-                                            <div class="text-center">
-                                                <button type="button" class="btn btn-outline-warning btn-sm w-100" onclick="openResetFromProfile()">
-                                                    <i class="fas fa-key me-1"></i> เปลี่ยนรหัสผ่าน (Change Password)
-                                                </button>
-                                            </div>
-                        </div>
+            <div class="modal-body">
+                <div class="text-center mb-3">
+                    <div class="avatar-upload-box mx-auto" onclick="$('#edit-avatar-input').click()"
+                        style="width: 100px; height: 100px;">
+                        <img id="edit-avatar-preview" src=""
+                            style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+                        <div class="overlay-icon"><i class="fas fa-camera"></i></div>
+                    </div>
+                    <input type="file" id="edit-avatar-input" class="d-none" accept="image/*"
+                        onchange="previewEditAvatar(this)">
+                </div>
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <label class="small fw-bold">คำนำหน้า</label>
+                        <input type="text" id="ep-prefix" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-md-8">
+                        <label class="small fw-bold">ชื่อจริง-นามสกุล</label>
+                        <input type="text" id="ep-fullname" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="small fw-bold">Display Name</label>
+                        <input type="text" id="ep-displayname" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="small fw-bold">ชั้นปี</label>
+                        <input type="number" id="ep-year" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-12">
+                        <label class="small fw-bold">Contact</label>
+                        <input type="text" id="ep-contact" class="form-control form-control-sm">
+                    </div>
+                </div>
+                <hr>
+                <!-- เพิ่มปุ่มเปลี่ยนรหัสตรงนี้ -->
+                <div class="text-center">
+                    <button type="button" class="btn btn-outline-warning btn-sm w-100" onclick="openResetFromProfile()">
+                        <i class="fas fa-key me-1"></i> เปลี่ยนรหัสผ่าน (Change Password)
+                    </button>
+                </div>
+            </div>
             <div class="modal-footer bg-light">
                 <button type="button" class="btn btn-primary w-100"
                     onclick="updateUserProfile()">บันทึกการเปลี่ยนแปลง</button>
@@ -2710,23 +2753,23 @@
 
 <script>
     async function sendWithRetry(payload, retries = 3) {
-            for (let i = 0; i < retries; i++) {
-                try {
-                    const response = await fetch(APPSCRIPT_URL, {
-                        method: 'POST',
-                        headers: { "Content-Type": "text/plain;charset=utf-8" },
-                        body: JSON.stringify(payload)
-                    });
-                    if (!response.ok) throw new Error('Server Busy');
-                    return await response.json();
-                } catch (err) {
-                    console.warn(`Attempt ${i + 1} failed. Retrying...`);
-                    if (i === retries - 1) throw err;
-                    // หน่วงเวลาเพิ่มขึ้นเรื่อยๆ ในแต่ละรอบที่ล้มเหลว (1s, 2s, 3s)
-                    await new Promise(res => setTimeout(res, 1000 * (i + 1)));
-                }
+        for (let i = 0; i < retries; i++) {
+            try {
+                const response = await fetch(APPSCRIPT_URL, {
+                    method: 'POST',
+                    headers: { "Content-Type": "text/plain;charset=utf-8" },
+                    body: JSON.stringify(payload)
+                });
+                if (!response.ok) throw new Error('Server Busy');
+                return await response.json();
+            } catch (err) {
+                console.warn(`Attempt ${i + 1} failed. Retrying...`);
+                if (i === retries - 1) throw err;
+                // หน่วงเวลาเพิ่มขึ้นเรื่อยๆ ในแต่ละรอบที่ล้มเหลว (1s, 2s, 3s)
+                await new Promise(res => setTimeout(res, 1000 * (i + 1)));
             }
         }
+    }
     // ====================================================================
     // 1. GLOBAL CONFIGURATION & VARIABLES
     // ====================================================================
@@ -2754,7 +2797,7 @@
     let sectionId = null;
     let sectionName = null;
     let regAvatarBase64 = null;
-        let regAvatarMimeType = null; 
+    let regAvatarMimeType = null;
     // ====================================================================
     // 2. INITIALIZATION (jQuery Ready & Core UI Bindings)
     // ====================================================================
@@ -2980,36 +3023,36 @@
     // ====================================================================
 
     function resetConverter() {
-            Swal.fire({
-                title: 'ยืนยันการรีเซ็ต?',
-                text: "ข้อมูลที่คุณพิมพ์และผลลัพธ์ในตารางจะถูกล้างทั้งหมด",
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#d33',
-                confirmButtonText: 'ใช่, ล้างข้อมูล',
-                cancelButtonText: 'ยกเลิก'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    // ล้างค่าใน Input ทั้งหมด
-                    $('#jsonInput').val('');
-                    $('#yearVal').val('');
-                    $('#subjID').val('');
-                    $('#subjName').val('');
-                    $('#arrayCategoryID').val('');
+        Swal.fire({
+            title: 'ยืนยันการรีเซ็ต?',
+            text: "ข้อมูลที่คุณพิมพ์และผลลัพธ์ในตารางจะถูกล้างทั้งหมด",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            confirmButtonText: 'ใช่, ล้างข้อมูล',
+            cancelButtonText: 'ยกเลิก'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // ล้างค่าใน Input ทั้งหมด
+                $('#jsonInput').val('');
+                $('#yearVal').val('');
+                $('#subjID').val('');
+                $('#subjName').val('');
+                $('#arrayCategoryID').val('');
 
-                    // ล้างข้อมูลใน Storage ชั่วคราว
-                    converterStorage.struct = [];
-                    converterStorage.category = [];
-                    converterStorage.ques = [];
+                // ล้างข้อมูลใน Storage ชั่วคราว
+                converterStorage.struct = [];
+                converterStorage.category = [];
+                converterStorage.ques = [];
 
-                    // รีเซ็ตตาราง Preview
-                    renderPreview();
+                // รีเซ็ตตาราง Preview
+                renderPreview();
 
-                    Swal.fire('ล้างข้อมูลแล้ว', '', 'success');
-                }
-            });
-        }
-        
+                Swal.fire('ล้างข้อมูลแล้ว', '', 'success');
+            }
+        });
+    }
+
     function setupConverterMultiEdit() {
         const $tableBody = $('#tableBody');
 
@@ -3131,145 +3174,145 @@
             $tableBody.find('.selected-cell').removeClass('selected-cell');
         }
     }
-    
+
     // ====================================================================
     // 3. DATA FETCHING & SYNCHRONIZATION
     // ====================================================================
 
     const dbName = "MDKKU_Admin_DB";
-        const storeName = "admin_cache";
-            let versionCheckInterval = null;
+    const storeName = "admin_cache";
+    let versionCheckInterval = null;
 
 
-        function openDB() {
-            return new Promise((resolve, reject) => {
-                const request = indexedDB.open(dbName, 1);
-                request.onupgradeneeded = (e) => {
-                    const db = e.target.result;
-                    if (!db.objectStoreNames.contains(storeName)) {
-                        db.createObjectStore(storeName);
-                    }
-                };
-                request.onsuccess = (e) => resolve(e.target.result);
-                request.onerror = (e) => reject(e.target.error);
-            });
-        }
+    function openDB() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(dbName, 1);
+            request.onupgradeneeded = (e) => {
+                const db = e.target.result;
+                if (!db.objectStoreNames.contains(storeName)) {
+                    db.createObjectStore(storeName);
+                }
+            };
+            request.onsuccess = (e) => resolve(e.target.result);
+            request.onerror = (e) => reject(e.target.error);
+        });
+    }
 
-        async function setCacheDB(key, data) {
-            const db = await openDB();
-            return new Promise((resolve, reject) => {
-                const transaction = db.transaction(storeName, "readwrite");
-                const store = transaction.objectStore(storeName);
-                store.put(data, key);
-                transaction.oncomplete = () => resolve();
-                transaction.onerror = (e) => reject(e.target.error);
-            });
-        }
+    async function setCacheDB(key, data) {
+        const db = await openDB();
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(storeName, "readwrite");
+            const store = transaction.objectStore(storeName);
+            store.put(data, key);
+            transaction.oncomplete = () => resolve();
+            transaction.onerror = (e) => reject(e.target.error);
+        });
+    }
 
-        async function getCacheDB(key) {
-            const db = await openDB();
-            return new Promise((resolve, reject) => {
-                const transaction = db.transaction(storeName, "readonly");
-                const store = transaction.objectStore(storeName);
-                const request = store.get(key);
-                request.onsuccess = (e) => resolve(e.target.result);
-                request.onerror = (e) => reject(e.target.error);
-            });
-        }
+    async function getCacheDB(key) {
+        const db = await openDB();
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(storeName, "readonly");
+            const store = transaction.objectStore(storeName);
+            const request = store.get(key);
+            request.onsuccess = (e) => resolve(e.target.result);
+            request.onerror = (e) => reject(e.target.error);
+        });
+    }
 
-        // ฟังก์ชันล้าง Cache เมื่อ Admin ทำการแก้ไขข้อมูล
-        async function clearAdminCache() {
-                const db = await openDB();
-                return new Promise((resolve, reject) => {
-                    const transaction = db.transaction(storeName, "readwrite");
-                    const store = transaction.objectStore(storeName);
-                    const request = store.clear();
-                    request.onsuccess = () => resolve();
-                    request.onerror = (e) => reject(e.target.error);
-                });
-            }
+    // ฟังก์ชันล้าง Cache เมื่อ Admin ทำการแก้ไขข้อมูล
+    async function clearAdminCache() {
+        const db = await openDB();
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(storeName, "readwrite");
+            const store = transaction.objectStore(storeName);
+            const request = store.clear();
+            request.onsuccess = () => resolve();
+            request.onerror = (e) => reject(e.target.error);
+        });
+    }
 
     async function fetchData(forceRefresh = false) {
-            const cacheKey = 'global_admin_data';
-            const verKey = 'global_admin_ver';
+        const cacheKey = 'global_admin_data';
+        const verKey = 'global_admin_ver';
 
-            // แสดง Loading
-            $('#loading-overlay').css('display', 'flex');
+        // แสดง Loading
+        $('#loading-overlay').css('display', 'flex');
 
-            try {
-                // 1. ตรวจสอบเวอร์ชันจาก Server
-                const resVer = await fetch(`${APPSCRIPT_URL}?action=checkVersion`).then(r => r.json());
-                const serverVersion = resVer.v;
+        try {
+            // 1. ตรวจสอบเวอร์ชันจาก Server
+            const resVer = await fetch(`${APPSCRIPT_URL}?action=checkVersion`).then(r => r.json());
+            const serverVersion = resVer.v;
 
-                // 2. ดึงข้อมูลจาก IndexedDB
-                const localData = await getCacheDB(cacheKey);
-                const localVer = await getCacheDB(verKey);
+            // 2. ดึงข้อมูลจาก IndexedDB
+            const localData = await getCacheDB(cacheKey);
+            const localVer = await getCacheDB(verKey);
 
-                // 3. ตรวจสอบเงื่อนไข: ถ้าไม่ใช่การกด Refresh และ Version ตรงกัน ให้โหลดจาก Cache
-                if (!forceRefresh && localData && localVer === serverVersion) {
-                    console.log("🚀 Loading from IndexedDB Cache");
-                    globalData = localData;
-                    finalizeDataLoading();
-                    return;
-                }
-
-                // 4. ถ้าไม่มี Cache หรือ Version ไม่ตรง ให้โหลดใหม่จาก Server
-                console.log("🔄 Fetching fresh data from Server...");
-
-                // แยกดึงข้อมูลเหมือนหน้า Quiz เพื่อประสิทธิภาพ (หรือใช้ getAllData ตามเดิมแต่เก็บลง Cache)
-                const response = await fetch(`${APPSCRIPT_URL}?action=getAllData`);
-                const data = await response.json();
-
-                // Data Processing (จัดการ Format ข้อมูลให้พร้อมใช้งาน)
-                globalData.questions = (data.questions || []).map(q => {
-                    if (typeof q.category === 'string' && q.category.startsWith('[')) {
-                        try { q.category = JSON.parse(q.category.replace(/'/g, '"')); }
-                        catch (e) { q.category = [q.category]; }
-                    } else if (typeof q.category === 'string') {
-                        q.category = [q.category];
-                    }
-                    return q;
-                });
-                globalData.report = data.report || [];
-                globalData.structure = data.structure || [];
-                globalData.category = data.category || [];
-                globalData.votes = data.votes || [];
-                globalData.logs = data.logs || [];
-                globalData.admins = data.admins || [];
-
-                // 5. บันทึกลง IndexedDB
-                await setCacheDB(cacheKey, globalData);
-                await setCacheDB(verKey, serverVersion);
-
+            // 3. ตรวจสอบเงื่อนไข: ถ้าไม่ใช่การกด Refresh และ Version ตรงกัน ให้โหลดจาก Cache
+            if (!forceRefresh && localData && localVer === serverVersion) {
+                console.log("🚀 Loading from IndexedDB Cache");
+                globalData = localData;
                 finalizeDataLoading();
-
-            } catch (error) {
-                console.error("Fetch Data Error:", error);
-                Swal.fire('Error', 'ไม่สามารถโหลดข้อมูลได้: ' + error.message, 'error');
-            } finally {
-                $('#loading-overlay').hide();
+                return;
             }
+
+            // 4. ถ้าไม่มี Cache หรือ Version ไม่ตรง ให้โหลดใหม่จาก Server
+            console.log("🔄 Fetching fresh data from Server...");
+
+            // แยกดึงข้อมูลเหมือนหน้า Quiz เพื่อประสิทธิภาพ (หรือใช้ getAllData ตามเดิมแต่เก็บลง Cache)
+            const response = await fetch(`${APPSCRIPT_URL}?action=getAllData`);
+            const data = await response.json();
+
+            // Data Processing (จัดการ Format ข้อมูลให้พร้อมใช้งาน)
+            globalData.questions = (data.questions || []).map(q => {
+                if (typeof q.category === 'string' && q.category.startsWith('[')) {
+                    try { q.category = JSON.parse(q.category.replace(/'/g, '"')); }
+                    catch (e) { q.category = [q.category]; }
+                } else if (typeof q.category === 'string') {
+                    q.category = [q.category];
+                }
+                return q;
+            });
+            globalData.report = data.report || [];
+            globalData.structure = data.structure || [];
+            globalData.category = data.category || [];
+            globalData.votes = data.votes || [];
+            globalData.logs = data.logs || [];
+            globalData.admins = data.admins || [];
+
+            // 5. บันทึกลง IndexedDB
+            await setCacheDB(cacheKey, globalData);
+            await setCacheDB(verKey, serverVersion);
+
+            finalizeDataLoading();
+
+        } catch (error) {
+            console.error("Fetch Data Error:", error);
+            Swal.fire('Error', 'ไม่สามารถโหลดข้อมูลได้: ' + error.message, 'error');
+        } finally {
+            $('#loading-overlay').hide();
         }
+    }
     function finalizeDataLoading() {
-            updateDashboard();
-            populateFilters();
-            renderReportList();
-            refreshTables();
+        updateDashboard();
+        populateFilters();
+        renderReportList();
+        refreshTables();
 
-            if (!$('#sec-structure').hasClass('hidden')) {
-                renderStructureTree($('#struct-subject-filter').val());
-            }
+        if (!$('#sec-structure').hasClass('hidden')) {
+            renderStructureTree($('#struct-subject-filter').val());
         }
-        function startVersionPolling() {
-                if (versionCheckInterval) clearInterval(versionCheckInterval);
+    }
+    function startVersionPolling() {
+        if (versionCheckInterval) clearInterval(versionCheckInterval);
 
-                // เช็คเวอร์ชันทุกๆ 600 วินาที
-                versionCheckInterval = setInterval(() => {
-                    // เรียก fetchData แบบไม่ Force Refresh (มันจะเช็คเวอร์ชันก่อน ถ้าตรงกันก็ไม่โหลดอะไรเพิ่ม)
-                    console.log("Auto-checking for data updates...");
-                    fetchData(false);
-                }, 600000);
-            }
+        // เช็คเวอร์ชันทุกๆ 600 วินาที
+        versionCheckInterval = setInterval(() => {
+            // เรียก fetchData แบบไม่ Force Refresh (มันจะเช็คเวอร์ชันก่อน ถ้าตรงกันก็ไม่โหลดอะไรเพิ่ม)
+            console.log("Auto-checking for data updates...");
+            fetchData(false);
+        }, 600000);
+    }
     function refreshTables() {
         if ($.fn.DataTable.isDataTable('#publicTable')) {
             $('#publicTable').DataTable().clear().rows.add(globalData.questions).draw();
@@ -3296,92 +3339,92 @@
     }
 
     function updateDashboard() {
-            // 1. Stats Cards เดิม
-            $('#stat-total-q').text(globalData.questions ? globalData.questions.length + " ข้อ" : "0 ข้อ");
+        // 1. Stats Cards เดิม
+        $('#stat-total-q').text(globalData.questions ? globalData.questions.length + " ข้อ" : "0 ข้อ");
 
-            const pendingCount = (globalData.report || []).filter(r => !r.Done || String(r.Done).toUpperCase() === 'FALSE').length;
-            $('#stat-pending-q').text(pendingCount + " รายการ");
+        const pendingCount = (globalData.report || []).filter(r => !r.Done || String(r.Done).toUpperCase() === 'FALSE').length;
+        $('#stat-pending-q').text(pendingCount + " รายการ");
 
-            const $sidebarBadge = $('#sidebar-report-count');
-            $sidebarBadge.text(pendingCount);
-            pendingCount > 0 ? $sidebarBadge.show() : $sidebarBadge.hide();
+        const $sidebarBadge = $('#sidebar-report-count');
+        $sidebarBadge.text(pendingCount);
+        pendingCount > 0 ? $sidebarBadge.show() : $sidebarBadge.hide();
 
-            const resolvedCount = (globalData.report || []).filter(r => String(r.Done).toUpperCase() === 'TRUE').length;
-            $('#stat-resolved-q').text(resolvedCount + " รายการ");
+        const resolvedCount = (globalData.report || []).filter(r => String(r.Done).toUpperCase() === 'TRUE').length;
+        $('#stat-resolved-q').text(resolvedCount + " รายการ");
 
-            // --- ส่วนที่เพิ่มใหม่: ตรวจสอบ Require Image ---
-            const requireImgQuestions = (globalData.questions || []).filter(q =>
-                q.img && q.img.toLowerCase().includes("require_img")
-            );
+        // --- ส่วนที่เพิ่มใหม่: ตรวจสอบ Require Image ---
+        const requireImgQuestions = (globalData.questions || []).filter(q =>
+            q.img && q.img.toLowerCase().includes("require_img")
+        );
 
-            $('#stat-require-img').text(requireImgQuestions.length + " ข้อ");
+        $('#stat-require-img').text(requireImgQuestions.length + " ข้อ");
 
-            // แจ้งเตือนถ้ามีรูปภาพที่ต้องเพิ่ม
-            if (requireImgQuestions.length > 0) {
-                // จัดกลุ่มตามวิชา
-                const subjectsMissing = {};
-                requireImgQuestions.forEach(q => {
-                    const subj = getSubjectFromCategory(q.category);
-                    subjectsMissing[subj] = (subjectsMissing[subj] || 0) + 1;
-                });
+        // แจ้งเตือนถ้ามีรูปภาพที่ต้องเพิ่ม
+        if (requireImgQuestions.length > 0) {
+            // จัดกลุ่มตามวิชา
+            const subjectsMissing = {};
+            requireImgQuestions.forEach(q => {
+                const subj = getSubjectFromCategory(q.category);
+                subjectsMissing[subj] = (subjectsMissing[subj] || 0) + 1;
+            });
 
-                // สร้างข้อความแจ้งเตือน
-                let alertMsg = "<b>พบข้อสอบที่ยังไม่เพิ่มรูปภาพ:</b><br><ul class='text-start mt-2'>";
-                for (const [subj, count] of Object.entries(subjectsMissing)) {
-                    alertMsg += `<li>วิชา <b>${subj}</b>: จำนวน ${count} ข้อ</li>`;
-                }
-                alertMsg += "</ul><small class='text-muted'>กรุณาค้นหาคำว่า 'require_img' ในหน้าจัดการ Database เพื่อแก้ไข</small>";
-
-                // แสดงผลเป็น Alert บน Dashboard (ถ้ายังไม่ได้เปิดดูหน้าอื่นอยู่)
-                if (!$('#sec-dashboard').hasClass('hidden')) {
-                    Swal.fire({
-                        title: 'พบข้อมูลไม่สมบูรณ์',
-                        html: alertMsg,
-                        icon: 'warning',
-                        confirmButtonText: 'รับทราบ',
-                        confirmButtonColor: '#f6c23e'
-                    });
-                }
+            // สร้างข้อความแจ้งเตือน
+            let alertMsg = "<b>พบข้อสอบที่ยังไม่เพิ่มรูปภาพ:</b><br><ul class='text-start mt-2'>";
+            for (const [subj, count] of Object.entries(subjectsMissing)) {
+                alertMsg += `<li>วิชา <b>${subj}</b>: จำนวน ${count} ข้อ</li>`;
             }
-            // ------------------------------------------
+            alertMsg += "</ul><small class='text-muted'>กรุณาค้นหาคำว่า 'require_img' ในหน้าจัดการ Database เพื่อแก้ไข</small>";
 
-            // 2. Table Data (Recent Updates) - เหมือนเดิม
-            const reports = (globalData.report || []).sort((a, b) => new Date(b.Time) - new Date(a.Time));
-            const recentReports = reports.slice(0, 20);
-            let html = '';
-
-            if (recentReports.length === 0) {
-                html = '<tr><td colspan="5" class="text-center text-muted py-4">ยังไม่มีประวัติการแจ้งปัญหา</td></tr>';
-            } else {
-                recentReports.forEach(r => {
-                    let dateStr = formatDate(r.Time);
-                    let questionTextShort = r.Question ? r.Question.substring(0, 60) + (r.Question.length > 60 ? '...' : '') : '(ไม่ระบุโจทย์)';
-                    let displayLink = `<span class="text-muted">${questionTextShort}</span>`;
-                    const qObj = globalData.questions.find(q => q.problem.trim() === (r.Question || '').trim());
-
-                    if (qObj) {
-                        const relatedLog = (globalData.logs || []).find(l =>
-                            l.TargetID === qObj.questionId &&
-                            (String(l.ActionType).includes('EDIT') || String(l.ActionType).includes('UPDATE')) &&
-                            (l.OldValue && l.NewValue)
-                        );
-                        if (relatedLog) {
-                            const oldValSafe = encodeURIComponent(relatedLog.OldValue);
-                            const newValSafe = encodeURIComponent(relatedLog.NewValue);
-                            displayLink = `<a href="#" class="question-link dashboard-diff-btn" data-old="${oldValSafe}" data-new="${newValSafe}"><i class="fas fa-search me-1"></i> ${questionTextShort}</a>`;
-                        }
-                    }
-
-                    let reportDetail = r.ReportDetail || r.SuggestedAnswer || '-';
-                    let adminNote = r.AdminNote ? `<span class="text-primary">${r.AdminNote}</span>` : '-';
-                    let statusBadge = (String(r.Done).toUpperCase() === 'TRUE') ? '<span class="badge bg-success rounded-pill">Resolved</span>' : '<span class="badge bg-warning text-dark rounded-pill">Pending</span>';
-
-                    html += `<tr><td>${dateStr}</td><td>${displayLink}</td><td><small>${reportDetail}</small></td><td><small>${adminNote}</small></td><td class="text-center">${statusBadge}</td></tr>`;
+            // แสดงผลเป็น Alert บน Dashboard (ถ้ายังไม่ได้เปิดดูหน้าอื่นอยู่)
+            if (!$('#sec-dashboard').hasClass('hidden')) {
+                Swal.fire({
+                    title: 'พบข้อมูลไม่สมบูรณ์',
+                    html: alertMsg,
+                    icon: 'warning',
+                    confirmButtonText: 'รับทราบ',
+                    confirmButtonColor: '#f6c23e'
                 });
             }
-            $('#dashboardRecentTable tbody').html(html);
         }
-        function populateFilters() {
+        // ------------------------------------------
+
+        // 2. Table Data (Recent Updates) - เหมือนเดิม
+        const reports = (globalData.report || []).sort((a, b) => new Date(b.Time) - new Date(a.Time));
+        const recentReports = reports.slice(0, 20);
+        let html = '';
+
+        if (recentReports.length === 0) {
+            html = '<tr><td colspan="5" class="text-center text-muted py-4">ยังไม่มีประวัติการแจ้งปัญหา</td></tr>';
+        } else {
+            recentReports.forEach(r => {
+                let dateStr = formatDate(r.Time);
+                let questionTextShort = r.Question ? r.Question.substring(0, 60) + (r.Question.length > 60 ? '...' : '') : '(ไม่ระบุโจทย์)';
+                let displayLink = `<span class="text-muted">${questionTextShort}</span>`;
+                const qObj = globalData.questions.find(q => q.problem.trim() === (r.Question || '').trim());
+
+                if (qObj) {
+                    const relatedLog = (globalData.logs || []).find(l =>
+                        l.TargetID === qObj.questionId &&
+                        (String(l.ActionType).includes('EDIT') || String(l.ActionType).includes('UPDATE')) &&
+                        (l.OldValue && l.NewValue)
+                    );
+                    if (relatedLog) {
+                        const oldValSafe = encodeURIComponent(relatedLog.OldValue);
+                        const newValSafe = encodeURIComponent(relatedLog.NewValue);
+                        displayLink = `<a href="#" class="question-link dashboard-diff-btn" data-old="${oldValSafe}" data-new="${newValSafe}"><i class="fas fa-search me-1"></i> ${questionTextShort}</a>`;
+                    }
+                }
+
+                let reportDetail = r.ReportDetail || r.SuggestedAnswer || '-';
+                let adminNote = r.AdminNote ? `<span class="text-primary">${r.AdminNote}</span>` : '-';
+                let statusBadge = (String(r.Done).toUpperCase() === 'TRUE') ? '<span class="badge bg-success rounded-pill">Resolved</span>' : '<span class="badge bg-warning text-dark rounded-pill">Pending</span>';
+
+                html += `<tr><td>${dateStr}</td><td>${displayLink}</td><td><small>${reportDetail}</small></td><td><small>${adminNote}</small></td><td class="text-center">${statusBadge}</td></tr>`;
+            });
+        }
+        $('#dashboardRecentTable tbody').html(html);
+    }
+    function populateFilters() {
         // ... (โค้ด populateFilters เดิม) ...
         const subjects = [...new Set(globalData.structure.map(s => s.SubjectID))].sort();
 
@@ -3421,20 +3464,20 @@
         });
         $('#edit-category').html(multiSelectOpts);
         // ... (จบโค้ด populateFilters เดิม) ...
-        
+
         const uniqueSubjects = [];
-            const seen = new Set();
+        const seen = new Set();
 
-            globalData.structure.forEach(s => {
-                if (!seen.has(s.SubjectID)) {
-                    uniqueSubjects.push(s);
-                    seen.add(s.SubjectID);
-                }
-            });
+        globalData.structure.forEach(s => {
+            if (!seen.has(s.SubjectID)) {
+                uniqueSubjects.push(s);
+                seen.add(s.SubjectID);
+            }
+        });
 
-            // ใส่ข้อมูลใน Datalist
-            $('#subjectIdList').html(uniqueSubjects.map(s => `<option value="${s.SubjectID}">`).join(''));
-            $('#subjectNameList').html(uniqueSubjects.map(s => `<option value="${s.SubjectName}">`).join(''));
+        // ใส่ข้อมูลใน Datalist
+        $('#subjectIdList').html(uniqueSubjects.map(s => `<option value="${s.SubjectID}">`).join(''));
+        $('#subjectNameList').html(uniqueSubjects.map(s => `<option value="${s.SubjectName}">`).join(''));
 
     }
 
@@ -3694,47 +3737,47 @@
         });
     }
 
-function viewDiff(oldValEnc, newValEnc) {
-    let oldRaw = {}, newRaw = {};
-    
+    function viewDiff(oldValEnc, newValEnc) {
+        let oldRaw = {}, newRaw = {};
 
-    // 1. Decode & Parse JSON
-    try { oldRaw = JSON.parse(decodeURIComponent(oldValEnc)); } catch(e) { oldRaw = decodeURIComponent(oldValEnc); }
-    try { newRaw = JSON.parse(decodeURIComponent(newValEnc)); } catch(e) { newRaw = decodeURIComponent(newValEnc); }
 
-    // 2. Normalize Data (แปลง Key ให้เป็นมาตรฐานเดียวกัน เพื่อเปรียบเทียบง่าย)
-    const oldObj = normalizeData(oldRaw);
-    const newObj = normalizeData(newRaw);
+        // 1. Decode & Parse JSON
+        try { oldRaw = JSON.parse(decodeURIComponent(oldValEnc)); } catch (e) { oldRaw = decodeURIComponent(oldValEnc); }
+        try { newRaw = JSON.parse(decodeURIComponent(newValEnc)); } catch (e) { newRaw = decodeURIComponent(newValEnc); }
 
-    // 3. Render แต่ละฝั่ง
-    $('#diff-container-old').html(renderDiffPanel(oldObj, newObj));
-    $('#diff-container-new').html(renderDiffPanel(newObj, oldObj));
+        // 2. Normalize Data (แปลง Key ให้เป็นมาตรฐานเดียวกัน เพื่อเปรียบเทียบง่าย)
+        const oldObj = normalizeData(oldRaw);
+        const newObj = normalizeData(newRaw);
 
-    $('#diffModal').modal('show');
-}
+        // 3. Render แต่ละฝั่ง
+        $('#diff-container-old').html(renderDiffPanel(oldObj, newObj));
+        $('#diff-container-new').html(renderDiffPanel(newObj, oldObj));
 
-/**
- * แปลง Key ต่างๆ (Problem, problem, QuestionID, id) ให้เป็นมาตรฐานเดียวกัน
- */
-function normalizeData(obj) {
-    if (!obj || typeof obj !== 'object') return {};
-    
-    // Helper แปลง Category String เป็น Array
-    let cats = obj.category || obj.Category || [];
-    if (typeof cats === 'string') {
-        try { cats = JSON.parse(cats); } catch(e) { cats = [cats]; }
+        $('#diffModal').modal('show');
     }
 
-    return {
-        id: obj.id || obj.QuestionID || obj.questionId || '-',
-        problem: obj.problem || obj.Problem || '',
-        img: obj.img || obj.Image || '',
-        choices: obj.choices || obj.Choices || '',
-        answer: obj.answer || obj.Answer || '',
-        explain: obj.explain || obj.Explanation || '',
-        category: cats
-    };
-}
+    /**
+     * แปลง Key ต่างๆ (Problem, problem, QuestionID, id) ให้เป็นมาตรฐานเดียวกัน
+     */
+    function normalizeData(obj) {
+        if (!obj || typeof obj !== 'object') return {};
+
+        // Helper แปลง Category String เป็น Array
+        let cats = obj.category || obj.Category || [];
+        if (typeof cats === 'string') {
+            try { cats = JSON.parse(cats); } catch (e) { cats = [cats]; }
+        }
+
+        return {
+            id: obj.id || obj.QuestionID || obj.questionId || '-',
+            problem: obj.problem || obj.Problem || '',
+            img: obj.img || obj.Image || '',
+            choices: obj.choices || obj.Choices || '',
+            answer: obj.answer || obj.Answer || '',
+            explain: obj.explain || obj.Explanation || '',
+            category: cats
+        };
+    }
     function renderDiffPanel(data, compare) {
         // 1. Header (ID & Category)
         // เทียบ Category (แปลงเป็น string ก่อนเทียบ)
@@ -3809,7 +3852,7 @@ function normalizeData(obj) {
              </div>`;
 
         return html;
-    }        
+    }
 
     // Helper ป้องกัน XSS
     function escapeHtml(text) {
@@ -4699,8 +4742,8 @@ function normalizeData(obj) {
     }
 
     function submitSingleVote(categoryId, shouldRefreshUI = false, delta = 1) {
-            submitVoteData([categoryId], shouldRefreshUI, delta);
-        }
+        submitVoteData([categoryId], shouldRefreshUI, delta);
+    }
 
     async function submitVoteData(categoryArray, shouldRefreshUI = false, delta = 1) {
         $('#btn-submit-vote').prop('disabled', true).text('กำลังส่ง...');
@@ -5222,23 +5265,23 @@ function normalizeData(obj) {
     // 10. ADMIN & GENERAL UTILITIES
     // ====================================================================
 
-        const transformUrl = (url) => {
-                // ... (โค้ด transformUrl เดิม) ...
-                if (!url) return "";
-                const match = url.match(/\/d\/(.*?)\//) || url.match(/id=([^&]+)/);
-                return (match && match[1]) ? `https://lh3.googleusercontent.com/d/${match[1]}?authuser=1=w1000-h1000` : url;
-                // ... (จบโค้ด transformUrl เดิม) ...
-            };
+    const transformUrl = (url) => {
+        // ... (โค้ด transformUrl เดิม) ...
+        if (!url) return "";
+        const match = url.match(/\/d\/(.*?)\//) || url.match(/id=([^&]+)/);
+        return (match && match[1]) ? `https://lh3.googleusercontent.com/d/${match[1]}?authuser=1=w1000-h1000` : url;
+        // ... (จบโค้ด transformUrl เดิม) ...
+    };
 
-            function openResetFromProfile() {
-                    $('#editProfileModal').modal('hide'); // ปิดหน้าโปรไฟล์
+    function openResetFromProfile() {
+        $('#editProfileModal').modal('hide'); // ปิดหน้าโปรไฟล์
 
-                    // ตั้งค่าข้อมูลเบื้องต้นในหน้า Reset ให้ (ถ้ามี)
-                    $('#reset-username').val(currentUser.username);
-                    $('#reset-kkumail').val(currentUser.kkumail || '');
+        // ตั้งค่าข้อมูลเบื้องต้นในหน้า Reset ให้ (ถ้ามี)
+        $('#reset-username').val(currentUser.username);
+        $('#reset-kkumail').val(currentUser.kkumail || '');
 
-                    $('#resetModal').modal('show'); // เปิดหน้าเปลี่ยนรหัส
-                }
+        $('#resetModal').modal('show'); // เปิดหน้าเปลี่ยนรหัส
+    }
     // 1. ฟังก์ชันเปิด Modal แก้ไขโปรไฟล์ และดึงข้อมูลเดิมมาใส่
     function openEditProfile() {
         if (!currentUser.username) return;
@@ -5253,59 +5296,59 @@ function normalizeData(obj) {
     }
 
     async function compressImage(base64Str, maxWidth = 400, maxHeight = 400) {
-            return new Promise((resolve) => {
-                const img = new Image();
-                img.src = base64Str;
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    let width = img.width;
-                    let height = img.height;
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.src = base64Str;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
 
-                    if (width > height) {
-                        if (width > maxWidth) {
-                            height *= maxWidth / width;
-                            width = maxWidth;
-                        }
-                    } else {
-                        if (height > maxHeight) {
-                            width *= maxHeight / height;
-                            height = maxHeight;
-                        }
+                if (width > height) {
+                    if (width > maxWidth) {
+                        height *= maxWidth / width;
+                        width = maxWidth;
                     }
-                    canvas.width = width;
-                    canvas.height = height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, width, height);
-                    resolve(canvas.toDataURL('image/jpeg', 0.7)); // บีบอัดคุณภาพเหลือ 70%
-                };
-            });
+                } else {
+                    if (height > maxHeight) {
+                        width *= maxHeight / height;
+                        height = maxHeight;
+                    }
+                }
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                resolve(canvas.toDataURL('image/jpeg', 0.7)); // บีบอัดคุณภาพเหลือ 70%
+            };
+        });
+    }
+
+    // 2. ฟังก์ชันอัปเดตโปรไฟล์
+    async function updateUserProfile() {
+        // ตรวจสอบรูปภาพ: ถ้า currentUser.avatar เป็น Base64 (จากการเลือกไฟล์ใหม่) ให้ส่งไป
+        let avatarBase64 = null;
+        if (currentUser.avatar && currentUser.avatar.startsWith('data:image')) {
+            avatarBase64 = currentUser.avatar;
         }
 
-        // 2. ฟังก์ชันอัปเดตโปรไฟล์
-        async function updateUserProfile() {
-            // ตรวจสอบรูปภาพ: ถ้า currentUser.avatar เป็น Base64 (จากการเลือกไฟล์ใหม่) ให้ส่งไป
-            let avatarBase64 = null;
-            if (currentUser.avatar && currentUser.avatar.startsWith('data:image')) {
-            avatarBase64 = currentUser.avatar;
-            }
-
-            const updateData = {
+        const updateData = {
             prefix: $('#ep-prefix').val(),
             fullName: $('#ep-fullname').val(),
             displayName: $('#ep-displayname').val(),
             year: $('#ep-year').val(),
             contact: $('#ep-contact').val(),
             AvatarBase64: avatarBase64 // ส่งค่า Base64 เพื่อให้ Backend อัปโหลดลง Drive
-            };
+        };
 
-            $('#loading-overlay').css('display', 'flex');
-            try {
+        $('#loading-overlay').css('display', 'flex');
+        try {
             const res = await sendWithRetry({
                 action: 'updateAdminProfile',
                 targetUsername: currentUser.username,
                 updateData: updateData
             });
-            
+
             if (res.result === 'success') {
                 // อัปเดต Display Name ฝั่ง Client ทันทีเพื่อ UX ที่ดี
                 currentUser.displayName = updateData.displayName;
@@ -5316,29 +5359,29 @@ function normalizeData(obj) {
             } else {
                 Swal.fire('Error', res.message || 'ไม่สามารถอัปเดตข้อมูลได้', 'error');
             }
-            } catch (error) {
+        } catch (error) {
             console.error(error);
             Swal.fire('Error', 'Server Connection Error: ' + error.message, 'error');
-            } finally {
+        } finally {
             $('#loading-overlay').hide();
-            }
         }
+    }
 
-        // 3. ปรับปรุง UI เมื่อล็อกอิน (เพิ่มคลิกที่ชื่อ/รูปเพื่อแก้โปรไฟล์)
-        /* แก้ไขใน function updateAuthUI(isLoggedIn) */
-        if (isLoggedIn) {
-            // ... โค้ดเดิม ...
-            $('#topbar-user, #topbar-avatar').on('click', openEditProfile);
-            $('#topbar-user').css('cursor', 'pointer').attr('title', 'คลิกเพื่อแก้ไขโปรไฟล์');
+    // 3. ปรับปรุง UI เมื่อล็อกอิน (เพิ่มคลิกที่ชื่อ/รูปเพื่อแก้โปรไฟล์)
+    /* แก้ไขใน function updateAuthUI(isLoggedIn) */
+    if (isLoggedIn) {
+        // ... โค้ดเดิม ...
+        $('#topbar-user, #topbar-avatar').on('click', openEditProfile);
+        $('#topbar-user').css('cursor', 'pointer').attr('title', 'คลิกเพื่อแก้ไขโปรไฟล์');
 
-            // ถ้าเป็น Dev ให้โชว์เมนูจัดการ User
-            if (currentUser.role === 'DEVELOPER') {
-                $('.developer-only').show();
-                $('[onclick="showSection(\'admin-manager\')"]').show(); // เพิ่มปุ่มใน sidebar ด้วย
-            }
+        // ถ้าเป็น Dev ให้โชว์เมนูจัดการ User
+        if (currentUser.role === 'DEVELOPER') {
+            $('.developer-only').show();
+            $('[onclick="showSection(\'admin-manager\')"]').show(); // เพิ่มปุ่มใน sidebar ด้วย
         }
+    }
 
-        // 4. ฟังก์ชันจัดการ Admin สำหรับ Developer
+    // 4. ฟังก์ชันจัดการ Admin สำหรับ Developer
     function loadAdminManager() {
         const listContainer = $('#admin-user-list');
         listContainer.empty();
@@ -5369,19 +5412,19 @@ function normalizeData(obj) {
         });
         listContainer.html(html);
     }
-        if (sectionId === 'admin-manager') {
-            if (currentUser.role !== 'DEVELOPER') {
-                Swal.fire('Access Denied', 'คุณไม่มีสิทธิ์เข้าถึงหน้านี้', 'error');
-                showSection('dashboard');
-            }
-            loadAdminManager();
+    if (sectionId === 'admin-manager') {
+        if (currentUser.role !== 'DEVELOPER') {
+            Swal.fire('Access Denied', 'คุณไม่มีสิทธิ์เข้าถึงหน้านี้', 'error');
+            showSection('dashboard');
         }
+        loadAdminManager();
+    }
 
-        function openRegisterModal() {
-            Swal.close(); // ปิด Modal Login
-            $('#registerModal').modal('show');
-            $('#registerForm').removeClass('was-validated');
-        }
+    function openRegisterModal() {
+        Swal.close(); // ปิด Modal Login
+        $('#registerModal').modal('show');
+        $('#registerForm').removeClass('was-validated');
+    }
 
     function validateRegistrationForm() {
         const kkumail = $('#reg-kkumail').val() ? $('#reg-kkumail').val().trim() : "";
@@ -5422,21 +5465,21 @@ function normalizeData(obj) {
         return isValid;
     }
 
-        // ====================================================================
-        // PASSWORD CHANGE LOGIC
-        // ====================================================================
+    // ====================================================================
+    // PASSWORD CHANGE LOGIC
+    // ====================================================================
 
-        // --- Auth Modal Control ---
-            function openLoginModal() {
-                $('#loginModal').modal('show');
-            }
-            function openRegisterModal() {
-                $('#registerModal').modal('show');
-            }
-            function openResetModal() {
-                $('#loginModal').modal('hide');
-                $('#resetModal').modal('show');
-            }
+    // --- Auth Modal Control ---
+    function openLoginModal() {
+        $('#loginModal').modal('show');
+    }
+    function openRegisterModal() {
+        $('#registerModal').modal('show');
+    }
+    function openResetModal() {
+        $('#loginModal').modal('hide');
+        $('#resetModal').modal('show');
+    }
 
     // --- Image Preview & Base64 Conversion ---
 
@@ -5458,7 +5501,7 @@ function normalizeData(obj) {
             reader.readAsDataURL(file);
         }
     }
-    
+
     function previewAvatar(input) {
         if (input.files && input.files[0]) {
             var file = input.files[0];
@@ -5481,246 +5524,246 @@ function normalizeData(obj) {
             regAvatarMimeType = null;
         }
     }
-        // --- Register Logic ---
-            async function submitRegister() {
-                // 1. Validate Input
-                const kkumail = $('#reg-kkumail').val().trim();
-                const studentId = $('#reg-studentid').val().trim();
-                const password = $('#reg-password').val();
-                const username = $('#reg-username').val().trim();
+    // --- Register Logic ---
+    async function submitRegister() {
+        // 1. Validate Input
+        const kkumail = $('#reg-kkumail').val().trim();
+        const studentId = $('#reg-studentid').val().trim();
+        const password = $('#reg-password').val();
+        const username = $('#reg-username').val().trim();
 
-                // Regex Check
-                const emailRegex = /@(kkumail\.com|kku\.ac\.th)$/;
-                const studentIdRegex = /^\d{9}-\d{1}$/;
+        // Regex Check
+        const emailRegex = /@(kkumail\.com|kku\.ac\.th)$/;
+        const studentIdRegex = /^\d{9}-\d{1}$/;
 
-                if (!emailRegex.test(kkumail)) {
-                    Swal.fire('Error', 'อีเมลต้องลงท้ายด้วย @kkumail.com หรือ @kku.ac.th', 'error');
-                    return;
-                }
-                if (!studentIdRegex.test(studentId)) {
-                    Swal.fire('Error', 'รหัสนักศึกษาไม่ถูกต้อง (Format: 123456789-0)', 'error');
-                    return;
-                }
-                if (username.length < 4 || password.length < 4) {
-                    Swal.fire('Error', 'Username และ Password ต้องมีความยาวอย่างน้อย 4 ตัวอักษร', 'error');
-                    return;
-                }
+        if (!emailRegex.test(kkumail)) {
+            Swal.fire('Error', 'อีเมลต้องลงท้ายด้วย @kkumail.com หรือ @kku.ac.th', 'error');
+            return;
+        }
+        if (!studentIdRegex.test(studentId)) {
+            Swal.fire('Error', 'รหัสนักศึกษาไม่ถูกต้อง (Format: 123456789-0)', 'error');
+            return;
+        }
+        if (username.length < 4 || password.length < 4) {
+            Swal.fire('Error', 'Username และ Password ต้องมีความยาวอย่างน้อย 4 ตัวอักษร', 'error');
+            return;
+        }
 
-                if (!validateRegistrationForm()) {
-                    Swal.fire('Error', 'กรุณากรอกข้อมูลให้ถูกต้องและครบถ้วน', 'error');
-                    return;
-                }
+        if (!validateRegistrationForm()) {
+            Swal.fire('Error', 'กรุณากรอกข้อมูลให้ถูกต้องและครบถ้วน', 'error');
+            return;
+        }
 
-                const fileInput = document.getElementById('reg-avatar-input'); // แก้ไขจาก reg-avatar-file เป็น reg-avatar-input
-                if (fileInput && fileInput.files.length > 0) {
-                    if (fileInput.files[0].size > 500 * 1024) {
-                        Swal.fire('Error', 'ขนาดรูปภาพต้องไม่เกิน 500KB', 'error');
-                        return;
-                    }
-                }
-
-                const avatarBase64 = regAvatarBase64;
-                const avatarMimeType = regAvatarMimeType;
-                let finalAvatar = regAvatarBase64;
-                if (finalAvatar) {
-                    finalAvatar = await compressImage(finalAvatar); // ย่อรูปก่อนส่ง
-                }
-
-                // 2. Prepare Data
-                const userData = {
-                    Username: username,
-                    Password: password,
-                    DisplayName: $('#reg-displayname').val().trim(),
-                    Prefix: $('#reg-prefix').val(),
-                    FullName: $('#reg-fullname').val().trim(),
-                    StudentID: studentId,
-                    Year: $('#reg-year').val(),
-                    KKUMail: kkumail,
-                    Contact: $('#reg-contact').val().trim(),
-                    Role: $('#reg-role').val(),
-                    AvatarBase64: finalAvatar // Send image data
-                };
-
-                // 3. Send to Server
-                $('#registerModal').modal('hide');
-                $('#loading-overlay').css('display', 'flex');
-                try {
-                    const data = await sendWithRetry({
-                        action: 'registerAdmin',
-                        userData: userData
-                    });
-
-                    if (data.result === 'success') {
-                        Swal.fire('ลงทะเบียนสำเร็จ!', 'ยินดีต้อนรับ Admin ใหม่', 'success');
-                        fetchData();
-                    } else {
-                        Swal.fire('Error', data.message || 'เกิดข้อผิดพลาดในการลงทะเบียน', 'error');
-                    }
-                } catch (e) {
-                    Swal.fire('Error', 'Server Error: ' + e.message, 'error');
-                } finally {
-                    $('#loading-overlay').hide().find('h5').text('กำลังเชื่อมต่อฐานข้อมูล...');
-                }
+        const fileInput = document.getElementById('reg-avatar-input'); // แก้ไขจาก reg-avatar-file เป็น reg-avatar-input
+        if (fileInput && fileInput.files.length > 0) {
+            if (fileInput.files[0].size > 500 * 1024) {
+                Swal.fire('Error', 'ขนาดรูปภาพต้องไม่เกิน 500KB', 'error');
+                return;
             }
+        }
 
-            // --- Reset Password Logic ---
-            async function submitResetPassword() {
-                const data = {
-                    verifyData: {
-                        Username: $('#reset-username').val().trim(),
-                        KKUMail: $('#reset-kkumail').val().trim(),
-                        StudentID: $('#reset-studentid').val().trim(),
-                        FullName: $('#reset-fullname').val().trim()
-                    },
-                    newPassword: $('#reset-newpass').val()
-                };
+        const avatarBase64 = regAvatarBase64;
+        const avatarMimeType = regAvatarMimeType;
+        let finalAvatar = regAvatarBase64;
+        if (finalAvatar) {
+            finalAvatar = await compressImage(finalAvatar); // ย่อรูปก่อนส่ง
+        }
 
-                if (!data.newPassword || data.newPassword.length < 4) {
-                    Swal.fire('Warning', 'กรุณาตั้งรหัสผ่านใหม่อย่างน้อย 4 ตัวอักษร', 'warning');
-                    return;
-                }
+        // 2. Prepare Data
+        const userData = {
+            Username: username,
+            Password: password,
+            DisplayName: $('#reg-displayname').val().trim(),
+            Prefix: $('#reg-prefix').val(),
+            FullName: $('#reg-fullname').val().trim(),
+            StudentID: studentId,
+            Year: $('#reg-year').val(),
+            KKUMail: kkumail,
+            Contact: $('#reg-contact').val().trim(),
+            Role: $('#reg-role').val(),
+            AvatarBase64: finalAvatar // Send image data
+        };
 
-                $('#loading-overlay').css('display', 'flex');
-                try {
-                    const response = await fetch(APPSCRIPT_URL, {
-                        method: 'POST',
-                        redirect: "follow",
-                        headers: { "Content-Type": "text/plain" },
-                        body: JSON.stringify({
-                            action: 'resetPassword',
-                            ...data
-                        })
-                    });
-                    const res = await response.json();
+        // 3. Send to Server
+        $('#registerModal').modal('hide');
+        $('#loading-overlay').css('display', 'flex');
+        try {
+            const data = await sendWithRetry({
+                action: 'registerAdmin',
+                userData: userData
+            });
 
-                    if (res.result === 'success') {
-                        Swal.fire('สำเร็จ', 'เปลี่ยนรหัสผ่านเรียบร้อยแล้ว กรุณาล็อกอินด้วยรหัสผ่านใหม่', 'success');
-                        $('#resetModal').modal('hide');
-                    } else {
-                        Swal.fire('Error', res.message, 'error');
-                    }
-                } catch (e) {
-                    Swal.fire('Error', e.message, 'error');
-                } finally {
-                    $('#loading-overlay').hide();
-                }
+            if (data.result === 'success') {
+                Swal.fire('ลงทะเบียนสำเร็จ!', 'ยินดีต้อนรับ Admin ใหม่', 'success');
+                fetchData();
+            } else {
+                Swal.fire('Error', data.message || 'เกิดข้อผิดพลาดในการลงทะเบียน', 'error');
             }
+        } catch (e) {
+            Swal.fire('Error', 'Server Error: ' + e.message, 'error');
+        } finally {
+            $('#loading-overlay').hide().find('h5').text('กำลังเชื่อมต่อฐานข้อมูล...');
+        }
+    }
 
-            // --- Login Logic (Updated) ---
-            async function performLogin() {
-                const username = $('#login-username').val();
-                const password = $('#login-password').val();
+    // --- Reset Password Logic ---
+    async function submitResetPassword() {
+        const data = {
+            verifyData: {
+                Username: $('#reset-username').val().trim(),
+                KKUMail: $('#reset-kkumail').val().trim(),
+                StudentID: $('#reset-studentid').val().trim(),
+                FullName: $('#reset-fullname').val().trim()
+            },
+            newPassword: $('#reset-newpass').val()
+        };
 
-                if (!username || !password) return;
+        if (!data.newPassword || data.newPassword.length < 4) {
+            Swal.fire('Warning', 'กรุณาตั้งรหัสผ่านใหม่อย่างน้อย 4 ตัวอักษร', 'warning');
+            return;
+        }
 
-                $('#loading-overlay').css('display', 'flex');
-                try {
-                    const data = await sendWithRetry({
-                        action: 'checkAuth',
-                        username: username,
-                        password: password
-                    });
+        $('#loading-overlay').css('display', 'flex');
+        try {
+            const response = await fetch(APPSCRIPT_URL, {
+                method: 'POST',
+                redirect: "follow",
+                headers: { "Content-Type": "text/plain" },
+                body: JSON.stringify({
+                    action: 'resetPassword',
+                    ...data
+                })
+            });
+            const res = await response.json();
 
-                    if (data.result === 'success') {
-                        currentUser = data.user;
-                        isAdmin = true;
-                        adminPass = password; // Store for session actions
-
-                        updateAuthUI(true);
-                        $('#loginModal').modal('hide');
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Welcome, ' + currentUser.displayName,
-                            text: 'Role: ' + currentUser.role,
-                            timer: 1500,
-                            showConfirmButton: false
-                        });
-                        fetchData();
-                    } else {
-                        Swal.fire('Login Failed', data.message, 'error');
-                    }
-                } catch (e) {
-                    Swal.fire('Error', e.message, 'error');
-                } finally {
-                    $('#loading-overlay').hide();
-                }
+            if (res.result === 'success') {
+                Swal.fire('สำเร็จ', 'เปลี่ยนรหัสผ่านเรียบร้อยแล้ว กรุณาล็อกอินด้วยรหัสผ่านใหม่', 'success');
+                $('#resetModal').modal('hide');
+            } else {
+                Swal.fire('Error', res.message, 'error');
             }
+        } catch (e) {
+            Swal.fire('Error', e.message, 'error');
+        } finally {
+            $('#loading-overlay').hide();
+        }
+    }
 
-            function logoutAdmin() {
-                isAdmin = false;
-                adminPass = '';
-                currentUser = { displayName: 'Guest', avatar: '', username: '', role: '' };
-                updateAuthUI(false);
-                showSection('dashboard');
+    // --- Login Logic (Updated) ---
+    async function performLogin() {
+        const username = $('#login-username').val();
+        const password = $('#login-password').val();
+
+        if (!username || !password) return;
+
+        $('#loading-overlay').css('display', 'flex');
+        try {
+            const data = await sendWithRetry({
+                action: 'checkAuth',
+                username: username,
+                password: password
+            });
+
+            if (data.result === 'success') {
+                currentUser = data.user;
+                isAdmin = true;
+                adminPass = password; // Store for session actions
+
+                updateAuthUI(true);
+                $('#loginModal').modal('hide');
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Welcome, ' + currentUser.displayName,
+                    text: 'Role: ' + currentUser.role,
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+                fetchData();
+            } else {
+                Swal.fire('Login Failed', data.message, 'error');
             }
+        } catch (e) {
+            Swal.fire('Error', e.message, 'error');
+        } finally {
+            $('#loading-overlay').hide();
+        }
+    }
+
+    function logoutAdmin() {
+        isAdmin = false;
+        adminPass = '';
+        currentUser = { displayName: 'Guest', avatar: '', username: '', role: '' };
+        updateAuthUI(false);
+        showSection('dashboard');
+    }
 
     function updateAuthUI(isLoggedIn) {
-            if (isLoggedIn) {
-                // 1. จัดการการแสดงผลของปุ่มที่ Topbar
-                $('#auth-guest-view').addClass('hidden'); // ซ่อน Login/Register
-                $('#auth-user-view').removeClass('hidden').addClass('d-flex'); // แสดงชื่อและรูป
+        if (isLoggedIn) {
+            // 1. จัดการการแสดงผลของปุ่มที่ Topbar
+            $('#auth-guest-view').addClass('hidden'); // ซ่อน Login/Register
+            $('#auth-user-view').removeClass('hidden').addClass('d-flex'); // แสดงชื่อและรูป
 
-                // 2. แสดงชื่อและรูปภาพ
-                $('#topbar-user').text(currentUser.displayName || currentUser.username);
+            // 2. แสดงชื่อและรูปภาพ
+            $('#topbar-user').text(currentUser.displayName || currentUser.username);
 
-                // จัดการรูปโปรไฟล์ (ถ้าไม่มีรูปให้ใช้รูป Default)
-                let avatarSrc = currentUser.avatar ? transformUrl(currentUser.avatar) : 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
-                $('#topbar-avatar').attr('src', avatarSrc);
+            // จัดการรูปโปรไฟล์ (ถ้าไม่มีรูปให้ใช้รูป Default)
+            let avatarSrc = currentUser.avatar ? transformUrl(currentUser.avatar) : 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+            $('#topbar-avatar').attr('src', avatarSrc);
 
-                // 3. จัดการ Sidebar
-                $('.admin-only').fadeIn();
-                $('#btn-sidebar-login').hide();
-                $('#user-status-display').html(`Logged in as:<br><b>${currentUser.displayName}</b>`).css('color', '#fff');
+            // 3. จัดการ Sidebar
+            $('.admin-only').fadeIn();
+            $('#btn-sidebar-login').hide();
+            $('#user-status-display').html(`Logged in as:<br><b>${currentUser.displayName}</b>`).css('color', '#fff');
 
-                // 4. สิทธิ์ Developer
-                if (currentUser.role === 'DEVELOPER') {
-                    $('.developer-only').show();
-                }
-
-                // คลิกที่รูปหรือชื่อเพื่อเปิดโปรไฟล์
-                $('#topbar-user, #topbar-avatar').off('click').on('click', openEditProfile);
-
-            } else {
-                // กรณี Logout หรือยังไม่ล็อกอิน
-                $('#auth-guest-view').removeClass('hidden');
-                $('#auth-user-view').addClass('hidden').removeClass('d-flex');
-                $('.admin-only').hide();
-                $('.developer-only').hide();
-                $('#btn-sidebar-login').show();
-                $('#user-status-display').text('Guest User').css('color', 'rgba(255,255,255,0.6)');
+            // 4. สิทธิ์ Developer
+            if (currentUser.role === 'DEVELOPER') {
+                $('.developer-only').show();
             }
+
+            // คลิกที่รูปหรือชื่อเพื่อเปิดโปรไฟล์
+            $('#topbar-user, #topbar-avatar').off('click').on('click', openEditProfile);
+
+        } else {
+            // กรณี Logout หรือยังไม่ล็อกอิน
+            $('#auth-guest-view').removeClass('hidden');
+            $('#auth-user-view').addClass('hidden').removeClass('d-flex');
+            $('.admin-only').hide();
+            $('.developer-only').hide();
+            $('#btn-sidebar-login').show();
+            $('#user-status-display').text('Guest User').css('color', 'rgba(255,255,255,0.6)');
         }
+    }
     async function sendAdminAction(actionName, dataObj) {
-            $('#loading-overlay').show();
-            try {
-                const payload = {
-                    action: actionName,
-                    username: currentUser.username,
-                    adminPass: adminPass,
-                    user: currentUser.displayName,
-                    data: dataObj,
-                    metadata: navigator.userAgent
-                };
+        $('#loading-overlay').show();
+        try {
+            const payload = {
+                action: actionName,
+                username: currentUser.username,
+                adminPass: adminPass,
+                user: currentUser.displayName,
+                data: dataObj,
+                metadata: navigator.userAgent
+            };
 
-                const resJson = await sendWithRetry(payload);
+            const resJson = await sendWithRetry(payload);
 
-                if (resJson.result === 'success') {
-                    // --- ส่วนที่เพิ่ม/แก้ไข ---
-                    await clearAdminCache(); // ลบ Cache ทันทีเมื่อมีการเปลี่ยนแปลงข้อมูล
+            if (resJson.result === 'success') {
+                // --- ส่วนที่เพิ่ม/แก้ไข ---
+                await clearAdminCache(); // ลบ Cache ทันทีเมื่อมีการเปลี่ยนแปลงข้อมูล
 
-                    Swal.fire('Success', 'บันทึกข้อมูลเรียบร้อยแล้ว', 'success');
-                    await fetchData(true); // บังคับโหลดข้อมูลใหม่จาก Server
-                    // -----------------------
-                } else {
-                    throw new Error(resJson.message || resJson.error || 'Unknown Error');
-                }
-            } catch (e) {
-                Swal.fire('Error', 'เกิดข้อผิดพลาด: ' + e.message, 'error');
-            } finally {
-                $('#loading-overlay').hide();
+                Swal.fire('Success', 'บันทึกข้อมูลเรียบร้อยแล้ว', 'success');
+                await fetchData(true); // บังคับโหลดข้อมูลใหม่จาก Server
+                // -----------------------
+            } else {
+                throw new Error(resJson.message || resJson.error || 'Unknown Error');
             }
+        } catch (e) {
+            Swal.fire('Error', 'เกิดข้อผิดพลาด: ' + e.message, 'error');
+        } finally {
+            $('#loading-overlay').hide();
         }
-        function formatDate(dateString) {
+    }
+    function formatDate(dateString) {
         // ... (โค้ด formatDate เดิม) ...
         if (!dateString) return '';
         const d = new Date(dateString);
@@ -5740,7 +5783,7 @@ function normalizeData(obj) {
     async function toggleLogin() {
         // ... (โค้ด toggleLogin เดิม) ...
         if (!isAdmin) {
-                    openLoginModal();
+            openLoginModal();
         } else {
             logoutAdmin();
         }
@@ -5788,30 +5831,30 @@ function normalizeData(obj) {
         }
     }
     // ====================================================================
-        // 11. CONVERTER TOOL LOGIC
-        // ====================================================================
+    // 11. CONVERTER TOOL LOGIC
+    // ====================================================================
 
-        let converterStorage = {
-            struct: [],
-            category: [],
-            ques: [],
-            current: "struct"
-        };
+    let converterStorage = {
+        struct: [],
+        category: [],
+        ques: [],
+        current: "struct"
+    };
 
-        const converterHeaders = {
-            struct: ["#", "Year", "SubjectID", "SubjectName", "AccordionGroup"],
-            category: ["#", "CategoryID", "SubjectRef", "AccordionGroup", "CategoryName"],
-            ques: ["#", "QuestionID", "Problem", "Image", "Choices", "Answer", "Explanation", "Category"]
-        };
+    const converterHeaders = {
+        struct: ["#", "Year", "SubjectID", "SubjectName", "AccordionGroup"],
+        category: ["#", "CategoryID", "SubjectRef", "AccordionGroup", "CategoryName"],
+        ques: ["#", "QuestionID", "Problem", "Image", "Choices", "Answer", "Explanation", "Category"]
+    };
 
-        function switchTab(sheet) {
-            // ... (โค้ด switchTab เดิม) ...
-            converterStorage.current = sheet;
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.getElementById('tab-' + sheet).classList.add('active');
-            renderPreview();
-            // ... (จบโค้ด switchTab เดิม) ...
-        }
+    function switchTab(sheet) {
+        // ... (โค้ด switchTab เดิม) ...
+        converterStorage.current = sheet;
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.getElementById('tab-' + sheet).classList.add('active');
+        renderPreview();
+        // ... (จบโค้ด switchTab เดิม) ...
+    }
 
     function processAll() {
         let rawInput = document.getElementById('jsonInput').value.trim();
@@ -5951,43 +5994,43 @@ function normalizeData(obj) {
             Swal.fire('Error', 'Format ข้อมูลผิดพลาด: ' + e.message, 'error');
         }
     }
-        function renderPreview() {
-            // ... (โค้ด renderPreview เดิม) ...
-            const head = document.getElementById('tableHead');
-            const body = document.getElementById('tableBody');
-            const currentSheet = converterStorage.current;
-            const data = converterStorage[currentSheet];
+    function renderPreview() {
+        // ... (โค้ด renderPreview เดิม) ...
+        const head = document.getElementById('tableHead');
+        const body = document.getElementById('tableBody');
+        const currentSheet = converterStorage.current;
+        const data = converterStorage[currentSheet];
 
-            head.innerHTML = converterHeaders[currentSheet].map(h => `<th>${h}</th>`).join("");
+        head.innerHTML = converterHeaders[currentSheet].map(h => `<th>${h}</th>`).join("");
 
-            body.innerHTML = data.map((row, i) => {
-                const indexCell = `<td>${i + 1}</td>`;
-                const contentCells = row.map(cell => {
-                    return `<td class="editable-cell" contenteditable="true" style="white-space: pre-wrap;">${cell}</td>`;
-                }).join("");
-                return `<tr>${indexCell}${contentCells}</tr>`;
+        body.innerHTML = data.map((row, i) => {
+            const indexCell = `<td>${i + 1}</td>`;
+            const contentCells = row.map(cell => {
+                return `<td class="editable-cell" contenteditable="true" style="white-space: pre-wrap;">${cell}</td>`;
             }).join("");
+            return `<tr>${indexCell}${contentCells}</tr>`;
+        }).join("");
 
-            document.getElementById('previewText').innerText = `มีข้อมูลทั้งหมด ${data.length} แถว`;
-            // ... (จบโค้ด renderPreview เดิม) ...
-        }
+        document.getElementById('previewText').innerText = `มีข้อมูลทั้งหมด ${data.length} แถว`;
+        // ... (จบโค้ด renderPreview เดิม) ...
+    }
 
-        function copyCurrentSheet() {
-            // ... (โค้ด copyCurrentSheet เดิม) ...
-            const rows = document.querySelectorAll('#tableBody tr');
-            let text = "";
-            rows.forEach(tr => {
-                let rowData = [];
-                const cells = tr.querySelectorAll('td');
-                for (let j = 1; j < cells.length; j++) {
-                    rowData.push(cells[j].innerText);
-                }
-                text += rowData.join("\t") + "\n";
-            });
-            navigator.clipboard.writeText(text);
-            Swal.fire('Copied', 'คัดลอกข้อมูล (TSV) เรียบร้อยแล้ว', 'success');
-            // ... (จบโค้ด copyCurrentSheet เดิม) ...
-        }
+    function copyCurrentSheet() {
+        // ... (โค้ด copyCurrentSheet เดิม) ...
+        const rows = document.querySelectorAll('#tableBody tr');
+        let text = "";
+        rows.forEach(tr => {
+            let rowData = [];
+            const cells = tr.querySelectorAll('td');
+            for (let j = 1; j < cells.length; j++) {
+                rowData.push(cells[j].innerText);
+            }
+            text += rowData.join("\t") + "\n";
+        });
+        navigator.clipboard.writeText(text);
+        Swal.fire('Copied', 'คัดลอกข้อมูล (TSV) เรียบร้อยแล้ว', 'success');
+        // ... (จบโค้ด copyCurrentSheet เดิม) ...
+    }
 
     async function importConvertedData() {
         if (!confirmAdmin()) return;
@@ -6068,7 +6111,7 @@ function normalizeData(obj) {
             Swal.fire('Error', 'การ Import ขัดข้อง: ' + err.message, 'error');
         }
     }
-        </script>
+</script>
 </body>
 
 </html>
