@@ -2773,7 +2773,7 @@
     // ====================================================================
     // 1. GLOBAL CONFIGURATION & VARIABLES
     // ====================================================================
-    const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxHzPxA1Ko62hu3P15ZSl4_dQdARa4poq6rg2jEcExN38kN1mqpLTQoruJ5LA2pAQaG/exec';
+    const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxVvA23u5H4FqavEE5jBK82LT2tnXkY_FhTJulWmHMh0FWDX-X6L4zsZ_AR5Eqcb-af/exec';
 
     let globalData = {
         questions: [],
@@ -2802,6 +2802,21 @@
     // 2. INITIALIZATION (jQuery Ready & Core UI Bindings)
     // ====================================================================
     $(document).ready(function () {
+        const savedUser = localStorage.getItem('mdkku_admin_user');
+        const savedPass = localStorage.getItem('mdkku_admin_pass');
+
+        if (savedUser && savedPass) {
+            try {
+                currentUser = JSON.parse(savedUser);
+                adminPass = savedPass;
+                isAdmin = true;
+                updateAuthUI(true);
+                console.log("🔐 Session restored for: " + currentUser.username);
+            } catch (e) {
+                localStorage.removeItem('mdkku_admin_user');
+                localStorage.removeItem('mdkku_admin_pass');
+            }
+        }
         // --- 2.1 Image Gallery Controls Binding (Edit Modal) ---
         $('#prev-img-btn').click(() => {
             if (editImageArray.length > 0) {
@@ -3233,66 +3248,62 @@
     }
 
     async function fetchData(forceRefresh = false) {
-        const cacheKey = 'global_admin_data';
-        const verKey = 'global_admin_ver';
+            const cacheKey = 'global_admin_data';
+            const verKey = 'global_admin_ver';
 
-        // แสดง Loading
-        $('#loading-overlay').css('display', 'flex');
-
-        try {
-            // 1. ตรวจสอบเวอร์ชันจาก Server
-            const resVer = await fetch(`${APPSCRIPT_URL}?action=checkVersion`).then(r => r.json());
-            const serverVersion = resVer.v;
-
-            // 2. ดึงข้อมูลจาก IndexedDB
+            // 1. ดึงข้อมูลจากเครื่อง (IndexedDB) มาโชว์ก่อนทันทีเพื่อความเร็ว
             const localData = await getCacheDB(cacheKey);
-            const localVer = await getCacheDB(verKey);
-
-            // 3. ตรวจสอบเงื่อนไข: ถ้าไม่ใช่การกด Refresh และ Version ตรงกัน ให้โหลดจาก Cache
-            if (!forceRefresh && localData && localVer === serverVersion) {
-                console.log("🚀 Loading from IndexedDB Cache");
+            if (localData && !forceRefresh) {
+                console.log("🚀 Admin Fast Load from Cache");
                 globalData = localData;
-                finalizeDataLoading();
-                return;
+                finalizeDataLoading(); // วาดตารางทันที
+                // ไม่ต้องแสดง Loading ถ้ามีข้อมูลเก่าอยู่แล้ว
+            } else {
+                $('#loading-overlay').css('display', 'flex');
             }
 
-            // 4. ถ้าไม่มี Cache หรือ Version ไม่ตรง ให้โหลดใหม่จาก Server
-            console.log("🔄 Fetching fresh data from Server...");
+            try {
+                // 2. เช็คเวอร์ชันและโหลดข้อมูลใหม่ในพื้นหลัง
+                const resVer = await fetch(`${APPSCRIPT_URL}?action=checkVersion`).then(r => r.json());
+                const serverVersion = resVer.v;
+                const localVer = await getCacheDB(verKey);
 
-            // แยกดึงข้อมูลเหมือนหน้า Quiz เพื่อประสิทธิภาพ (หรือใช้ getAllData ตามเดิมแต่เก็บลง Cache)
-            const response = await fetch(`${APPSCRIPT_URL}?action=getAllData`);
-            const data = await response.json();
+                if (forceRefresh || localVer !== serverVersion || !localData) {
+                    console.log("🔄 Update detected or Force Refresh, fetching from Server...");
+                    const response = await fetch(`${APPSCRIPT_URL}?action=getAllData`);
+                    const data = await response.json();
 
-            // Data Processing (จัดการ Format ข้อมูลให้พร้อมใช้งาน)
-            globalData.questions = (data.questions || []).map(q => {
-                if (typeof q.category === 'string' && q.category.startsWith('[')) {
-                    try { q.category = JSON.parse(q.category.replace(/'/g, '"')); }
-                    catch (e) { q.category = [q.category]; }
-                } else if (typeof q.category === 'string') {
-                    q.category = [q.category];
+                    // Data Processing
+                    globalData.questions = (data.questions || []).map(q => {
+                        if (typeof q.category === 'string' && q.category.startsWith('[')) {
+                            try { q.category = JSON.parse(q.category.replace(/'/g, '"')); }
+                            catch (e) { q.category = [q.category]; }
+                        } else if (typeof q.category === 'string') {
+                            q.category = [q.category];
+                        }
+                        return q;
+                    });
+                    globalData.report = data.report || [];
+                    globalData.structure = data.structure || [];
+                    globalData.category = data.category || [];
+                    globalData.votes = data.votes || [];
+                    globalData.logs = data.logs || [];
+                    globalData.admins = data.admins || [];
+
+                    // บันทึก Cache
+                    await setCacheDB(cacheKey, globalData);
+                    await setCacheDB(verKey, serverVersion);
+
+                    finalizeDataLoading(); // วาดตารางใหม่ด้วยข้อมูลล่าสุด
                 }
-                return q;
-            });
-            globalData.report = data.report || [];
-            globalData.structure = data.structure || [];
-            globalData.category = data.category || [];
-            globalData.votes = data.votes || [];
-            globalData.logs = data.logs || [];
-            globalData.admins = data.admins || [];
 
-            // 5. บันทึกลง IndexedDB
-            await setCacheDB(cacheKey, globalData);
-            await setCacheDB(verKey, serverVersion);
-
-            finalizeDataLoading();
-
-        } catch (error) {
-            console.error("Fetch Data Error:", error);
-            Swal.fire('Error', 'ไม่สามารถโหลดข้อมูลได้: ' + error.message, 'error');
-        } finally {
-            $('#loading-overlay').hide();
+            } catch (error) {
+                console.error("Fetch Data Error:", error);
+                if (!localData) Swal.fire('Error', 'ไม่สามารถโหลดข้อมูลได้: ' + error.message, 'error');
+            } finally {
+                $('#loading-overlay').hide();
+            }
         }
-    }
     function finalizeDataLoading() {
         updateDashboard();
         populateFilters();
@@ -5669,6 +5680,9 @@
                 isAdmin = true;
                 adminPass = password; // Store for session actions
 
+                localStorage.setItem('mdkku_admin_user', JSON.stringify(currentUser));
+                localStorage.setItem('mdkku_admin_pass', adminPass);
+
                 updateAuthUI(true);
                 $('#loginModal').modal('hide');
                 Swal.fire({
@@ -5690,6 +5704,9 @@
     }
 
     function logoutAdmin() {
+
+        localStorage.removeItem('mdkku_admin_user');
+        localStorage.removeItem('mdkku_admin_pass');
         isAdmin = false;
         adminPass = '';
         currentUser = { displayName: 'Guest', avatar: '', username: '', role: '' };
@@ -5751,8 +5768,15 @@
                 // --- ส่วนที่เพิ่ม/แก้ไข ---
                 await clearAdminCache(); // ลบ Cache ทันทีเมื่อมีการเปลี่ยนแปลงข้อมูล
 
-                Swal.fire('Success', 'บันทึกข้อมูลเรียบร้อยแล้ว', 'success');
-                await fetchData(true); // บังคับโหลดข้อมูลใหม่จาก Server
+                Swal.fire({
+                    icon: 'success',
+                    title: 'บันทึกสำเร็จ',
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 2000
+                });
+                fetchData(true); // บังคับโหลดข้อมูลใหม่จาก Server
                 // -----------------------
             } else {
                 throw new Error(resJson.message || resJson.error || 'Unknown Error');
