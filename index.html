@@ -2773,7 +2773,7 @@
     // ====================================================================
     // 1. GLOBAL CONFIGURATION & VARIABLES
     // ====================================================================
-    const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxVvA23u5H4FqavEE5jBK82LT2tnXkY_FhTJulWmHMh0FWDX-X6L4zsZ_AR5Eqcb-af/exec';
+    const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxKl4WJ-m0rctbO567C-SuJZA9Qyfy73RK0hOReER-f_P8aS4xUVpBx_mZVSkcg47jw/exec';
 
     let globalData = {
         questions: [],
@@ -3253,23 +3253,30 @@
 
             // 1. ดึงข้อมูลจากเครื่อง (IndexedDB) มาโชว์ก่อนทันทีเพื่อความเร็ว
             const localData = await getCacheDB(cacheKey);
+        const localVer = await getCacheDB(verKey);
+
             if (localData && !forceRefresh) {
-                console.log("🚀 Admin Fast Load from Cache");
-                globalData = localData;
-                finalizeDataLoading(); // วาดตารางทันที
-                // ไม่ต้องแสดง Loading ถ้ามีข้อมูลเก่าอยู่แล้ว
-            } else {
-                $('#loading-overlay').css('display', 'flex');
-            }
+            globalData = localData;
+            finalizeDataLoading();
+        }
 
             try {
                 // 2. เช็คเวอร์ชันและโหลดข้อมูลใหม่ในพื้นหลัง
                 const resVer = await fetch(`${APPSCRIPT_URL}?action=checkVersion`).then(r => r.json());
                 const serverVersion = resVer.v;
-                const localVer = await getCacheDB(verKey);
 
                 if (forceRefresh || localVer !== serverVersion || !localData) {
-                    console.log("🔄 Update detected or Force Refresh, fetching from Server...");
+                    if (localData && localVer !== serverVersion) {
+                        Swal.fire({
+                            icon: 'info',
+                            title: 'พบข้อมูลอัปเดตใหม่',
+                            text: 'กำลังซิงค์ข้อมูลล่าสุดจากฐานข้อมูล...',
+                            toast: true,
+                            position: 'bottom-end',
+                            showConfirmButton: false,
+                            timer: 3000
+                        });
+                    }
                     const response = await fetch(`${APPSCRIPT_URL}?action=getAllData`);
                     const data = await response.json();
 
@@ -3322,7 +3329,7 @@
             // เรียก fetchData แบบไม่ Force Refresh (มันจะเช็คเวอร์ชันก่อน ถ้าตรงกันก็ไม่โหลดอะไรเพิ่ม)
             console.log("Auto-checking for data updates...");
             fetchData(false);
-        }, 600000);
+        }, 60000);
     }
     function refreshTables() {
         if ($.fn.DataTable.isDataTable('#publicTable')) {
