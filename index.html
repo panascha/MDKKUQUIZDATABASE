@@ -3330,7 +3330,7 @@
             // เรียก fetchData แบบไม่ Force Refresh (มันจะเช็คเวอร์ชันก่อน ถ้าตรงกันก็ไม่โหลดอะไรเพิ่ม)
             console.log("Auto-checking for data updates...");
             fetchData(false);
-        }, 600000);
+        }, 60000);
     }
     function refreshTables() {
         if ($.fn.DataTable.isDataTable('#publicTable')) {
