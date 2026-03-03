@@ -3256,10 +3256,10 @@
         const localVer = await getCacheDB(verKey);
 
         // ถ้ามีข้อมูลในเครื่องและไม่บังคับรีเฟรช ให้ใช้ข้อมูลนั้นก่อน (เพื่อความเร็วในการแสดงผล)
-         //   if (localData && !forceRefresh) {
-           // globalData = localData;
-            //finalizeDataLoading();
-        //}
+            if (localData && !forceRefresh) {
+          globalData = localData;
+            finalizeDataLoading();
+        }
 
             try {
                 // 2. เช็คเวอร์ชันและโหลดข้อมูลใหม่ในพื้นหลัง
@@ -3315,7 +3315,12 @@
     function finalizeDataLoading() {
         updateDashboard();
         populateFilters();
-        renderReportList();
+        //renderReportList();
+        
+        // Only refresh report list if not currently editing a report
+        if (!$('#editQuestionModal').data('reportData')) {
+            renderReportList();
+        }
         refreshTables();
 
         if (!$('#sec-structure').hasClass('hidden')) {
@@ -4548,10 +4553,10 @@
                                         placeholder="เช่น แก้ไขแล้ว, หรือ ปฏิเสธเนื่องจาก...">${r['AdminNote'] || ''}</textarea>
     
                                     <div class="d-flex gap-2">
-                                        <button class="btn btn-outline-secondary btn-sm flex-fill" onclick="processReport(${index}, 'REJECT')">
+                                        <button class="btn btn-outline-secondary btn-sm flex-fill" onclick="processReport('${r['Time']}', 'REJECT')">
                                             <i class="fas fa-times"></i> Reject
                                         </button>
-                                        <button class="btn btn-success btn-sm flex-fill" onclick="openEditReportModal(${index})">
+                                        <button class="btn btn-success btn-sm flex-fill" onclick="openEditReportModal('${r['Time']}')">
                                             <i class="fas fa-edit"></i> Edit & Approve
                                         </button>
                                     </div>
@@ -4611,11 +4616,11 @@
         // ... (จบโค้ด openReportModal เดิม) ...
     }
 
-    async function processReport(index, action) {
+    async function processReport(reportTime, action) {
         // ... (โค้ด processReport เดิม) ...
         const pending = globalData.report.filter(r => !r.Done || r.Done.toString().toUpperCase() === 'FALSE');
-        const r = pending[index];
-        const note = $(`#admin-note-${index}`).val();
+        const r = pending.find(report => report.Time.toString() === reportTime);
+        const note = $(`button[onclick*="${reportTime}"]`).closest('.card').find('textarea').val();        
         if (!confirmAdmin()) return;
 
         const result = await Swal.fire({ title: 'ยืนยัน?', icon: 'question', showCancelButton: true });
@@ -4626,15 +4631,16 @@
                 status: action === 'REJECT' ? 'Rejected' : 'Resolved',
                 done: 'TRUE'
             });
-            $(`#admin-note-${index}`).closest('.card').fadeOut();
         }
+        $(`button[onclick*="${reportTime}"]`).closest('.card').fadeOut();
+
         // ... (จบโค้ด processReport เดิม) ...
     }
 
-    function openEditReportModal(index) {
+    function openEditReportModal(reportTime) {
         // ... (โค้ด openEditReportModal เดิม) ...
         const pending = globalData.report.filter(r => !r.Done || r.Done.toString().toUpperCase() === 'FALSE');
-        const r = pending[index];
+        const r = pending.find(report => report.Time.toString() === reportTime);
 
         let dbQuestion = globalData.questions.find(q => q.problem.trim() === r['Question'].trim());
 
@@ -4644,10 +4650,9 @@
         }
 
         const suggestedAnswer = r['SuggestedAnswer'];
-        const note = $(`#admin-note-${index}`).val();
+        const note = $(`button[onclick*="${reportTime}"]`).closest('.card').find('textarea').val();
 
         $('#editQuestionModal').data('reportData', {
-            index: index,
             timestamp: r['Time'],
             adminNote: note
         });
