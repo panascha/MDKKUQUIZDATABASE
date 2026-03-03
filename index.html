@@ -3255,10 +3255,11 @@
             const localData = await getCacheDB(cacheKey);
         const localVer = await getCacheDB(verKey);
 
-            if (localData && !forceRefresh) {
-            globalData = localData;
-            finalizeDataLoading();
-        }
+        // ถ้ามีข้อมูลในเครื่องและไม่บังคับรีเฟรช ให้ใช้ข้อมูลนั้นก่อน (เพื่อความเร็วในการแสดงผล)
+         //   if (localData && !forceRefresh) {
+           // globalData = localData;
+            //finalizeDataLoading();
+        //}
 
             try {
                 // 2. เช็คเวอร์ชันและโหลดข้อมูลใหม่ในพื้นหลัง
@@ -3329,7 +3330,7 @@
             // เรียก fetchData แบบไม่ Force Refresh (มันจะเช็คเวอร์ชันก่อน ถ้าตรงกันก็ไม่โหลดอะไรเพิ่ม)
             console.log("Auto-checking for data updates...");
             fetchData(false);
-        }, 60000);
+        }, 600000);
     }
     function refreshTables() {
         if ($.fn.DataTable.isDataTable('#publicTable')) {
