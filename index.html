@@ -2780,7 +2780,7 @@
     // ====================================================================
     // 1. GLOBAL CONFIGURATION & VARIABLES
     // ====================================================================
-    const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxwV2sRkVS7puh4-KarDPJtls6eVpNjsSNXCQLSfF7w1Dghvh7PEoEyYod-8D9EVfA5/exec';
+    const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw_XSp4Mfyd_SSelmBOkcXEXjEfpO-6OtnUOns05eCEnqp3jk-CJ0e8YXxfzfvdaE59/exec';
 
     let globalData = {
         questions: [],
@@ -2834,7 +2834,7 @@
         $(document).on('input', '.choice-text-input', function () {
             syncChoicesToHiddenInput();
         });
-        
+
         // --- 2.1 Image Gallery Controls Binding (Edit Modal) ---
         $('#prev-img-btn').click(() => {
             if (editImageArray.length > 0) {
@@ -4312,20 +4312,30 @@
 
     function addChoiceRow(value = "", isOriginalCorrect = false, isSuggested = false) {
             const $container = $('#dynamic-choices-container');
-            // ... (ส่วน badges/class เดิม) ...
+
             const rowHtml = `
-        <div class="choice-item ${isSuggested ? 'suggested-choice' : ''}">
-            <div class="choice-input-group d-flex align-items-center">
-                <input class="form-check-input choice-radio me-2" type="radio" name="correct_answer_group" ${isOriginalCorrect ? 'checked' : ''}>
-                <input type="text" class="form-control choice-text-input" value="${value}" placeholder="ตัวเลือกหรือ Link รูป...">
-                <label class="btn btn-sm btn-outline-primary ms-2 mb-0">
-                    <i class="fas fa-image"></i>
-                    <input type="file" class="d-none" accept="image/*" onchange="handleFileUpload(this, 'Choice')">
-                </label>
-                <i class="fas fa-minus-circle btn-remove-choice ms-2 text-danger" style="cursor:pointer" onclick="removeChoiceRowWithTrash(this)"></i>
-            </div>
-        </div>`;
-            $container.append(rowHtml);
+<div class="choice-item ${isSuggested ? 'suggested-choice' : ''} mb-3 p-2 border rounded bg-white">
+    <div class="choice-input-group d-flex align-items-center">
+        <input class="form-check-input choice-radio me-2" type="radio" name="correct_answer_group" ${isOriginalCorrect ? 'checked' : ''}>
+        <input type="text" class="form-control choice-text-input" value="${value}" placeholder="ข้อความตัวเลือก หรือ ลิงก์รูปภาพ...">
+        <label class="btn btn-sm btn-outline-primary ms-2 mb-0" title="อัปโหลดรูปสำหรับตัวเลือกนี้">
+            <i class="fas fa-image"></i>
+            <input type="file" class="d-none" accept="image/*" onchange="handleFileUpload(this, 'Choice')">
+        </label>
+        <i class="fas fa-trash-alt btn-remove-choice ms-2 text-danger" style="cursor:pointer" onclick="removeChoiceRowWithTrash(this)"></i>
+    </div>
+    <!-- ส่วนแสดง Preview รูปภาพของ Choice -->
+    <div class="choice-preview-container mt-2 text-center" style="display:none;">
+        <img src="" class="img-thumbnail" style="max-height: 100px; object-fit: contain;">
+        <div class="small text-muted mt-1">Choice Image Preview</div>
+    </div>
+</div>`;
+
+            const $row = $(rowHtml);
+            $container.append($row);
+
+            // สั่งให้เช็คลิงก์ทันทีที่สร้างแถว (กรณีมีข้อมูลเดิมอยู่แล้ว)
+            renderChoicePreview($row.find('.choice-text-input'));
         }
 
         function removeChoiceRow(btn) {
@@ -4340,25 +4350,48 @@
     }
 
     function syncChoicesToHiddenInput() {
-        // ... (โค้ด syncChoicesToHiddenInput เดิม) ...
-        const choices = [];
-        let correctAnswer = "";
+            const choices = [];
+            let correctAnswer = "";
 
-        $('#dynamic-choices-container .choice-item').each(function () {
-            const textVal = $(this).find('.choice-text-input').val();
-            const isChecked = $(this).find('.choice-radio').is(':checked');
+            $('#dynamic-choices-container .choice-item').each(function () {
+                const $input = $(this).find('.choice-text-input');
+                const textVal = $input.val().trim();
+                const isChecked = $(this).find('.choice-radio').is(':checked');
 
-            if (textVal.trim() !== "") {
-                choices.push(textVal);
-                if (isChecked) {
-                    correctAnswer = textVal;
+                if (textVal !== "") {
+                    choices.push(textVal);
+                    if (isChecked) {
+                        correctAnswer = textVal;
+                    }
                 }
+
+                // เรียกฟังก์ชันช่วยแสดง Preview รูป
+                renderChoicePreview($input);
+            });
+
+            $('#edit-choices').val(choices.join('///'));
+            $('#edit-answer').val(correctAnswer);
+        }
+
+        // ฟังก์ชันช่วยแสดง Preview รูปภาพใน Choice
+        function renderChoicePreview($inputEl) {
+            const text = $inputEl.val().trim();
+            const $previewContainer = $inputEl.closest('.choice-item').find('.choice-preview-container');
+            const $previewImg = $previewContainer.find('img');
+
+            // ตรวจสอบว่าเป็นลิงก์รูปภาพ (Drive หรือ URL ทั่วไป)
+            if (text.includes('drive.google.com') || text.match(/\.(jpeg|jpg|gif|png|webp)$/i) || text.startsWith('http')) {
+                $previewImg.attr('src', transformUrl(text));
+                $previewContainer.show();
+
+                // กรณีโหลดรูปไม่ขึ้น (ไม่ใช่รูปจริงๆ) ให้ซ่อน
+                $previewImg.off('error').on('error', function () {
+                    $previewContainer.hide();
+                });
+            } else {
+                $previewContainer.hide();
             }
-        });
-        $('#edit-choices').val(choices.join('///'));
-        $('#edit-answer').val(correctAnswer);
-        // ... (จบโค้ด syncChoicesToHiddenInput เดิม) ...
-    }
+        }
 
     // --- Image Logic ---
     function renderImagesUI(imgStr) {
@@ -4463,21 +4496,48 @@
 
         // ฟังก์ชันอัปโหลดรูปภาพไปยัง Google Drive ผ่าน Backend
     // ค้นหาและวางทับฟังก์ชันเดิมในส่วนของ JavaScript
-        async function handleFileUpload(input, type) {
-            if (!input.files || !input.files[0]) return;
-            const file = input.files[0];
-            const qId = $('#edit-q-id').val();
+    async function handleFileUpload(input, type) {
+            console.log("1. กดปุ่มเลือกรูป ประเภท: " + type);
 
+            if (!input.files || !input.files[0]) {
+                console.log("ไม่ได้เลือกไฟล์");
+                return;
+            }
+
+            const file = input.files[0];
+            console.log("2. เลือกไฟล์ชื่อ: ", file.name);
+
+            const qId = $('#edit-q-id').val();
             if (!qId) {
-                Swal.fire('Error', 'ไม่พบรหัสข้อสอบ', 'error');
+                Swal.fire('Error', 'ไม่พบรหัสข้อสอบ กรุณาตรวจสอบว่ามี ID ข้อสอบหรือไม่', 'error');
+                input.value = '';
+                return;
+            }
+
+            // ล็อคเป้าหมายช่อง Input
+            let $targetTextInput;
+            if (type === 'Main') {
+                $targetTextInput = $(input).closest('.input-group').find('.image-url-input');
+            } else {
+                $targetTextInput = $(input).closest('.choice-input-group').find('.choice-text-input');
+            }
+
+            if ($targetTextInput.length === 0) {
+                Swal.fire('Error', 'หาช่องใส่ลิงก์บนหน้าเว็บไม่เจอ (HTML Structure Error)', 'error');
+                console.error("Target input not found!");
                 return;
             }
 
             $('#loading-overlay').show().find('h5').text('กำลังอัปโหลดรูปลง Drive...');
+            console.log("3. กำลังอ่านไฟล์รูปภาพ...");
 
             const reader = new FileReader();
+
+            // เมื่ออ่านไฟล์เสร็จ จะเริ่มส่งไปที่ Apps Script
             reader.onload = async function (e) {
+                console.log("4. อ่านไฟล์เสร็จสิ้น กำลังส่งข้อมูลไปที่ Apps Script...");
                 const base64 = e.target.result;
+
                 try {
                     const res = await sendWithRetry({
                         action: 'uploadImage',
@@ -4486,34 +4546,47 @@
                         data: { base64: base64, questionId: qId, type: type }
                     });
 
-                    // 1. นำ URL ที่ได้จาก Drive ไปใส่ในช่อง Input
-                    const $inputGroup = $(input).closest('.input-group, .choice-input-group');
-                    $inputGroup.find('input[type="text"]').val(res.url);
+                    console.log("5. ได้รับการตอบกลับจากเซิร์ฟเวอร์:", res);
 
-                    // 2. สั่งให้อัปเดต UI Preview ทันทีตามประเภทของรูป
-                    if (type === 'Main') {
-                        syncImagesToHiddenInput(); // ตัวนี้จะไปวาด Gallery ใหม่ให้เห็นรูปทันที
+                    if (res.result === 'success' && res.url) {
+                        // เอาลิงก์ใส่ช่อง
+                        $targetTextInput.val(res.url);
+
+                        // สั่งอัปเดต Preview
+                        if (type === 'Main') {
+                            syncImagesToHiddenInput();
+                        } else {
+                            syncChoicesToHiddenInput();
+                        }
+
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'อัปโหลดสำเร็จ!',
+                            text: 'ลิงก์ถูกใส่ในช่องแล้ว กรุณากด Save Changes เพื่อบันทึก',
+                            timer: 2500,
+                            showConfirmButton: false
+                        });
                     } else {
-                        syncChoicesToHiddenInput();
+                        throw new Error(res.message || "อัปโหลดล้มเหลว เซิร์ฟเวอร์ไม่ได้ส่งลิงก์กลับมา");
                     }
-
-                    Swal.fire({
-                        title: 'อัปโหลดรูปสำเร็จ!',
-                        text: 'เตรียมลิงก์รูปไว้ให้แล้ว (อย่าลืมกด Save Changes เพื่อบันทึกลงระบบ)',
-                        icon: 'success',
-                        timer: 2500,
-                        showConfirmButton: false
-                    });
-
                 } catch (err) {
-                    Swal.fire('Error', err.message, 'error');
+                    console.error("6. เกิดข้อผิดพลาดตอนส่งข้อมูล:", err);
+                    Swal.fire('Error', 'อัปโหลดไม่สำเร็จ: ' + err.message, 'error');
                 } finally {
                     $('#loading-overlay').hide();
+                    input.value = ''; // เคลียร์ไฟล์
                 }
             };
+
+            // กรณีอ่านไฟล์ไม่สำเร็จ
+            reader.onerror = function (error) {
+                console.error("FileReader Error:", error);
+                Swal.fire('Error', 'เบราว์เซอร์ไม่สามารถอ่านไฟล์รูปนี้ได้', 'error');
+                $('#loading-overlay').hide();
+            };
+
             reader.readAsDataURL(file);
         }
-
     // ฟังก์ชันลบพร้อมระบบยืนยัน (Soft Delete)
     async function removeImageRowWithTrash(btn) {
         const $row = $(btn).closest('.image-input-item');
@@ -4539,22 +4612,51 @@
         syncImagesToHiddenInput();
     }
 
-    // ปุ่มกู้คืน (เพิ่มใน UI จัดการ Database)
-    async function promptRestoreImage() {
-        const { value: url } = await Swal.fire({
-            title: 'กู้คืนรูปภาพ',
-            input: 'url',
-            inputLabel: 'วางลิงก์รูปภาพที่ต้องการกู้คืน',
-            showCancelButton: true
-        });
-        if (url) {
-            await sendWithRetry({ action: 'restoreImage', username: currentUser.username, adminPass: adminPass, data: { url: url } });
-            Swal.fire('สำเร็จ', 'กู้คืนรูปภาพแล้ว', 'success');
-            fetchData(true);
+        // โค้ดเวอร์ชันปรับปรุงเมนูเลือก (ใช้แทนข้างบนเพื่อความแม่นยำของปุ่ม)
+        async function promptRestoreImage() {
+            const { value: url } = await Swal.fire({
+                title: 'กู้คืนรูปภาพจากถังขยะ',
+                input: 'url',
+                inputLabel: 'วางลิงก์รูปภาพที่ต้องการกู้คืน',
+                showCancelButton: true
+            });
+
+            if (!url) return;
+
+            try {
+                $('#loading-overlay').show().find('h5').text('กำลังกู้คืนไฟล์...');
+                const res = await sendWithRetry({ action: 'restoreImage', username: currentUser.username, adminPass: adminPass, data: { url: url } });
+
+                if (res.result === 'success') {
+                    if ($('#editQuestionModal').hasClass('show')) {
+                        const result = await Swal.fire({
+                            title: 'กู้คืนสำเร็จ!',
+                            text: 'นำลิงก์ไปวางที่ไหนดี?',
+                            icon: 'success',
+                            showDenyButton: true,
+                            showCancelButton: true,
+                            confirmButtonText: 'รูปโจทย์ (Main)',
+                            denyButtonText: 'ตัวเลือก (Choice)',
+                            cancelButtonText: 'ปิดหน้าต่าง'
+                        });
+
+                        if (result.isConfirmed) {
+                            addImageRow(res.url);
+                            syncImagesToHiddenInput();
+                        } else if (result.isDenied) {
+                            addChoiceRow(res.url);
+                            syncChoicesToHiddenInput();
+                        }
+                    } else {
+                        Swal.fire('สำเร็จ', 'กู้คืนรูปภาพเรียบร้อย', 'success');
+                    }
+                    fetchData(true);
+                } else { throw new Error(res.message); }
+            } catch (e) { Swal.fire('Error', e.message, 'error'); }
+            finally { $('#loading-overlay').hide(); }
         }
-    }
         
-    async function removeImageRowWithTrash(btn) {
+        async function removeImageRowWithTrash(btn) {
                 const $row = $(btn).closest('.image-input-item');
                 const urlValue = $row.find('input[type="text"]').val().trim();
 
@@ -4586,6 +4688,53 @@
                     $row.remove();
                     syncChoicesToHiddenInput();
                 }
+    async function handleImageTrash(url) {
+        // ถ้าไม่ใช่ลิงก์ Google Drive (เช่น เป็นช่องว่าง หรือ require_img) ให้ส่งค่า true เพื่อให้ลบแถวได้เลย
+        if (!url || !url.includes('drive.google.com')) return true;
+
+        const result = await Swal.fire({
+            title: 'ย้ายรูปลงถังขยะใน Drive?',
+            text: "ไฟล์จะถูกย้ายไปที่โฟลเดอร์ RecycleBin และกู้คืนได้ภายใน 10 วัน",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'ย้ายลงถังขยะ',
+            cancelButtonText: 'ยกเลิก'
+        });
+
+        if (result.isConfirmed) {
+            try {
+                $('#loading-overlay').show().find('h5').text('กำลังลบไฟล์ใน Drive...');
+
+                const res = await sendWithRetry({
+                    action: 'deleteImage',
+                    username: currentUser.username,
+                    adminPass: adminPass,
+                    data: { url: url }
+                });
+
+                if (res.result === 'success') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'สำเร็จ',
+                        text: 'ย้ายไฟล์ลงถังขยะแล้ว',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                    return true; // อนุญาตให้โค้ดส่วนถัดไปลบช่อง Input ทิ้ง
+                } else {
+                    throw new Error(res.message);
+                }
+            } catch (e) {
+                Swal.fire('Error', 'ไม่สามารถลบรูปได้: ' + e.message, 'error');
+                return false; // ไม่อนุญาตให้ลบช่อง Input (เผื่อไว้ลองใหม่)
+            } finally {
+                $('#loading-overlay').hide();
+            }
+        }
+        return false; // กรณีผู้ใช้กด 'ยกเลิก'
+    }    
 
     // ====================================================================
     // 7. REPORT INBOX SYSTEM
