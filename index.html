@@ -1761,9 +1761,16 @@
                 <div class="card card-dashboard">
                     <div class="card-header-custom">
                         <span><i class="fas fa-database me-2"></i> จัดการคลังข้อสอบ (Edit Mode)</span>
-                        <button class="btn btn-success btn-sm shadow-sm" onclick="showSection('converter')">
-                            <i class="fas fa-plus"></i> Import New
-                        </button>
+                        <div>
+                            <!-- เพิ่มปุ่มนี้เข้าไป -->
+                            <button class="btn btn-outline-secondary btn-sm shadow-sm me-2" onclick="promptRestoreImage()">
+                                <i class="fas fa-trash-restore"></i> กู้คืนรูปภาพ
+                            </button>
+                            <!-- ปุ่มเดิมที่มีอยู่แล้ว -->
+                            <button class="btn btn-success btn-sm shadow-sm" onclick="showSection('converter')">
+                                <i class="fas fa-plus"></i> Import New
+                            </button>
+                        </div>
                     </div>
                     <div class="card-body">
                         <!-- Filters -->
@@ -2773,7 +2780,7 @@
     // ====================================================================
     // 1. GLOBAL CONFIGURATION & VARIABLES
     // ====================================================================
-    const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxasgGJ1UeZPhszlHj2yYI1DcOHuO4-6Jp2UdrUQZfwz7_byVg5NuwF5pz-5oZXxwLm/exec';
+    const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxwV2sRkVS7puh4-KarDPJtls6eVpNjsSNXCQLSfF7w1Dghvh7PEoEyYod-8D9EVfA5/exec';
 
     let globalData = {
         questions: [],
@@ -2817,6 +2824,17 @@
                 localStorage.removeItem('mdkku_admin_pass');
             }
         }
+
+        // เมื่อมีการพิมพ์หรือวางลิงก์ในช่องรูปโจทย์ ให้แสดงพรีวิวทันที
+        $(document).on('input', '.image-url-input', function () {
+            syncImagesToHiddenInput();
+        });
+
+        // เมื่อมีการพิมพ์หรือวางลิงก์ในช่องตัวเลือก ให้เก็บค่าทันที
+        $(document).on('input', '.choice-text-input', function () {
+            syncChoicesToHiddenInput();
+        });
+        
         // --- 2.1 Image Gallery Controls Binding (Edit Modal) ---
         $('#prev-img-btn').click(() => {
             if (editImageArray.length > 0) {
@@ -4293,45 +4311,24 @@
     }
 
     function addChoiceRow(value = "", isOriginalCorrect = false, isSuggested = false) {
-        // ... (โค้ด addChoiceRow เดิม) ...
-        const $container = $('#dynamic-choices-container');
-
-        let rowClass = "";
-        let badges = "";
-
-        if (isSuggested) {
-            rowClass += " suggested-choice";
-            badges += `<span class="badge bg-success ms-2"><i class="fas fa-star"></i> Suggested</span>`;
-        }
-
-        if (isOriginalCorrect) {
-            if (!isSuggested) rowClass += " original-choice";
-            badges += `<span class="badge bg-secondary ms-1">Current ans</span>`;
-        }
-
-        const isChecked = isOriginalCorrect; // ติ๊ก Original ไว้ก่อน
-
-        const rowHtml = `
-            <div class="choice-item ${rowClass}">
-                <div class="choice-input-group">
-                    <div class="form-check d-flex align-items-center">
-                        <input class="form-check-input choice-radio" type="radio" name="correct_answer_group" ${isChecked ? 'checked' : ''}>
-                    </div>
-                    <input type="text" class="form-control choice-text-input" value="${value}" placeholder="ตัวเลือก..." oninput="syncChoicesToHiddenInput()">
-    
-                    <div style="white-space: nowrap;">${badges}</div>
-    
-                    <i class="fas fa-minus-circle btn-remove-choice ms-2" title="ลบตัวเลือก" onclick="removeChoiceRow(this)"></i>
-                </div>
+            const $container = $('#dynamic-choices-container');
+            // ... (ส่วน badges/class เดิม) ...
+            const rowHtml = `
+        <div class="choice-item ${isSuggested ? 'suggested-choice' : ''}">
+            <div class="choice-input-group d-flex align-items-center">
+                <input class="form-check-input choice-radio me-2" type="radio" name="correct_answer_group" ${isOriginalCorrect ? 'checked' : ''}>
+                <input type="text" class="form-control choice-text-input" value="${value}" placeholder="ตัวเลือกหรือ Link รูป...">
+                <label class="btn btn-sm btn-outline-primary ms-2 mb-0">
+                    <i class="fas fa-image"></i>
+                    <input type="file" class="d-none" accept="image/*" onchange="handleFileUpload(this, 'Choice')">
+                </label>
+                <i class="fas fa-minus-circle btn-remove-choice ms-2 text-danger" style="cursor:pointer" onclick="removeChoiceRowWithTrash(this)"></i>
             </div>
-        `;
-        $container.append(rowHtml);
+        </div>`;
+            $container.append(rowHtml);
+        }
 
-        $('.choice-radio').off('change').on('change', syncChoicesToHiddenInput);
-        // ... (จบโค้ด addChoiceRow เดิม) ...
-    }
-
-    function removeChoiceRow(btn) {
+        function removeChoiceRow(btn) {
         // ... (โค้ด removeChoiceRow เดิม) ...
         $(btn).closest('.choice-item').remove();
         syncChoicesToHiddenInput();
@@ -4339,9 +4336,7 @@
     }
 
     function addNewChoiceRow() {
-        // ... (โค้ด addNewChoiceRow เดิม) ...
         addChoiceRow("");
-        // ... (จบโค้ด addNewChoiceRow เดิม) ...
     }
 
     function syncChoicesToHiddenInput() {
@@ -4400,29 +4395,25 @@
     }
 
     function addImageRow(value = "") {
-        // ... (โค้ด addImageRow เดิม) ...
-        const $container = $('#dynamic-images-container');
-
-        const rowHtml = `
+            const $container = $('#dynamic-images-container');
+            const rowHtml = `
         <div class="image-input-item mb-2">
             <div class="input-group">
-                <span class="input-group-text bg-white"><i class="fas fa-link text-muted"></i></span>
-                <input type="text" class="form-control image-url-input" value="${value}" 
-                    placeholder="วาง Link รูปจาก Google Drive ที่นี่..." oninput="syncImagesToHiddenInput()">
-                <button class="btn btn-outline-danger" type="button" onclick="removeImageRow(this)" title="ลบรูปนี้">
+                <label class="input-group-text bg-primary text-white" style="cursor:pointer">
+                    <i class="fas fa-upload"></i>
+                    <input type="file" class="d-none" accept="image/*" onchange="handleFileUpload(this, 'Main')">
+                </label>
+                <input type="text" class="form-control image-url-input" value="${value}" placeholder="Link รูปภาพ...">
+                <button class="btn btn-outline-danger" type="button" onclick="removeImageRowWithTrash(this)">
                     <i class="fas fa-trash-alt"></i>
                 </button>
             </div>
-        </div>
-    `;
-        $container.append(rowHtml);
-        // ... (จบโค้ด addImageRow เดิม) ...
-    }
+        </div>`;
+            $container.append(rowHtml);
+        }
 
     function addNewImageRow() {
-        // ... (โค้ด addNewImageRow เดิม) ...
         addImageRow("");
-        // ... (จบโค้ด addNewImageRow เดิม) ...
     }
 
     function removeImageRow(btn) {
@@ -4456,6 +4447,145 @@
         // ... (จบโค้ด syncImagesToHiddenInput เดิม) ...
     }
 
+    // ====================================================================
+        // [NEW] IMAGE CRUD: Upload, Delete (Recycle Bin), Restore
+        // ====================================================================
+
+        // ฟังก์ชันแปลงไฟล์เป็น Base64
+        function getBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        // ฟังก์ชันอัปโหลดรูปภาพไปยัง Google Drive ผ่าน Backend
+    // ค้นหาและวางทับฟังก์ชันเดิมในส่วนของ JavaScript
+        async function handleFileUpload(input, type) {
+            if (!input.files || !input.files[0]) return;
+            const file = input.files[0];
+            const qId = $('#edit-q-id').val();
+
+            if (!qId) {
+                Swal.fire('Error', 'ไม่พบรหัสข้อสอบ', 'error');
+                return;
+            }
+
+            $('#loading-overlay').show().find('h5').text('กำลังอัปโหลดรูปลง Drive...');
+
+            const reader = new FileReader();
+            reader.onload = async function (e) {
+                const base64 = e.target.result;
+                try {
+                    const res = await sendWithRetry({
+                        action: 'uploadImage',
+                        username: currentUser.username,
+                        adminPass: adminPass,
+                        data: { base64: base64, questionId: qId, type: type }
+                    });
+
+                    // 1. นำ URL ที่ได้จาก Drive ไปใส่ในช่อง Input
+                    const $inputGroup = $(input).closest('.input-group, .choice-input-group');
+                    $inputGroup.find('input[type="text"]').val(res.url);
+
+                    // 2. สั่งให้อัปเดต UI Preview ทันทีตามประเภทของรูป
+                    if (type === 'Main') {
+                        syncImagesToHiddenInput(); // ตัวนี้จะไปวาด Gallery ใหม่ให้เห็นรูปทันที
+                    } else {
+                        syncChoicesToHiddenInput();
+                    }
+
+                    Swal.fire({
+                        title: 'อัปโหลดรูปสำเร็จ!',
+                        text: 'เตรียมลิงก์รูปไว้ให้แล้ว (อย่าลืมกด Save Changes เพื่อบันทึกลงระบบ)',
+                        icon: 'success',
+                        timer: 2500,
+                        showConfirmButton: false
+                    });
+
+                } catch (err) {
+                    Swal.fire('Error', err.message, 'error');
+                } finally {
+                    $('#loading-overlay').hide();
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+
+    // ฟังก์ชันลบพร้อมระบบยืนยัน (Soft Delete)
+    async function removeImageRowWithTrash(btn) {
+        const $row = $(btn).closest('.image-input-item');
+        const url = $row.find('input[type="text"]').val();
+
+        if (url && url.includes('drive.google.com')) {
+            const confirm = await Swal.fire({
+                title: 'ย้ายรูปลงถังขยะ?',
+                text: "คุณสามารถกู้คืนได้ภายใน 10 วัน",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'ย้ายลงถังขยะ',
+                cancelButtonText: 'ลบแค่บรรทัดนี้'
+            });
+
+            if (confirm.isConfirmed) {
+                await sendWithRetry({ action: 'deleteImage', username: currentUser.username, adminPass: adminPass, data: { url: url } });
+            } else if (confirm.dismiss === Swal.DismissReason.cancel) {
+                // ลบแค่บรรทัด
+            } else return;
+        }
+        $row.remove();
+        syncImagesToHiddenInput();
+    }
+
+    // ปุ่มกู้คืน (เพิ่มใน UI จัดการ Database)
+    async function promptRestoreImage() {
+        const { value: url } = await Swal.fire({
+            title: 'กู้คืนรูปภาพ',
+            input: 'url',
+            inputLabel: 'วางลิงก์รูปภาพที่ต้องการกู้คืน',
+            showCancelButton: true
+        });
+        if (url) {
+            await sendWithRetry({ action: 'restoreImage', username: currentUser.username, adminPass: adminPass, data: { url: url } });
+            Swal.fire('สำเร็จ', 'กู้คืนรูปภาพแล้ว', 'success');
+            fetchData(true);
+        }
+    }
+        
+    async function removeImageRowWithTrash(btn) {
+                const $row = $(btn).closest('.image-input-item');
+                const urlValue = $row.find('input[type="text"]').val().trim();
+
+                // ถ้ามี URL ให้ถามก่อนว่าจะย้ายลงถังขยะไหม
+                if (urlValue !== "") {
+                    const isTrashed = await handleImageTrash(urlValue);
+                    if (!isTrashed) return; // ถ้าไม่สำเร็จ หรือยกเลิก ไม่ต้องลบ Row
+                }
+
+                const rowCount = $('#dynamic-images-container .image-input-item').length;
+                if (rowCount <= 1) {
+                    $row.find('input').val('');
+                } else {
+                    $row.remove();
+                }
+                syncImagesToHiddenInput();
+            }
+            
+            async function removeChoiceRowWithTrash(btn) {
+                    const $row = $(btn).closest('.choice-item');
+                    const urlValue = $row.find('.choice-text-input').val().trim();
+
+                    // ถ้าเป็นลิงก์รูป ให้ถามเรื่องถังขยะก่อน
+                    if (urlValue.includes('drive.google.com')) {
+                        const isTrashed = await handleImageTrash(urlValue);
+                        if (!isTrashed) return; // ยกเลิก
+                    }
+
+                    $row.remove();
+                    syncChoicesToHiddenInput();
+                }
 
     // ====================================================================
     // 7. REPORT INBOX SYSTEM
@@ -6004,7 +6134,7 @@
                     for (let key of groupKeywords) {
                         if (categoryKey.toUpperCase().includes(key.toUpperCase())) { group = key; break; }
                     }
-                    group = subjectID + " LEC " + group;
+                    group = subjectID + " " + group;
                     const structKey = `${subjectID}-${group}`;
                     if (!structMap.has(structKey)) structMap.set(structKey, [year, subjectID, subjectName, group]);
 
