@@ -2796,6 +2796,7 @@
     let current_question = {}; // Global variable to hold data of the currently viewed question
     let editImageArray = [];
     let editImageIndex = 0;
+    let activeUploadsCount = 0;
 
     let isMouseDown = false;
     let startCell = null;
@@ -2805,7 +2806,7 @@
     let sectionName = null;
     let regAvatarBase64 = null;
     let regAvatarMimeType = null;
-    let isUserBusy = false;
+    let isFetching = false;
     // ====================================================================
     // 2. INITIALIZATION (jQuery Ready & Core UI Bindings)
     // ====================================================================
@@ -2825,9 +2826,6 @@
                 localStorage.removeItem('mdkku_admin_pass');
             }
         }
-
-        $(document).on('show.bs.modal', '.modal', () => { isUserBusy = true; });
-        $(document).on('hidden.bs.modal', '.modal', () => { isUserBusy = false; });
 
         // เมื่อมีการพิมพ์หรือวางลิงก์ในช่องรูปโจทย์ ให้แสดงพรีวิวทันที
         $(document).on('input', '.image-url-input', function () {
@@ -3273,110 +3271,96 @@
         });
     }
 
-    async function fetchData(forceRefresh = false) {
-            const cacheKey = 'global_admin_data';
-            const verKey = 'global_admin_ver';
+    async function fetchData(forceRefresh = false, isAutoPoll = false) {
 
-            // 1. ดึงข้อมูลจากเครื่อง (IndexedDB) มาโชว์ก่อนทันทีเพื่อความเร็ว
-            const localData = await getCacheDB(cacheKey);
+        if (isFetching) return; // ป้องกันการดึงข้อมูลซ้ำซ้อน
+        isFetching = true;
+
+        const cacheKey = 'global_admin_data';
+        const verKey = 'global_admin_ver';
+
+        // 1. ดึงข้อมูลจากเครื่อง (IndexedDB) มาโชว์ก่อนทันทีเพื่อความเร็ว
+        const localData = await getCacheDB(cacheKey);
         const localVer = await getCacheDB(verKey);
 
-        if (!localData){
-            $('#loading-overlay').show();
-        }
-         else if (!globalData.questions || globalData.questions.length === 0) {
-          globalData = localData;
-            finalizeDataLoading(true);
+        // ถ้ามีข้อมูลในเครื่องและไม่บังคับรีเฟรช ให้ใช้ข้อมูลนั้นก่อน (เพื่อความเร็วในการแสดงผล)
+        if (localData && !forceRefresh) {
+            globalData = localData;
+            finalizeDataLoading();
         }
 
-            try {
-                // 2. เช็คเวอร์ชันและโหลดข้อมูลใหม่ในพื้นหลัง
-                const resVer = await fetch(`${APPSCRIPT_URL}?action=checkVersion`).then(r => r.json());
-                const serverVersion = resVer.v;
+        try {
+            if (!isAutoPoll) $('#loading-overlay').show(); // โชว์โหลดเฉพาะตอนกดเอง
+            // 2. เช็คเวอร์ชันและโหลดข้อมูลใหม่ในพื้นหลัง
+            const resVer = await fetch(`${APPSCRIPT_URL}?action=checkVersion`).then(r => r.json());
+            const serverVersion = resVer.v;
 
-                if (forceRefresh || localVer !== serverVersion || !localData) {
-                    if (localData && localVer !== serverVersion) {
-                        Swal.fire({
-                            icon: 'info',
-                            title: 'พบข้อมูลอัปเดตใหม่',
-                            text: 'กำลังซิงค์ข้อมูลล่าสุดจากฐานข้อมูล...',
-                            toast: true,
-                            position: 'bottom-end',
-                            showConfirmButton: false,
-                            timer: 3000
-                        });
-                    }
-                    const response = await fetch(`${APPSCRIPT_URL}?action=getAllData`);
-                    const data = await response.json();
-
-                    // Data Processing
-                    globalData.questions = (data.questions || []).map(q => {
-                        if (typeof q.category === 'string' && q.category.startsWith('[')) {
-                            try { q.category = JSON.parse(q.category.replace(/'/g, '"')); }
-                            catch (e) { q.category = [q.category]; }
-                        } else if (typeof q.category === 'string') {
-                            q.category = [q.category];
-                        }
-                        return q;
+            if (forceRefresh || localVer !== serverVersion || !localData) {
+                if (isAutoPoll && localData && localVer !== serverVersion) {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'พบข้อมูลอัปเดตใหม่',
+                        text: 'กำลังซิงค์ข้อมูลล่าสุดจากฐานข้อมูล...',
+                        toast: true,
+                        position: 'bottom-end',
+                        showConfirmButton: false,
+                        timer: 3000
                     });
-                    globalData.report = data.report || [];
-                    globalData.structure = data.structure || [];
-                    globalData.category = data.category || [];
-                    globalData.votes = data.votes || [];
-                    globalData.logs = data.logs || [];
-                    globalData.admins = data.admins || [];
-
-                    // บันทึก Cache
-                    await setCacheDB(cacheKey, globalData);
-                    await setCacheDB(verKey, serverVersion);
-
-                    if (!isUserBusy) {
-                        finalizeDataLoading(false); // อัปเดตแบบเงียบๆ
-                    } else {
-                        console.log("User is busy, deferring UI update...");
-                    }
                 }
+                const response = await fetch(`${APPSCRIPT_URL}?action=getAllData`);
+                const data = await response.json();
 
-            } catch (error) {
-                console.error("Fetch Data Error:", error);
-                if (!localData) Swal.fire('Error', 'ไม่สามารถโหลดข้อมูลได้: ' + error.message, 'error');
-            } finally {
-                $('#loading-overlay').hide();
+                // Data Processing
+                globalData.questions = (data.questions || []).map(q => {
+                    if (typeof q.category === 'string' && q.category.startsWith('[')) {
+                        try { q.category = JSON.parse(q.category.replace(/'/g, '"')); }
+                        catch (e) { q.category = [q.category]; }
+                    } else if (typeof q.category === 'string') {
+                        q.category = [q.category];
+                    }
+                    return q;
+                });
+                globalData.report = data.report || [];
+                globalData.structure = data.structure || [];
+                globalData.category = data.category || [];
+                globalData.votes = data.votes || [];
+                globalData.logs = data.logs || [];
+                globalData.admins = data.admins || [];
+
+                // บันทึก Cache
+                await setCacheDB(cacheKey, globalData);
+                await setCacheDB(verKey, serverVersion);
+
+                const isUserBusy = $('.modal.show').length > 0;
+                if (isAutoPoll && isUserBusy) {
+                    console.log("User is busy. Data cached in background. UI will update on next navigation.");
+                } else {
+                    finalizeDataLoading();
+                }
             }
+
+        } catch (error) {
+            console.error("Fetch Data Error:", error);
+            if (!localData) Swal.fire('Error', 'ไม่สามารถโหลดข้อมูลได้: ' + error.message, 'error');
+        } finally {
+            $('#loading-overlay').hide();
         }
-    function finalizeDataLoading(isFirstLoad = false) {
-            // 1. อัปเดตตัวเลข Dashboard เสมอ (เพราะเบามาก)
-            updateDashboard();
+    }
+    function finalizeDataLoading() {
+        updateDashboard();
+        populateFilters();
+        //renderReportList();
 
-            // 2. ถ้าเป็นโหลดครั้งแรก ให้ทำทุกอย่าง
-            if (isFirstLoad) {
-                populateFilters();
-                refreshTables();
-                return;
-            }
-
-            // 3. ถ้าเป็นการ Sync พื้นหลัง ให้เช็คว่าผู้ใช้ดูหน้าไหนอยู่
-            const currentSection = $('.content-section:not(.hidden)').attr('id');
-
-            switch (currentSection) {
-                case 'sec-dashboard':
-                    // Dashboard อัปเดตไปแล้วในข้อ 1
-                    break;
-                case 'sec-report-inbox':
-                    if (!$('#editQuestionModal').hasClass('show')) renderReportList();
-                    break;
-                case 'sec-database':
-                    refreshTables();
-                    break;
-                case 'sec-structure':
-                    renderStructureTree($('#struct-subject-filter').val());
-                    break;
-                case 'sec-public-search':
-                    refreshTables();
-                    break;
-            }
+        // Only refresh report list if not currently editing a report
+        if (!$('#editQuestionModal').data('reportData')) {
+            renderReportList();
         }
+        refreshTables();
 
+        if (!$('#sec-structure').hasClass('hidden')) {
+            renderStructureTree($('#struct-subject-filter').val());
+        }
+    }
     function startVersionPolling() {
         if (versionCheckInterval) clearInterval(versionCheckInterval);
 
@@ -3384,29 +3368,39 @@
         versionCheckInterval = setInterval(() => {
             // เรียก fetchData แบบไม่ Force Refresh (มันจะเช็คเวอร์ชันก่อน ถ้าตรงกันก็ไม่โหลดอะไรเพิ่ม)
             console.log("Auto-checking for data updates...");
-            fetchData(false);
-        }, 300000);
+            fetchData(false, true);
+        }, 60000);
     }
     function refreshTables() {
-            // อัปเดต Public Table เฉพาะเมื่ออยู่หน้า Search และไม่ได้พิมพ์ค้นหาค้างไว้
-            if ($.fn.DataTable.isDataTable('#publicTable')) {
-                const table = $('#publicTable').DataTable();
-                const searchVal = table.search();
-                // ถ้าผู้ใช้ไม่ได้พิมพ์ค้นหาอยู่ ให้ดึงข้อมูลใหม่แบบนิ่มๆ
-                if (!searchVal) {
-                    table.clear().rows.add(globalData.questions).draw(false);
-                }
-            }
+        // 1. ตาราง Public Search
+        if (!$('#sec-public-search').hasClass('hidden') && $.fn.DataTable.isDataTable('#publicTable')) {
+            $('#publicTable').DataTable().clear().rows.add(globalData.questions).draw(false);
+        }
 
-            if ($.fn.DataTable.isDataTable('#adminTable')) {
-                $('#adminTable').DataTable().clear().rows.add(globalData.questions).draw(false);
-            }
+        // 2. ตาราง Admin Database
+        if (!$('#sec-database').hasClass('hidden') && $.fn.DataTable.isDataTable('#adminTable')) {
+            $('#adminTable').DataTable().clear().rows.add(globalData.questions).draw(false);
+        }
 
-            // อัปเดต Logs Table เฉพาะเมื่อส่วนของ Logs กำลังแสดงอยู่
-            if (!$('#sec-logs').hasClass('hidden') && $.fn.DataTable.isDataTable('#logsTable')) {
+        // 3. ตาราง Logs
+        if (!$('#sec-logs').hasClass('hidden')) {
+            if ($.fn.DataTable.isDataTable('#logsTable')) {
                 $('#logsTable').DataTable().clear().rows.add(globalData.logs || []).draw(false);
+            } else {
+                initLogsTable();
             }
         }
+
+        // 4. หน้า Structure (รีเฟรชเมื่อเปิดหน้านี้เท่านั้น)
+        if (!$('#sec-structure').hasClass('hidden')) {
+            renderStructureTree($('#struct-subject-filter').val());
+        }
+
+        // 5. Dashboard (อัปเดตตัวเลข/ตารางรายงาน)
+        if (!$('#sec-dashboard').hasClass('hidden')) {
+            updateDashboard();
+        }
+    }
     function updateDashboard() {
         // 1. Stats Cards เดิม
         $('#stat-total-q').text(globalData.questions ? globalData.questions.length + " ข้อ" : "0 ข้อ");
@@ -3591,6 +3585,7 @@
         // ... (โค้ด initPublicTable เดิม) ...
         if ($.fn.DataTable.isDataTable('#publicTable')) return;
         const table = $('#publicTable').DataTable({
+            deferRender: true,
             data: globalData.questions,
             columns: [
                 {
@@ -3643,6 +3638,7 @@
         if ($.fn.DataTable.isDataTable('#adminTable')) return;
 
         const table = $('#adminTable').DataTable({
+            deferRender: true,
             data: globalData.questions,
             columns: [
                 {
@@ -4003,6 +3999,11 @@
         // ... (โค้ด saveQuestionChanges เดิม) ...
         if (!confirmAdmin()) return;
 
+        if (activeUploadsCount > 0) {
+            Swal.fire('กรุณารอสักครู่', 'มีรูปภาพที่กำลังอัปโหลดอยู่เบื้องหลัง กรุณารอให้อัปโหลดเสร็จก่อนบันทึกครับ', 'warning');
+            return;
+        }
+
         syncChoicesToHiddenInput();
         syncImagesToHiddenInput();
         syncCategoriesToHiddenInput();
@@ -4342,9 +4343,9 @@
     }
 
     function addChoiceRow(value = "", isOriginalCorrect = false, isSuggested = false) {
-            const $container = $('#dynamic-choices-container');
+        const $container = $('#dynamic-choices-container');
 
-            const rowHtml = `
+        const rowHtml = `
 <div class="choice-item ${isSuggested ? 'suggested-choice' : ''} mb-3 p-2 border rounded bg-white">
     <div class="choice-input-group d-flex align-items-center">
         <input class="form-check-input choice-radio me-2" type="radio" name="correct_answer_group" ${isOriginalCorrect ? 'checked' : ''}>
@@ -4362,14 +4363,14 @@
     </div>
 </div>`;
 
-            const $row = $(rowHtml);
-            $container.append($row);
+        const $row = $(rowHtml);
+        $container.append($row);
 
-            // สั่งให้เช็คลิงก์ทันทีที่สร้างแถว (กรณีมีข้อมูลเดิมอยู่แล้ว)
-            renderChoicePreview($row.find('.choice-text-input'));
-        }
+        // สั่งให้เช็คลิงก์ทันทีที่สร้างแถว (กรณีมีข้อมูลเดิมอยู่แล้ว)
+        renderChoicePreview($row.find('.choice-text-input'));
+    }
 
-        function removeChoiceRow(btn) {
+    function removeChoiceRow(btn) {
         // ... (โค้ด removeChoiceRow เดิม) ...
         $(btn).closest('.choice-item').remove();
         syncChoicesToHiddenInput();
@@ -4381,48 +4382,48 @@
     }
 
     function syncChoicesToHiddenInput() {
-            const choices = [];
-            let correctAnswer = "";
+        const choices = [];
+        let correctAnswer = "";
 
-            $('#dynamic-choices-container .choice-item').each(function () {
-                const $input = $(this).find('.choice-text-input');
-                const textVal = $input.val().trim();
-                const isChecked = $(this).find('.choice-radio').is(':checked');
+        $('#dynamic-choices-container .choice-item').each(function () {
+            const $input = $(this).find('.choice-text-input');
+            const textVal = $input.val().trim();
+            const isChecked = $(this).find('.choice-radio').is(':checked');
 
-                if (textVal !== "") {
-                    choices.push(textVal);
-                    if (isChecked) {
-                        correctAnswer = textVal;
-                    }
+            if (textVal !== "") {
+                choices.push(textVal);
+                if (isChecked) {
+                    correctAnswer = textVal;
                 }
-
-                // เรียกฟังก์ชันช่วยแสดง Preview รูป
-                renderChoicePreview($input);
-            });
-
-            $('#edit-choices').val(choices.join('///'));
-            $('#edit-answer').val(correctAnswer);
-        }
-
-        // ฟังก์ชันช่วยแสดง Preview รูปภาพใน Choice
-        function renderChoicePreview($inputEl) {
-            const text = $inputEl.val().trim();
-            const $previewContainer = $inputEl.closest('.choice-item').find('.choice-preview-container');
-            const $previewImg = $previewContainer.find('img');
-
-            // ตรวจสอบว่าเป็นลิงก์รูปภาพ (Drive หรือ URL ทั่วไป)
-            if (text.includes('drive.google.com') || text.match(/\.(jpeg|jpg|gif|png|webp)$/i) || text.startsWith('http')) {
-                $previewImg.attr('src', transformUrl(text));
-                $previewContainer.show();
-
-                // กรณีโหลดรูปไม่ขึ้น (ไม่ใช่รูปจริงๆ) ให้ซ่อน
-                $previewImg.off('error').on('error', function () {
-                    $previewContainer.hide();
-                });
-            } else {
-                $previewContainer.hide();
             }
+
+            // เรียกฟังก์ชันช่วยแสดง Preview รูป
+            renderChoicePreview($input);
+        });
+
+        $('#edit-choices').val(choices.join('///'));
+        $('#edit-answer').val(correctAnswer);
+    }
+
+    // ฟังก์ชันช่วยแสดง Preview รูปภาพใน Choice
+    function renderChoicePreview($inputEl) {
+        const text = $inputEl.val().trim();
+        const $previewContainer = $inputEl.closest('.choice-item').find('.choice-preview-container');
+        const $previewImg = $previewContainer.find('img');
+
+        // ตรวจสอบว่าเป็นลิงก์รูปภาพ (Drive หรือ URL ทั่วไป)
+        if (text.includes('drive.google.com') || text.match(/\.(jpeg|jpg|gif|png|webp)$/i) || text.startsWith('http')) {
+            $previewImg.attr('src', transformUrl(text));
+            $previewContainer.show();
+
+            // กรณีโหลดรูปไม่ขึ้น (ไม่ใช่รูปจริงๆ) ให้ซ่อน
+            $previewImg.off('error').on('error', function () {
+                $previewContainer.hide();
+            });
+        } else {
+            $previewContainer.hide();
         }
+    }
 
     // --- Image Logic ---
     function renderImagesUI(imgStr) {
@@ -4459,8 +4460,8 @@
     }
 
     function addImageRow(value = "") {
-            const $container = $('#dynamic-images-container');
-            const rowHtml = `
+        const $container = $('#dynamic-images-container');
+        const rowHtml = `
         <div class="image-input-item mb-2">
             <div class="input-group">
                 <label class="input-group-text bg-primary text-white" style="cursor:pointer">
@@ -4473,8 +4474,8 @@
                 </button>
             </div>
         </div>`;
-            $container.append(rowHtml);
-        }
+        $container.append(rowHtml);
+    }
 
     function addNewImageRow() {
         addImageRow("");
@@ -4512,112 +4513,123 @@
     }
 
     // ====================================================================
-        // [NEW] IMAGE CRUD: Upload, Delete (Recycle Bin), Restore
-        // ====================================================================
+    // [NEW] IMAGE CRUD: Upload, Delete (Recycle Bin), Restore
+    // ====================================================================
 
-        // ฟังก์ชันแปลงไฟล์เป็น Base64
-        function getBase64(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = error => reject(error);
-            });
-        }
+    // ฟังก์ชันแปลงไฟล์เป็น Base64
+    function getBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = error => reject(error);
+        });
+    }
 
-        // ฟังก์ชันอัปโหลดรูปภาพไปยัง Google Drive ผ่าน Backend
+    // ฟังก์ชันอัปโหลดรูปภาพไปยัง Google Drive ผ่าน Backend
     // ค้นหาและวางทับฟังก์ชันเดิมในส่วนของ JavaScript
     async function handleFileUpload(input, type) {
-            console.log("1. กดปุ่มเลือกรูป ประเภท: " + type);
+        if (!input.files || !input.files[0]) return;
 
-            if (!input.files || !input.files[0]) {
-                console.log("ไม่ได้เลือกไฟล์");
-                return;
-            }
+        const file = input.files[0];
+        const qId = $('#edit-q-id').val();
 
-            const file = input.files[0];
-            console.log("2. เลือกไฟล์ชื่อ: ", file.name);
-
-            const qId = $('#edit-q-id').val();
-            if (!qId) {
-                Swal.fire('Error', 'ไม่พบรหัสข้อสอบ กรุณาตรวจสอบว่ามี ID ข้อสอบหรือไม่', 'error');
-                input.value = '';
-                return;
-            }
-
-            // ล็อคเป้าหมายช่อง Input
-            let $targetTextInput;
-            if (type === 'Main') {
-                $targetTextInput = $(input).closest('.input-group').find('.image-url-input');
-            } else {
-                $targetTextInput = $(input).closest('.choice-input-group').find('.choice-text-input');
-            }
-
-            if ($targetTextInput.length === 0) {
-                Swal.fire('Error', 'หาช่องใส่ลิงก์บนหน้าเว็บไม่เจอ (HTML Structure Error)', 'error');
-                console.error("Target input not found!");
-                return;
-            }
-
-            $('#loading-overlay').show().find('h5').text('กำลังอัปโหลดรูปลง Drive...');
-            console.log("3. กำลังอ่านไฟล์รูปภาพ...");
-
-            const reader = new FileReader();
-
-            // เมื่ออ่านไฟล์เสร็จ จะเริ่มส่งไปที่ Apps Script
-            reader.onload = async function (e) {
-                console.log("4. อ่านไฟล์เสร็จสิ้น กำลังส่งข้อมูลไปที่ Apps Script...");
-                const base64 = e.target.result;
-
-                try {
-                    const res = await sendWithRetry({
-                        action: 'uploadImage',
-                        username: currentUser.username,
-                        adminPass: adminPass,
-                        data: { base64: base64, questionId: qId, type: type }
-                    });
-
-                    console.log("5. ได้รับการตอบกลับจากเซิร์ฟเวอร์:", res);
-
-                    if (res.result === 'success' && res.url) {
-                        // เอาลิงก์ใส่ช่อง
-                        $targetTextInput.val(res.url);
-
-                        // สั่งอัปเดต Preview
-                        if (type === 'Main') {
-                            syncImagesToHiddenInput();
-                        } else {
-                            syncChoicesToHiddenInput();
-                        }
-
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'อัปโหลดสำเร็จ!',
-                            text: 'ลิงก์ถูกใส่ในช่องแล้ว กรุณากด Save Changes เพื่อบันทึก',
-                            timer: 2500,
-                            showConfirmButton: false
-                        });
-                    } else {
-                        throw new Error(res.message || "อัปโหลดล้มเหลว เซิร์ฟเวอร์ไม่ได้ส่งลิงก์กลับมา");
-                    }
-                } catch (err) {
-                    console.error("6. เกิดข้อผิดพลาดตอนส่งข้อมูล:", err);
-                    Swal.fire('Error', 'อัปโหลดไม่สำเร็จ: ' + err.message, 'error');
-                } finally {
-                    $('#loading-overlay').hide();
-                    input.value = ''; // เคลียร์ไฟล์
-                }
-            };
-
-            // กรณีอ่านไฟล์ไม่สำเร็จ
-            reader.onerror = function (error) {
-                console.error("FileReader Error:", error);
-                Swal.fire('Error', 'เบราว์เซอร์ไม่สามารถอ่านไฟล์รูปนี้ได้', 'error');
-                $('#loading-overlay').hide();
-            };
-
-            reader.readAsDataURL(file);
+        if (!qId) {
+            Swal.fire('Error', 'ไม่พบรหัสข้อสอบ กรุณาตรวจสอบว่ามี ID ข้อสอบหรือไม่', 'error');
+            input.value = '';
+            return;
         }
+
+        // 1. สร้าง URL ชั่วคราวจากไฟล์ในเครื่อง (โชว์รูปได้ทันทีระดับ Millisecond)
+        const localPreviewUrl = URL.createObjectURL(file);
+
+        let $targetTextInput;
+        let $row;
+        let $uploadIcon = $(input).closest('label').find('i');
+
+        // 2. แสดง Preview ทันที และล็อคช่อง Input ป้องกันการแก้ไขระหว่างอัปโหลด
+        if (type === 'Main') {
+            $row = $(input).closest('.image-input-item');
+            $targetTextInput = $row.find('.image-url-input');
+
+            $targetTextInput.val(localPreviewUrl).prop('disabled', true);
+            $uploadIcon.removeClass('fa-upload').addClass('fa-spinner fa-spin text-warning');
+            syncImagesToHiddenInput(); // เรียกให้ Gallery อัปเดตโชว์รูปทันที
+
+        } else {
+            $row = $(input).closest('.choice-item');
+            $targetTextInput = $row.find('.choice-text-input');
+            const $previewContainer = $row.find('.choice-preview-container');
+
+            $targetTextInput.prop('disabled', true);
+            $previewContainer.find('img').attr('src', localPreviewUrl);
+            $previewContainer.find('.text-muted').html('<i class="fas fa-spinner fa-spin text-warning"></i> กำลังอัปโหลดลง Drive...');
+            $previewContainer.show();
+        }
+
+        // 3. เริ่มกระบวนการอัปโหลดไป Drive (ทำเบื้องหลัง)
+        activeUploadsCount++; // เพิ่มจำนวนงานที่กำลังทำ
+        const reader = new FileReader();
+
+        reader.onload = async function (e) {
+            const base64 = e.target.result;
+
+            try {
+                // ไม่ใช้ $('#loading-overlay').show() แล้ว ให้ผู้ใช้ทำอย่างอื่นต่อได้เลย
+                const res = await sendWithRetry({
+                    action: 'uploadImage',
+                    username: currentUser.username,
+                    adminPass: adminPass,
+                    data: { base64: base64, questionId: qId, type: type }
+                });
+
+                if (res.result === 'success' && res.url) {
+                    // เมื่อเสร็จแล้ว เอาลิงก์ Drive ของจริงมาใส่แทนที่
+                    $targetTextInput.val(res.url);
+
+                    // แจ้งเตือนเงียบๆ แบบ Toast (ไม่เด้งบังหน้าจอ)
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'อัปโหลดรูปเสร็จสมบูรณ์',
+                        toast: true,
+                        position: 'bottom-end',
+                        showConfirmButton: false,
+                        timer: 2000
+                    });
+                } else {
+                    throw new Error(res.message || "เซิร์ฟเวอร์ไม่ได้ส่งลิงก์กลับมา");
+                }
+            } catch (err) {
+                console.error("Upload Error:", err);
+                Swal.fire('อัปโหลดล้มเหลว', err.message, 'error');
+                $targetTextInput.val(''); // ล้างช่องถ้าอัปโหลดพัง
+            } finally {
+                // 4. เคลียร์สถานะ คืนค่า UI กลับเป็นปกติ
+                activeUploadsCount--;
+                $targetTextInput.prop('disabled', false);
+                input.value = ''; // เคลียร์ไฟล์
+                URL.revokeObjectURL(localPreviewUrl); // คืนหน่วยความจำให้เบราว์เซอร์
+
+                if (type === 'Main') {
+                    $uploadIcon.removeClass('fa-spinner fa-spin text-warning').addClass('fa-upload text-white');
+                    syncImagesToHiddenInput();
+                } else {
+                    const $previewContainer = $row.find('.choice-preview-container');
+                    $previewContainer.find('.text-muted').text('Choice Image Preview');
+                    syncChoicesToHiddenInput();
+                }
+            }
+        };
+
+        // กรณีอ่านไฟล์ไม่สำเร็จ
+        reader.onerror = function (error) {
+            activeUploadsCount--;
+            Swal.fire('Error', 'เบราว์เซอร์ไม่สามารถอ่านไฟล์รูปนี้ได้', 'error');
+            $targetTextInput.prop('disabled', false);
+        };
+
+        reader.readAsDataURL(file); // เริ่มอ่านไฟล์เพื่อส่งไป Apps Script
+    }
     // ฟังก์ชันลบพร้อมระบบยืนยัน (Soft Delete)
     async function removeImageRowWithTrash(btn) {
         const $row = $(btn).closest('.image-input-item');
@@ -4643,82 +4655,82 @@
         syncImagesToHiddenInput();
     }
 
-        // โค้ดเวอร์ชันปรับปรุงเมนูเลือก (ใช้แทนข้างบนเพื่อความแม่นยำของปุ่ม)
-        async function promptRestoreImage() {
-            const { value: url } = await Swal.fire({
-                title: 'กู้คืนรูปภาพจากถังขยะ',
-                input: 'url',
-                inputLabel: 'วางลิงก์รูปภาพที่ต้องการกู้คืน',
-                showCancelButton: true
-            });
+    // โค้ดเวอร์ชันปรับปรุงเมนูเลือก (ใช้แทนข้างบนเพื่อความแม่นยำของปุ่ม)
+    async function promptRestoreImage() {
+        const { value: url } = await Swal.fire({
+            title: 'กู้คืนรูปภาพจากถังขยะ',
+            input: 'url',
+            inputLabel: 'วางลิงก์รูปภาพที่ต้องการกู้คืน',
+            showCancelButton: true
+        });
 
-            if (!url) return;
+        if (!url) return;
 
-            try {
-                $('#loading-overlay').show().find('h5').text('กำลังกู้คืนไฟล์...');
-                const res = await sendWithRetry({ action: 'restoreImage', username: currentUser.username, adminPass: adminPass, data: { url: url } });
+        try {
+            $('#loading-overlay').show().find('h5').text('กำลังกู้คืนไฟล์...');
+            const res = await sendWithRetry({ action: 'restoreImage', username: currentUser.username, adminPass: adminPass, data: { url: url } });
 
-                if (res.result === 'success') {
-                    if ($('#editQuestionModal').hasClass('show')) {
-                        const result = await Swal.fire({
-                            title: 'กู้คืนสำเร็จ!',
-                            text: 'นำลิงก์ไปวางที่ไหนดี?',
-                            icon: 'success',
-                            showDenyButton: true,
-                            showCancelButton: true,
-                            confirmButtonText: 'รูปโจทย์ (Main)',
-                            denyButtonText: 'ตัวเลือก (Choice)',
-                            cancelButtonText: 'ปิดหน้าต่าง'
-                        });
+            if (res.result === 'success') {
+                if ($('#editQuestionModal').hasClass('show')) {
+                    const result = await Swal.fire({
+                        title: 'กู้คืนสำเร็จ!',
+                        text: 'นำลิงก์ไปวางที่ไหนดี?',
+                        icon: 'success',
+                        showDenyButton: true,
+                        showCancelButton: true,
+                        confirmButtonText: 'รูปโจทย์ (Main)',
+                        denyButtonText: 'ตัวเลือก (Choice)',
+                        cancelButtonText: 'ปิดหน้าต่าง'
+                    });
 
-                        if (result.isConfirmed) {
-                            addImageRow(res.url);
-                            syncImagesToHiddenInput();
-                        } else if (result.isDenied) {
-                            addChoiceRow(res.url);
-                            syncChoicesToHiddenInput();
-                        }
-                    } else {
-                        Swal.fire('สำเร็จ', 'กู้คืนรูปภาพเรียบร้อย', 'success');
+                    if (result.isConfirmed) {
+                        addImageRow(res.url);
+                        syncImagesToHiddenInput();
+                    } else if (result.isDenied) {
+                        addChoiceRow(res.url);
+                        syncChoicesToHiddenInput();
                     }
-                    fetchData(true);
-                } else { throw new Error(res.message); }
-            } catch (e) { Swal.fire('Error', e.message, 'error'); }
-            finally { $('#loading-overlay').hide(); }
-        }
-        
-        async function removeImageRowWithTrash(btn) {
-                const $row = $(btn).closest('.image-input-item');
-                const urlValue = $row.find('input[type="text"]').val().trim();
-
-                // ถ้ามี URL ให้ถามก่อนว่าจะย้ายลงถังขยะไหม
-                if (urlValue !== "") {
-                    const isTrashed = await handleImageTrash(urlValue);
-                    if (!isTrashed) return; // ถ้าไม่สำเร็จ หรือยกเลิก ไม่ต้องลบ Row
-                }
-
-                const rowCount = $('#dynamic-images-container .image-input-item').length;
-                if (rowCount <= 1) {
-                    $row.find('input').val('');
                 } else {
-                    $row.remove();
+                    Swal.fire('สำเร็จ', 'กู้คืนรูปภาพเรียบร้อย', 'success');
                 }
-                syncImagesToHiddenInput();
-            }
-            
-            async function removeChoiceRowWithTrash(btn) {
-                    const $row = $(btn).closest('.choice-item');
-                    const urlValue = $row.find('.choice-text-input').val().trim();
+                fetchData(true);
+            } else { throw new Error(res.message); }
+        } catch (e) { Swal.fire('Error', e.message, 'error'); }
+        finally { $('#loading-overlay').hide(); }
+    }
 
-                    // ถ้าเป็นลิงก์รูป ให้ถามเรื่องถังขยะก่อน
-                    if (urlValue.includes('drive.google.com')) {
-                        const isTrashed = await handleImageTrash(urlValue);
-                        if (!isTrashed) return; // ยกเลิก
-                    }
+    async function removeImageRowWithTrash(btn) {
+        const $row = $(btn).closest('.image-input-item');
+        const urlValue = $row.find('input[type="text"]').val().trim();
 
-                    $row.remove();
-                    syncChoicesToHiddenInput();
-                }
+        // ถ้ามี URL ให้ถามก่อนว่าจะย้ายลงถังขยะไหม
+        if (urlValue !== "") {
+            const isTrashed = await handleImageTrash(urlValue);
+            if (!isTrashed) return; // ถ้าไม่สำเร็จ หรือยกเลิก ไม่ต้องลบ Row
+        }
+
+        const rowCount = $('#dynamic-images-container .image-input-item').length;
+        if (rowCount <= 1) {
+            $row.find('input').val('');
+        } else {
+            $row.remove();
+        }
+        syncImagesToHiddenInput();
+    }
+
+    async function removeChoiceRowWithTrash(btn) {
+        const $row = $(btn).closest('.choice-item');
+        const urlValue = $row.find('.choice-text-input').val().trim();
+
+        // ถ้าเป็นลิงก์รูป ให้ถามเรื่องถังขยะก่อน
+        if (urlValue.includes('drive.google.com')) {
+            const isTrashed = await handleImageTrash(urlValue);
+            if (!isTrashed) return; // ยกเลิก
+        }
+
+        $row.remove();
+        syncChoicesToHiddenInput();
+    }
     async function handleImageTrash(url) {
         // ถ้าไม่ใช่ลิงก์ Google Drive (เช่น เป็นช่องว่าง หรือ require_img) ให้ส่งค่า true เพื่อให้ลบแถวได้เลย
         if (!url || !url.includes('drive.google.com')) return true;
@@ -4765,7 +4777,7 @@
             }
         }
         return false; // กรณีผู้ใช้กด 'ยกเลิก'
-    }    
+    }
 
     // ====================================================================
     // 7. REPORT INBOX SYSTEM
@@ -4930,7 +4942,7 @@
         // ... (โค้ด processReport เดิม) ...
         const pending = globalData.report.filter(r => !r.Done || r.Done.toString().toUpperCase() === 'FALSE');
         const r = pending.find(report => report.Time.toString() === reportTime);
-        const note = $(`button[onclick*="${reportTime}"]`).closest('.card').find('textarea').val();        
+        const note = $(`button[onclick*="${reportTime}"]`).closest('.card').find('textarea').val();
         if (!confirmAdmin()) return;
 
         const result = await Swal.fire({ title: 'ยืนยัน?', icon: 'question', showCancelButton: true });
@@ -5602,6 +5614,7 @@
     const transformUrl = (url) => {
         // ... (โค้ด transformUrl เดิม) ...
         if (!url) return "";
+        if (url.startsWith('blob:') || url.startsWith('data:')) return url; 
         const match = url.match(/\/d\/(.*?)\//) || url.match(/id=([^&]+)/);
         return (match && match[1]) ? `https://lh3.googleusercontent.com/d/${match[1]}?authuser=1=w1000-h1000` : url;
         // ... (จบโค้ด transformUrl เดิม) ...
@@ -6169,9 +6182,7 @@
 
         $('#page-title').text(sectionId.charAt(0).toUpperCase() + sectionId.slice(1).replace('-', ' '));
 
-        if (sectionId === 'structure') {
-            renderStructureTree();
-        }
+        refreshTables();
 
         if ($(window).width() < 768) {
             $("#wrapper").removeClass("toggled");
