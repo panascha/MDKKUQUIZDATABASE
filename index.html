@@ -2835,6 +2835,10 @@
             syncChoicesToHiddenInput();
         });
 
+        $(document).on('change', '.choice-radio', function () {
+            syncChoicesToHiddenInput();
+        });
+
         // --- 2.1 Image Gallery Controls Binding (Edit Modal) ---
         $('#prev-img-btn').click(() => {
             if (editImageArray.length > 0) {
@@ -3975,6 +3979,10 @@
     async function saveQuestionChanges() {
         // ... (โค้ด saveQuestionChanges เดิม) ...
         if (!confirmAdmin()) return;
+
+        syncChoicesToHiddenInput();
+        syncImagesToHiddenInput();
+        syncCategoriesToHiddenInput();
 
         const qId = $('#edit-q-id').val();
         const originalQuestionData = globalData.questions.find(q => q.questionId == qId);
@@ -6278,23 +6286,42 @@
                 initialTab = 'category';
                 inputType = 'structure_only';
                 const lines = rawInput.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-                lines.forEach(categoryKey => {
-                    let group = "GENERAL";
-                    for (let key of groupKeywords) {
-                        if (categoryKey.toUpperCase().includes(key.toUpperCase())) { group = key; break; }
-                    }
-                    group = subjectID + " " + group;
-                    const structKey = `${subjectID}-${group}`;
-                    if (!structMap.has(structKey)) structMap.set(structKey, [year, subjectID, subjectName, group]);
 
-                    // --- Logic ใหม่สำหรับการดึงชื่อ ---
+                lines.forEach(categoryKey => {
+                    const upperId = categoryKey.toUpperCase();
+                    let groupName = "";
+
+                    // 1. แยกกลุ่มตาม Keyword ใน CategoryID
+                    if (upperId.includes("_LEC_")) groupName = "LEC";
+                    else if (upperId.includes("_ANA_")) groupName = "ANATOMY";
+                    else if (upperId.includes("_PHYSIO_") || upperId.includes("_PHY_") || upperId.includes("_BIOCHEM_")) groupName = "PHYSIO and BIOCHEM";
+                    else if (upperId.includes("_PARASITO_") || upperId.includes("_MICRO_")) groupName = "PARASITO and MICRO";
+                    else if (upperId.includes("_PATHO_")) groupName = "PATHO";
+                    else if (upperId.includes("_PHARM_") || upperId.includes("_PHARMACO_")) groupName = "PHARM";
+                    else if (upperId.includes("_RADIO_") || upperId.includes("_IMAGE_") || upperId.includes("_CLINICAL_")) groupName = "RADIO and CLINICAL";
+                    else {
+                        // 2. ถ้าไม่เจอตามกลุ่มแพทย์ ให้ใช้ Group Keywords จากช่อง Input (เช่น MCQ1, FMT)
+                        groupName = "GENERAL";
+                        for (let key of groupKeywords) {
+                            if (upperId.includes(key.toUpperCase())) { groupName = key; break; }
+                        }
+                    }
+
+                    const fullGroup = `${subjectID} ${groupName}`;
+                    const structKey = `${subjectID}-${fullGroup}`;
+
+                    if (!structMap.has(structKey)) {
+                        structMap.set(structKey, [year, subjectID, subjectName, fullGroup]);
+                    }
+
+                    // สกัดชื่อหัวข้อ (ถ้ามี _LEC_ ให้เอาคำสุดท้ายมาเป็นชื่อ)
                     let extractedName = categoryKey;
-                    if (categoryKey.includes("_LEC_")) {
+                    if (categoryKey.includes("_")) {
                         const parts = categoryKey.split('_');
                         extractedName = parts[parts.length - 1].trim();
                     }
 
-                    categoryRows.push([categoryKey, subjectID, group, extractedName]);
+                    categoryRows.push([categoryKey, subjectID, fullGroup, extractedName]);
                 });
             }
 
