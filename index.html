@@ -2805,6 +2805,7 @@
     let sectionName = null;
     let regAvatarBase64 = null;
     let regAvatarMimeType = null;
+    let isUserBusy = false;
     // ====================================================================
     // 2. INITIALIZATION (jQuery Ready & Core UI Bindings)
     // ====================================================================
@@ -2824,6 +2825,9 @@
                 localStorage.removeItem('mdkku_admin_pass');
             }
         }
+
+        $(document).on('show.bs.modal', '.modal', () => { isUserBusy = true; });
+        $(document).on('hidden.bs.modal', '.modal', () => { isUserBusy = false; });
 
         // เมื่อมีการพิมพ์หรือวางลิงก์ในช่องรูปโจทย์ ให้แสดงพรีวิวทันที
         $(document).on('input', '.image-url-input', function () {
@@ -3277,10 +3281,12 @@
             const localData = await getCacheDB(cacheKey);
         const localVer = await getCacheDB(verKey);
 
-        // ถ้ามีข้อมูลในเครื่องและไม่บังคับรีเฟรช ให้ใช้ข้อมูลนั้นก่อน (เพื่อความเร็วในการแสดงผล)
-            if (localData && !forceRefresh) {
+        if (!localData){
+            $('#loading-overlay').show();
+        }
+         else if (!globalData.questions || globalData.questions.length === 0) {
           globalData = localData;
-            finalizeDataLoading();
+            finalizeDataLoading(true);
         }
 
             try {
@@ -3324,7 +3330,11 @@
                     await setCacheDB(cacheKey, globalData);
                     await setCacheDB(verKey, serverVersion);
 
-                    finalizeDataLoading(); // วาดตารางใหม่ด้วยข้อมูลล่าสุด
+                    if (!isUserBusy) {
+                        finalizeDataLoading(false); // อัปเดตแบบเงียบๆ
+                    } else {
+                        console.log("User is busy, deferring UI update...");
+                    }
                 }
 
             } catch (error) {
@@ -3334,21 +3344,39 @@
                 $('#loading-overlay').hide();
             }
         }
-    function finalizeDataLoading() {
-        updateDashboard();
-        populateFilters();
-        //renderReportList();
-        
-        // Only refresh report list if not currently editing a report
-        if (!$('#editQuestionModal').data('reportData')) {
-            renderReportList();
-        }
-        refreshTables();
+    function finalizeDataLoading(isFirstLoad = false) {
+            // 1. อัปเดตตัวเลข Dashboard เสมอ (เพราะเบามาก)
+            updateDashboard();
 
-        if (!$('#sec-structure').hasClass('hidden')) {
-            renderStructureTree($('#struct-subject-filter').val());
+            // 2. ถ้าเป็นโหลดครั้งแรก ให้ทำทุกอย่าง
+            if (isFirstLoad) {
+                populateFilters();
+                refreshTables();
+                return;
+            }
+
+            // 3. ถ้าเป็นการ Sync พื้นหลัง ให้เช็คว่าผู้ใช้ดูหน้าไหนอยู่
+            const currentSection = $('.content-section:not(.hidden)').attr('id');
+
+            switch (currentSection) {
+                case 'sec-dashboard':
+                    // Dashboard อัปเดตไปแล้วในข้อ 1
+                    break;
+                case 'sec-report-inbox':
+                    if (!$('#editQuestionModal').hasClass('show')) renderReportList();
+                    break;
+                case 'sec-database':
+                    refreshTables();
+                    break;
+                case 'sec-structure':
+                    renderStructureTree($('#struct-subject-filter').val());
+                    break;
+                case 'sec-public-search':
+                    refreshTables();
+                    break;
+            }
         }
-    }
+
     function startVersionPolling() {
         if (versionCheckInterval) clearInterval(versionCheckInterval);
 
@@ -3357,33 +3385,28 @@
             // เรียก fetchData แบบไม่ Force Refresh (มันจะเช็คเวอร์ชันก่อน ถ้าตรงกันก็ไม่โหลดอะไรเพิ่ม)
             console.log("Auto-checking for data updates...");
             fetchData(false);
-        }, 60000);
+        }, 300000);
     }
     function refreshTables() {
-        if ($.fn.DataTable.isDataTable('#publicTable')) {
-            $('#publicTable').DataTable().clear().rows.add(globalData.questions).draw();
-        }
-        if ($.fn.DataTable.isDataTable('#adminTable')) {
-            $('#adminTable').DataTable().clear().rows.add(globalData.questions).draw();
-        }
-        // structSubjectTable, structCategoryTable, logsTable handled below or in init
+            // อัปเดต Public Table เฉพาะเมื่ออยู่หน้า Search และไม่ได้พิมพ์ค้นหาค้างไว้
+            if ($.fn.DataTable.isDataTable('#publicTable')) {
+                const table = $('#publicTable').DataTable();
+                const searchVal = table.search();
+                // ถ้าผู้ใช้ไม่ได้พิมพ์ค้นหาอยู่ ให้ดึงข้อมูลใหม่แบบนิ่มๆ
+                if (!searchVal) {
+                    table.clear().rows.add(globalData.questions).draw(false);
+                }
+            }
 
-        if ($.fn.DataTable.isDataTable('#structSubjectTable')) {
-            // ไม่ใช้ DataTables.clear().rows.add แต่ใช้ renderStructureTree
-            renderStructureTree($('#struct-subject-filter').val());
-        }
-        if ($.fn.DataTable.isDataTable('#structCategoryTable')) {
-            $('#structCategoryTable').DataTable().clear().rows.add(globalData.category).draw();
-        }
+            if ($.fn.DataTable.isDataTable('#adminTable')) {
+                $('#adminTable').DataTable().clear().rows.add(globalData.questions).draw(false);
+            }
 
-        if ($.fn.DataTable.isDataTable('#logsTable')) {
-            $('#logsTable').DataTable().clear().rows.add(globalData.logs || []).draw();
+            // อัปเดต Logs Table เฉพาะเมื่อส่วนของ Logs กำลังแสดงอยู่
+            if (!$('#sec-logs').hasClass('hidden') && $.fn.DataTable.isDataTable('#logsTable')) {
+                $('#logsTable').DataTable().clear().rows.add(globalData.logs || []).draw(false);
+            }
         }
-        else {
-            initLogsTable();
-        }
-    }
-
     function updateDashboard() {
         // 1. Stats Cards เดิม
         $('#stat-total-q').text(globalData.questions ? globalData.questions.length + " ข้อ" : "0 ข้อ");
