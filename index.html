@@ -2743,11 +2743,30 @@
                         </div>
 
                         <!-- Explanation -->
-                        <div class="col-12">
-                            <label class="form-label fw-bold">Explanation</label>
-                            <!-- ปรับความสูงเป็น rows="6" -->
+                        <div class="col-12 mt-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label class="form-label fw-bold mb-0">Explanation (คำอธิบายเฉลย)</label>
+                                <div>
+                                    <!-- ป้ายบอกโควต้าการใช้ AI -->
+                                    <span id="ai-quota-badge" class="badge bg-light text-dark border me-2"
+                                        style="display:none; font-size: 0.75rem;">
+                                        <i class="fas fa-bolt text-warning"></i> AI Quota: -/-
+                                    </span>
+                                    <!-- ปุ่มเรียกใช้ AI -->
+                                    <button type="button" class="btn btn-sm btn-dark px-3 rounded-pill shadow-sm" id="btn-ask-ai"
+                                        onclick="askAIExpert()">
+                                        <i class="fas fa-robot me-1"></i> ใช้ AI ช่วยเขียน & ตรวจโจทย์
+                                    </button>
+                                </div>
+                            </div>
+                        
                             <textarea class="form-control" id="edit-explanation" rows="6"
-                                placeholder="คำอธิบายเฉลย..."></textarea>
+                                placeholder="พิมพ์คำอธิบาย หรือกดปุ่ม AI ด้านบนเพื่อช่วยเขียน..."></textarea>
+                        
+                            <!-- ข้อความสถานะขณะ AI กำลังทำงาน -->
+                            <div id="ai-status-text" class="small text-primary mt-2 fw-bold" style="display:none;">
+                                <i class="fas fa-spinner fa-spin"></i> AI Expert กำลังวิเคราะห์โจทย์และตรวจสอบความถูกต้อง...
+                            </div>
                         </div>
                     </div>
                 </form>
@@ -2881,7 +2900,7 @@
     // ====================================================================
     // 1. GLOBAL CONFIGURATION & VARIABLES
     // ====================================================================
-    const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyHpYj4sfFXM0ISwCHSLX1aPVl98ngIh63wL3mc1W596_h-TkdmZGXNZwW01lFh5_w3/exec';
+    const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbybvyPZbbr4xkZVDuoPtIuIWxdnv95-lQWddBZH-_aawnL3R26R-6tiGkNvBkVybAQ/exec';
 
     let globalData = {
         questions: [],
@@ -4599,19 +4618,47 @@
     function renderChoicesUI(choicesStr, correctAnsStr, suggestedAnsStr = null) {
             const $container = $('#dynamic-choices-container');
             $container.empty();
-            choiceImagesData = {}; // รีเซ็ตข้อมูลรูป choice
+            choiceImagesData = {};
 
             let choices = (choicesStr || "").split('///').map(c => c.trim()).filter(c => c !== "");
-            if (choices.length === 0) choices = ["A. ", "B. ", "C. ", "D. "];
+            if (choices.length === 0) choices = ["", "", "", ""];
 
-            const cleanCorrect = (correctAnsStr || "").trim();
-            const cleanSuggested = (suggestedAnsStr || "").trim();
+            const cleanCorrect = (correctAnsStr || "").trim().toLowerCase();
+
+            // เตรียมคำตอบที่ถูกเสนอ (ลบช่องว่าง และทำเป็นตัวพิมพ์เล็ก)
+            const cleanSuggested = (suggestedAnsStr || "").trim().toLowerCase();
 
             choices.forEach((choiceText) => {
-                const isOriginalCorrect = (choiceText === cleanCorrect);
-                const isSuggested = (cleanSuggested !== "" && choiceText === cleanSuggested);
+                const currentText = choiceText.trim().toLowerCase();
+
+                // 1. เช็คว่าเป็นเฉลยเดิมหรือไม่
+                const isOriginalCorrect = (currentText === cleanCorrect);
+
+                // 2. เช็คว่าเป็นคำตอบที่นิสิตเสนอมาหรือไม่ (ฉลาดขึ้น)
+                let isSuggested = false;
+                if (cleanSuggested !== "") {
+                    // เช็คทั้งแบบตรงตัว และแบบตัด "A. " ออกจากหน้าตัวเลือก
+                    const textWithoutPrefix = currentText.replace(/^[a-z]\.\s*/, "").trim();
+                    const suggestedWithoutPrefix = cleanSuggested.replace(/^[a-z]\.\s*/, "").trim();
+
+                    if (currentText === cleanSuggested || textWithoutPrefix === suggestedWithoutPrefix) {
+                        isSuggested = true;
+                    }
+                }
+
                 addChoiceRow(choiceText, isOriginalCorrect, isSuggested);
             });
+
+            // ถ้ามี Suggested Answer แต่หาใน Choice ไม่เจอเลย ให้แจ้งเตือนแอดมินหน่อย
+            if (suggestedAnsStr && !$container.find('.suggested-choice').length) {
+                $container.prepend(`
+            <div class="alert alert-warning small py-2 mb-2">
+                <i class="fas fa-exclamation-triangle"></i>
+                คำตอบที่นิสิตเสนอคือ: <strong>"${suggestedAnsStr}"</strong> <br>
+                (ระบบหาข้อความที่ตรงกันในตัวเลือกไม่เจอ กรุณาตรวจสอบและแก้ไขเอง)
+            </div>
+        `);
+            }
         }
 
     function addChoiceRow(value = "", isOriginalCorrect = false, isSuggested = false) {
@@ -5476,29 +5523,29 @@
         }
 
     function openEditReportModal(reportTime) {
-        // ... (โค้ด openEditReportModal เดิม) ...
-        const pending = globalData.report.filter(r => !r.Done || r.Done.toString().toUpperCase() === 'FALSE');
-        const r = pending.find(report => report.Time.toString() === reportTime);
+            const pending = globalData.report.filter(r => !r.Done || r.Done.toString().toUpperCase() === 'FALSE');
+            const r = pending.find(report => report.Time.toString() === reportTime);
 
-        let dbQuestion = globalData.questions.find(q => q.problem.trim() === r['Question'].trim());
+            let dbQuestion = globalData.questions.find(q => q.problem.trim() === r['Question'].trim());
 
-        if (!dbQuestion) {
-            Swal.fire('Error', 'ไม่พบต้นฉบับข้อสอบนี้ใน Database (อาจถูกลบไปแล้ว)', 'error');
-            return;
+            if (!dbQuestion) {
+                Swal.fire('Error', 'ไม่พบต้นฉบับข้อสอบนี้ใน Database', 'error');
+                return;
+            }
+
+            // ดึง Suggested Answer จาก Report
+            const suggestedAnswer = r['SuggestedAnswer'];
+            const note = $(`button[onclick*="${reportTime}"]`).closest('.card').find('textarea').val();
+
+            // เก็บข้อมูลไว้ทำ Auto-Resolve ตอน Save
+            $('#editQuestionModal').data('reportData', {
+                timestamp: r['Time'],
+                adminNote: note
+            });
+
+            // *** จุดสำคัญ: ต้องส่ง suggestedAnswer ไปที่ openEditModal ***
+            openEditModal(dbQuestion.questionId, suggestedAnswer);
         }
-
-        const suggestedAnswer = r['SuggestedAnswer'];
-        const note = $(`button[onclick*="${reportTime}"]`).closest('.card').find('textarea').val();
-
-        $('#editQuestionModal').data('reportData', {
-            timestamp: r['Time'],
-            adminNote: note
-        });
-
-        openEditModal(dbQuestion.questionId, suggestedAnswer);
-        // ... (จบโค้ด openEditReportModal เดิม) ...
-    }
-
 
     // ====================================================================
     // 8. VOTE SYSTEM (Category Suggestion)
@@ -6126,6 +6173,159 @@
     // ====================================================================
     // 10. ADMIN & GENERAL UTILITIES
     // ====================================================================
+
+    /**
+     * ฟังก์ชันเรียกใช้ AI เพื่อช่วยเขียนคำอธิบายและตรวจสอบความถูกต้องของโจทย์
+     */
+        async function askAIExpert() {
+            // 1. ดึงข้อมูลจากฟอร์มปัจจุบัน
+            const problem = $('#edit-problem').val().trim();
+            const explanationField = $('#edit-explanation');
+            const statusText = $('#ai-status-text');
+            const quotaBadge = $('#ai-quota-badge');
+            const btn = $('#btn-ask-ai');
+
+            // 2. รวบรวมตัวเลือก (Choices) ทั้งหมดที่พิมพ์ไว้
+            let choices = [];
+            $('#dynamic-choices-container .choice-item').each(function () {
+                // ดึงเฉพาะ Text (ข้ามรูปภาพถ้ามี)
+                const text = $(this).find('.choice-text-input').val();
+                if (text && text.trim() !== "") {
+                    choices.push(text.trim());
+                }
+            });
+
+            // 3. ดึงคำตอบที่ติ๊กเลือกไว้ (Correct Answer)
+            const answer = $('#dynamic-choices-container .choice-item:has(.choice-radio:checked) .choice-text-input').val();
+
+            // 4. ตรวจสอบความพร้อมของข้อมูล
+            if (!problem) {
+                Swal.fire('ข้อมูลไม่ครบ', 'กรุณากรอกโจทย์ก่อนใช้ AI', 'warning');
+                return;
+            }
+            if (choices.length === 0 || !answer) {
+                Swal.fire('ข้อมูลไม่ครบ', 'กรุณาระบุตัวเลือกและเลือกคำตอบที่ถูกต้องก่อนใช้ AI เพื่อให้ตรวจสอบได้แม่นยำ', 'warning');
+                return;
+            }
+
+            // 5. เตรียม UI ขณะรอ
+            btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i> AI Processing...');
+            statusText.fadeIn();
+            explanationField.css('opacity', '0.5');
+
+            // 6. สร้างชุดคำสั่ง (Prompt) สำหรับส่งให้ AI
+            const prompt = `คุณคือผู้เชี่ยวชาญด้านการศึกษาวิชาแพทยศาสตร์ (Medical Database Content Creator)
+[TASK]
+1. ตรวจสอบว่าโจทย์และตัวเลือกมีความสมเหตุสมผลตามหลักการแพทย์หรือไม่
+2. ตรวจสอบว่า "คำตอบที่เลือก" (${answer}) ตรงกับหนึ่งใน "ตัวเลือกทั้งหมด" ที่ให้มาหรือไม่
+3. เขียนคำอธิบายเฉลย (Explanation) เป็นภาษาไทยที่กระชับ เข้าใจง่าย และถูกต้องตามหลักวิชาการ
+
+[DATA]
+- โจทย์: "${problem}"
+- ตัวเลือก: ${choices.map((c, i) => `${String.fromCharCode(65 + i)}. ${c}`).join(', ')}
+- คำตอบที่เลือกไว้: "${answer}"
+
+[INSTRUCTION]
+- อธิบายกลไก (Mechanism/Pathophysiology) ว่าทำไมข้อนี้ถึงถูก
+- อธิบายสั้นๆ ว่าทำไมตัวเลือกอื่นถึงไม่ใช่ (ถ้าจำเป็น)
+- ตอบเป็นภาษาไทย ผสม medical terminology ได้ แต่ต้องมีคำอธิบายภาษาไทยที่เข้าใจง่ายประกอบเสมอ
+
+[STRICT INSTRUCTIONS]
+0. Your response MUST follow this exact pattern: 
+   "Explanation: [Medical explanation in Thai mixed with medical terms, concluding with a period.]"
+1. Start the response IMMEDIATELY with the ไทย ผสม medical terminology explanation.
+2. DO NOT include any introductory remarks, English analysis, or "My Assessment".
+3. NO introductory phrases like "Okay", "This question is", or "Let's look at".
+4. NO English analysis at the beginning or end.
+5. Content: Explain the pathophysiology in Thai mixed with medical terms. Briefly differentiate from other common wrong choices (like Choice C in this context) within the same paragraph.
+6. DO NOT use quotation marks around the sentences.
+7. DO NOT use bold marks (**) for the sentences.
+8. If the correct answer is not found in choices, start the first line with "⚠️ คำเตือน: คำตอบที่เลือกไม่ตรงกับตัวเลือก!".
+9. สรุปรวมใน 1 paragraph เหมือนอาจารย์อธิบายให้ฟัง
+
+[FORMAT EXAMPLE]
+Explanation: ...จึงเป็นคำตอบที่ถูกต้อง.
+`;
+
+
+            try {
+                // 7. ส่งข้อมูลไปยัง Backend (Apps Script)
+                // หมายเหตุ: ใช้ sendWithRetry ที่คุณมีอยู่แล้ว
+                const res = await sendWithRetry({
+                    action: 'askAIExpert',
+                    prompt: prompt,
+                    provider: 'Gemini',
+                    username: currentUser.username, // ส่งเพื่อเช็คสิทธิ์แอดมิน
+                    adminPass: adminPass
+                }, 1); // ลองใหม่ได้สูงสุด 1 ครั้งถ้าพัง
+
+                if (res.result === 'success') {
+                    let text = res.answer;
+
+                    // --- Logic การสกัดคำอธิบายตามเงื่อนไข ---
+
+                    // 1. หาตำแหน่งของเครื่องหมาย : ตัวแรก
+                    const colonIndex = text.indexOf(':');
+
+                    if (colonIndex !== -1) {
+                        // ตัดข้อความตั้งแต่หลัง : เป็นต้นไป
+                        let subText = text.substring(colonIndex + 1).trim();
+
+                        // 2. ใช้ Regex ค้นหา: 
+                        // เริ่มจากตัวอักษรไทยตัวแรก [\u0E00-\u0E7F]
+                        // ไปจนถึงภาษาไทยตัวสุดท้ายตามด้วยจุด [\u0E00-\u0E7F]\.
+                        const thaiPattern = /([\u0E00-\u0E7F].*[\u0E00-\u0E7F]\.)/s;
+                        const match = subText.match(thaiPattern);
+
+                        if (match && match[0]) {
+                            // ได้ข้อความที่ต้องการแล้ว
+                            let finalThai = match[0].trim();
+                            explanationField.val(finalThai);
+                        } else {
+                            // Fallback: หากหาตาม Pattern ไม่เจอ (กรณี AI ไม่ใส่จุด) 
+                            // ให้ดึงส่วนที่เป็นภาษาไทยทั้งหมดมาแทน
+                            const onlyThaiMatch = /([\u0E00-\u0E7F].*)/s.exec(subText);
+                            explanationField.val(onlyThaiMatch ? onlyThaiMatch[0].trim() : subText);
+                        }
+                    } else {
+                        // กรณีไม่มี : เลย (AI ตอบมาแค่เนื้อหา)
+                        explanationField.val(text.trim());
+                    }
+
+                    // 9. อัปเดตป้ายโควต้า
+                    quotaBadge.html(`<i class="fas fa-bolt text-warning"></i> AI Quota: ${res.quota}`).fadeIn();
+
+                    // 10. แจ้งเตือนถ้า AI ตรวจพบความผิดปกติ (เช่น ติ๊กคำตอบผิดข้อ)
+                    if (res.answer.includes("⚠️")) {
+                        Swal.fire({
+                            title: 'AI พบความผิดปกติ!',
+                            text: 'AI ตรวจพบว่าคำตอบที่ติ๊กไว้ไม่ตรงกับตัวเลือก กรุณาตรวจสอบอีกครั้ง',
+                            icon: 'warning',
+                            confirmButtonColor: '#f6c23e'
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'AI ช่วยเขียนสำเร็จ',
+                            toast: true,
+                            position: 'top-end',
+                            showConfirmButton: false,
+                            timer: 2000
+                        });
+                    }
+                } else {
+                    Swal.fire('AI Error', res.message || 'AI ไม่สามารถประมวลผลได้ในขณะนี้', 'error');
+                }
+            } catch (e) {
+                console.error("AI Error:", e);
+                Swal.fire('Connection Error', 'ไม่สามารถติดต่อ AI Expert ได้: ' + e.message, 'error');
+            } finally {
+                // 11. คืนค่า UI กลับเป็นปกติ
+                btn.prop('disabled', false).html('<i class="fas fa-robot me-1"></i> ใช้ AI ช่วยเขียน & ตรวจโจทย์');
+                statusText.hide();
+                explanationField.css('opacity', '1');
+            }
+        }
 
     const transformUrl = (url) => {
         // ... (โค้ด transformUrl เดิม) ...
