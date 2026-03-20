@@ -3436,16 +3436,35 @@
             for (const [subj, count] of Object.entries(subjectsMissing)) {
                 alertMsg += `<li>วิชา <b>${subj}</b>: จำนวน ${count} ข้อ</li>`;
             }
-            alertMsg += "</ul><small class='text-muted'>กรุณาค้นหาคำว่า 'require_img' ในหน้าจัดการ Database เพื่อแก้ไข</small>";
-
+            alertMsg += "</ul><small class='text-muted'>กรุณาแก้ไขโดยด่วนเพื่อความสมบูรณ์ของระบบ</small>";
             // แสดงผลเป็น Alert บน Dashboard (ถ้ายังไม่ได้เปิดดูหน้าอื่นอยู่)
-            if (!$('#sec-dashboard').hasClass('hidden')) {
+            if (!$('#sec-dashboard').hasClass('hidden') && isAdmin) {
                 Swal.fire({
                     title: 'พบข้อมูลไม่สมบูรณ์',
                     html: alertMsg,
                     icon: 'warning',
-                    confirmButtonText: 'รับทราบ',
-                    confirmButtonColor: '#f6c23e'
+                    showCancelButton: true,
+                    confirmButtonText: 'ไปที่หน้าแก้ไขทันที',
+                    cancelButtonText: 'รับทราบ',
+                    confirmButtonColor: '#4e73df',
+                    cancelButtonColor: '#858796'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // --- ส่วนที่เพิ่มใหม่ ---
+                        // 1. ย้ายไปหน้า Database
+                        showSection('database');
+
+                        // 2. ติ๊กถูกที่ช่อง "เฉพาะที่รอรูปภาพ"
+                        $('#db-require-img-filter').prop('checked', true);
+
+                        // 3. สั่งให้ DataTable กรองข้อมูลใหม่
+                        if ($.fn.DataTable.isDataTable('#adminTable')) {
+                            $('#adminTable').DataTable().draw();
+                        }
+
+                        // เลื่อนหน้าจอขึ้นไปบนสุด
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
                 });
             }
         }
@@ -3504,7 +3523,7 @@
             if (catsInSubj.length > 0) {
                 categoryOpts += `<optgroup label="${subj}">`;
                 catsInSubj.forEach(t => {
-                    categoryOpts += `<option value="${t.CategoryID}">${t.CategoryName} (${t.CategoryID})</option>`;
+                    categoryOpts += `<option value="${t.CategoryID}">${t.CategoryName}</option>`;
                 });
                 categoryOpts += `</optgroup>`;
             }
@@ -3555,7 +3574,7 @@
         filteredCats.sort((a, b) => a.CategoryID.localeCompare(b.CategoryID));
 
         filteredCats.forEach(t => {
-            options += `<option value="${t.CategoryID}">${t.CategoryName} (${t.CategoryID})</option>`;
+            options += `<option value="${t.CategoryID}">${t.CategoryName}</option>`;
         });
 
         $(targetSelector).html(options);
