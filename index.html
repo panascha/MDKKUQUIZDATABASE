@@ -4296,8 +4296,8 @@
                     }
                 }
 
-                // --- 6. ส่งข้อมูลทั้งหมดเพื่อเซฟลง Sheet ---
-            $('#upload-status-text').text(`กำลังอัปเดตฐานข้อมูล...`);
+                // --- 6. ส่งข้อมูลทั้งหมดเพื่อเซฟลง Sheet (โจทย์) ---
+            $('#upload-status-text').text(`กำลังอัปเดตฐานข้อมูลข้อสอบ...`);
             const payload = {
                 id: qId,
                 problem: problemText,
@@ -4308,13 +4308,70 @@
                 category: categories
             };
 
-            // สั่งบันทึกข้อมูล โดยใส่พารามิเตอร์ true เพื่อบอกว่า "ไม่ต้อง Reload ข้อมูลใหม่ทั้งเว็บ"
+            // สั่งบันทึกโจทย์ (ใส่ true เพื่อไม่ให้หน้าเว็บกระตุกรีเฟรช)
             await sendAdminAction('editQuestion', payload, true);
 
-            // --- 7. อัปเดตข้อมูลในหน้าเว็บแบบ Real-time (ไม่ต้องรอเซิร์ฟเวอร์โหลดใหม่) ---
-            $('#upload-status-text').text(`กำลังอัปเดตการแสดงผล...`);
 
-            // 7.1 อัปเดตในตัวแปร Global
+            // --- 7. จัดการสถานะ Report (ถ้าแก้ไขข้อสอบผ่านหน้า Report) ---
+            $('#upload-status-text').text(`กำลังอัปเดตสถานะการแจ้งปัญหา...`);
+            const reportData = $('#editQuestionModal').data('reportData');
+
+            if (reportData) {
+                // ถ้ากดมาจากปุ่ม Edit & Approve ในหน้า Report
+                const rIndex = globalData.report.findIndex(r => String(r.Time) === String(reportData.timestamp));
+                if (rIndex !== -1) {
+                    // ส่งคำสั่งปิด Report เบื้องหลัง
+                    const reportPayload = {
+                        action: 'updateReportStatus',
+                        username: currentUser.username,
+                        adminPass: adminPass,
+                        data: {
+                            timestamp: reportData.timestamp,
+                            adminNote: reportData.adminNote || 'แก้ไขข้อสอบเรียบร้อยแล้ว',
+                            status: 'Resolved',
+                            done: 'TRUE'
+                        }
+                    };
+                    await fetch(APPSCRIPT_URL, { method: 'POST', redirect: "follow", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(reportPayload) });
+
+                    // อัปเดตตัวแปร Global ทันที
+                    globalData.report[rIndex].Status = 'Resolved';
+                    globalData.report[rIndex].AdminNote = reportData.adminNote;
+                    globalData.report[rIndex].Done = 'TRUE';
+                }
+                $('#editQuestionModal').removeData('reportData');
+
+            } else {
+                // ระบบ Auto-resolve: หาว่ามี Report ค้างอยู่ที่มีโจทย์ตรงกับข้อนี้ไหม ถ้ามีให้ปิดให้อัตโนมัติ
+                const pendingReports = globalData.report.filter(r =>
+                    r['Question'] && r['Question'].trim() === problemText.trim() &&
+                    (!r['Done'] || String(r['Done']).toUpperCase() === 'FALSE')
+                );
+
+                if (pendingReports.length > 0) {
+                    for (const rep of pendingReports) {
+                        const fallbackPayload = {
+                            action: 'updateReportStatus', adminPass: adminPass,
+                            data: { timestamp: rep['Time'], adminNote: 'Auto-resolved', status: 'Resolved', done: 'TRUE' }
+                        };
+                        fetch(APPSCRIPT_URL, { method: 'POST', redirect: "follow", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(fallbackPayload) }).catch(e => console.error(e));
+
+                        // อัปเดต Global ทันที
+                        const rIndex = globalData.report.findIndex(r => String(r.Time) === String(rep['Time']));
+                        if (rIndex !== -1) {
+                            globalData.report[rIndex].Status = 'Resolved';
+                            globalData.report[rIndex].AdminNote = 'Auto-resolved';
+                            globalData.report[rIndex].Done = 'TRUE';
+                        }
+                    }
+                }
+            }
+
+
+            // --- 8. อัปเดตข้อมูลในหน้าเว็บแบบ Real-time (UI) ---
+            $('#upload-status-text').text(`กำลังแสดงผล...`);
+
+            // อัปเดตโจทย์ในตัวแปร Global
             const qIndex = globalData.questions.findIndex(q => q.questionId === qId);
             if (qIndex !== -1) {
                 globalData.questions[qIndex].problem = payload.problem;
@@ -4325,37 +4382,25 @@
                 globalData.questions[qIndex].category = payload.category;
             }
 
-            // 7.2 บันทึกลง IndexedDB (Cache ในเครื่อง) ให้เป็นข้อมูลล่าสุด
+            // บันทึกลง Cache
             await setCacheDB('global_admin_data', globalData);
 
-            // 7.3 สั่งให้ DataTables วาดตารางใหม่โดยใช้ข้อมูลล่าสุด (ใส่ false เพื่อไม่ให้หน้าตารางเด้งกลับไปหน้า 1)
-            if ($.fn.DataTable.isDataTable('#publicTable')) {
-                $('#publicTable').DataTable().clear().rows.add(globalData.questions).draw(false);
-            }
-            if ($.fn.DataTable.isDataTable('#adminTable')) {
-                $('#adminTable').DataTable().clear().rows.add(globalData.questions).draw(false);
-            }
+            // รีเฟรชตาราง
+            if ($.fn.DataTable.isDataTable('#publicTable')) $('#publicTable').DataTable().clear().rows.add(globalData.questions).draw(false);
+            if ($.fn.DataTable.isDataTable('#adminTable')) $('#adminTable').DataTable().clear().rows.add(globalData.questions).draw(false);
 
-            // 7.4 อัปเดตตัวเลข Dashboard และระบบ Report
+            // อัปเดตตัวเลข Dashboard และหน้าต่าง Report Inbox ทันที
             updateDashboard();
-            if (!$('#editQuestionModal').data('reportData')) {
-                renderReportList();
-            }
+            renderReportList();
 
-            // --- 8. แจ้งเตือนความสำเร็จ ---
-            let successMsg = "บันทึกและอัปเดตข้อสอบเรียบร้อย";
+            // แจ้งเตือนความสำเร็จ
+            let successMsg = "บันทึกและอัปเดตข้อมูลเรียบร้อย";
             if (mainUploadCount > 0 || choiceUploadCount > 0) {
-                successMsg += `<br><small>อัปโหลดรูปสำเร็จ: รูปโจทย์ ✅ ${mainUploadCount} รูป | ตัวเลือก ✅ ${choiceUploadCount} รูป</small>`;
+                successMsg += `<br><small>รูปโจทย์ ✅ ${mainUploadCount} | ตัวเลือก ✅ ${choiceUploadCount}</small>`;
             }
 
             Swal.fire({
-                icon: 'success',
-                title: 'สำเร็จ!',
-                html: successMsg,
-                toast: true,
-                position: 'bottom-end',
-                showConfirmButton: false,
-                timer: 4000
+                icon: 'success', title: 'สำเร็จ!', html: successMsg, toast: true, position: 'bottom-end', showConfirmButton: false, timer: 3000
             });
 
         } catch (error) {
@@ -5379,25 +5424,56 @@
     }
 
     async function processReport(reportTime, action) {
-        // ... (โค้ด processReport เดิม) ...
-        const pending = globalData.report.filter(r => !r.Done || r.Done.toString().toUpperCase() === 'FALSE');
-        const r = pending.find(report => report.Time.toString() === reportTime);
-        const note = $(`button[onclick*="${reportTime}"]`).closest('.card').find('textarea').val();
-        if (!confirmAdmin()) return;
+            // 1. หาตำแหน่งของ Report ใน globalData
+            const rIndex = globalData.report.findIndex(report => String(report.Time) === String(reportTime));
+            if (rIndex === -1) return;
 
-        const result = await Swal.fire({ title: 'ยืนยัน?', icon: 'question', showCancelButton: true });
-        if (result.isConfirmed) {
-            await sendAdminAction('updateReportStatus', {
-                timestamp: r['Time'],
-                adminNote: note,
-                status: action === 'REJECT' ? 'Rejected' : 'Resolved',
-                done: 'TRUE'
+            const r = globalData.report[rIndex];
+            const note = $(`button[onclick*="${reportTime}"]`).closest('.card').find('textarea').val();
+            if (!confirmAdmin()) return;
+
+            const result = await Swal.fire({
+                title: action === 'REJECT' ? 'ยืนยันการปฏิเสธ (Reject)?' : 'ยืนยันการแก้ไข (Resolved)?',
+                icon: 'question',
+                showCancelButton: true
             });
-        }
-        $(`button[onclick*="${reportTime}"]`).closest('.card').fadeOut();
 
-        // ... (จบโค้ด processReport เดิม) ...
-    }
+            if (result.isConfirmed) {
+                const newStatus = action === 'REJECT' ? 'Rejected' : 'Resolved';
+
+                // 2. ส่งคำสั่งไป Backend พร้อมระบุ true เพื่อไม่ให้เว็บรีเฟรช
+                await sendAdminAction('updateReportStatus', {
+                    timestamp: r['Time'],
+                    adminNote: note,
+                    status: newStatus,
+                    done: 'TRUE'
+                }, true);
+
+                // 3. อัปเดตข้อมูลในตัวแปร Global ทันที
+                globalData.report[rIndex].Status = newStatus;
+                globalData.report[rIndex].AdminNote = note;
+                globalData.report[rIndex].Done = 'TRUE';
+
+                // 4. บันทึกลง IndexedDB (Cache)
+                await setCacheDB('global_admin_data', globalData);
+
+                // 5. ลบการ์ดนี้ออกจากหน้าจอแบบมี Animation
+                $(`button[onclick*="${reportTime}"]`).closest('.card').fadeOut(300, function () {
+                    $(this).remove();
+                    // เช็คว่าถ้า Report หมดแล้ว ให้แสดงข้อความว่าไม่มีรายการใหม่
+                    if ($('#report-list-container .card').length === 0) {
+                        renderReportList();
+                    }
+                });
+
+                // 6. อัปเดตตัวเลขแจ้งเตือนใน Sidebar และ Dashboard ทันที
+                updateDashboard();
+
+                Swal.fire({
+                    icon: 'success', title: 'อัปเดตสถานะเรียบร้อย', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500
+                });
+            }
+        }
 
     function openEditReportModal(reportTime) {
         // ... (โค้ด openEditReportModal เดิม) ...
