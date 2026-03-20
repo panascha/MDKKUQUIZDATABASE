@@ -995,6 +995,34 @@
             margin-top: 10px;
         }
 
+        /* Custom Image Upload Zone */
+.upload-dropzone {
+    border: 2px dashed var(--primary-color);
+    border-radius: 10px;
+    background-color: #f8faff;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.upload-dropzone:hover, .upload-dropzone.dragover {
+    background-color: #e8f0fe;
+    border-color: #224abe;
+}
+.gallery-controls-top {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 10;
+}
+/* ซ่อนช่องกรอกข้อความเมื่อ Choice นั้นเป็นรูปภาพ */
+.choice-has-image .choice-text-input {
+    display: none !important;
+}
+.choice-has-image .choice-preview-container {
+    display: flex !important;
+}
+
         /* -------------------------------------------------------------------- */
         /* 4.8 Data Tables & Responsive Table Styles */
         /* -------------------------------------------------------------------- */
@@ -2616,30 +2644,33 @@
 
                         <!-- Image Gallery Section -->
                         <div class="col-12">
-                            <label class="form-label fw-bold">Images</label>
+                            <label class="form-label fw-bold">Images (รูปโจทย์)</label>
                             <input type="hidden" id="edit-img">
-
-                            <!-- Container สำหรับใส่กล่อง Input รูปภาพ -->
-                            <div id="dynamic-images-container" class="d-flex flex-column gap-2 mb-2">
-                                <!-- JS จะสร้าง Input มาใส่ตรงนี้ -->
+                        
+                            <!-- กล่องลากวาง / Paste รูปภาพ (เอา input ออกไปไว้ข้างนอก) -->
+                            <div id="main-image-upload-zone" class="upload-dropzone mb-3" onclick="$('#main-image-hidden-input').click()">
+                                <i class="fas fa-cloud-upload-alt fa-2x text-primary mb-2"></i>
+                                <p class="mb-0">คลิก หรือลากไฟล์มาวางที่นี่</p>
+                                <small class="text-muted">(คุณสามารถกด <b>Ctrl+V</b> เพื่อวางรูปภาพได้ตลอดเวลาขณะเปิดหน้านี้)</small>
                             </div>
-                            <button type="button" class="btn btn-sm btn-outline-primary w-100 dashed-border mb-3"
-                                onclick="addNewImageRow()">
-                                <i class="fas fa-plus"></i> เพิ่มรูปภาพ (Add Image)
-                            </button>
-
+                            <input type="file" id="main-image-hidden-input" class="d-none" accept="image/*" multiple
+                                onchange="handleMainImagesSelection(this)">
+                        
                             <!-- Gallery Preview -->
-                            <div id="edit-image-gallery-container" class="image-gallery-container"
-                                style="display:none;">
+                            <div id="edit-image-gallery-container" class="image-gallery-container" style="display:none;">
+                                <div class="gallery-controls-top">
+                                    <button type="button" class="btn btn-sm btn-danger rounded-circle shadow"
+                                        onclick="removeCurrentImageFromGallery()" title="ลบรูปนี้">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </div>
                                 <img src="" id="edit-gallery-img" class="gallery-img">
                                 <div class="gallery-controls">
-                                    <button type="button" class="btn btn-sm btn-outline-primary rounded-circle"
-                                        id="prev-img-btn">
+                                    <button type="button" class="btn btn-sm btn-outline-primary rounded-circle" id="prev-img-btn">
                                         <i class="fas fa-chevron-left"></i>
                                     </button>
                                     <span id="image-counter" class="badge bg-secondary rounded-pill">1 / 1</span>
-                                    <button type="button" class="btn btn-sm btn-outline-primary rounded-circle"
-                                        id="next-img-btn">
+                                    <button type="button" class="btn btn-sm btn-outline-primary rounded-circle" id="next-img-btn">
                                         <i class="fas fa-chevron-right"></i>
                                     </button>
                                 </div>
@@ -2647,18 +2678,17 @@
                         </div>
 
                         <!-- Choices & Answer Section (Dynamic) -->
-                        <div class="col-12">
+                        <div class="col-12 mt-4">
                             <label class="form-label fw-bold d-flex justify-content-between align-items-center">
                                 Choices & Correct Answer
                                 <small class="text-muted fw-normal">(ติ๊กวงกลมเพื่อเลือกเฉลย)</small>
                             </label>
-
+                        
                             <div id="dynamic-choices-container" class="d-flex flex-column gap-2 mb-2">
                                 <!-- JS จะสร้าง Input กล่องๆ มาใส่ตรงนี้ -->
                             </div>
-
-                            <button type="button" class="btn btn-sm btn-outline-success w-100 dashed-border"
-                                onclick="addNewChoiceRow()">
+                        
+                            <button type="button" class="btn btn-sm btn-outline-success w-100 dashed-border" onclick="addNewChoiceRow()">
                                 <i class="fas fa-plus"></i> เพิ่มตัวเลือก (Add Choice)
                             </button>
                         </div>
@@ -2797,6 +2827,10 @@
     let editImageArray = [];
     let editImageIndex = 0;
     let activeUploadsCount = 0;
+    let existingMainImages = []; // เก็บ URL เดิมจาก DB
+    let pendingMainImages = [];  // เก็บ Base64 ที่เพิ่งอัพ/Paste (รอบันทึก)
+    let choiceImagesData = {};   // เก็บข้อมูลรูป Choice { rowId: { type: 'existing'|'pending', data: url|base64 } }
+    let choiceRowCounter = 0;    // ตัวนับ ID ของ Choice
 
     let isMouseDown = false;
     let startCell = null;
@@ -2839,6 +2873,97 @@
 
         $(document).on('change', '.choice-radio', function () {
             syncChoicesToHiddenInput();
+        });
+
+        // ---------------------------------------------------------
+        // 1. ระบบดักจับการกด Ctrl+V (Paste) แบบอิสระ (Global Paste)
+        // ---------------------------------------------------------
+        $(document).on('paste', function (e) {
+            // ทำงานเฉพาะตอนที่เปิดหน้าต่าง Modal แก้ไขข้อสอบอยู่เท่านั้น
+            if (!$('#editQuestionModal').hasClass('show')) return;
+
+            let items = (e.clipboardData || e.originalEvent.clipboardData).items;
+            let imagePasted = false;
+
+            for (let index in items) {
+                let item = items[index];
+                // ตรวจสอบว่าสิ่งที่วางลงมาเป็นไฟล์รูปภาพหรือไม่
+                if (item.kind === 'file' && item.type.includes('image/')) {
+                    let blob = item.getAsFile();
+                    getBase64(blob).then(base64 => {
+                        pendingMainImages.push(base64);
+                        syncMainImageGallery();
+                    });
+                    imagePasted = true;
+                }
+            }
+
+            // ถ้าระบบตรวจเจอว่าเป็นรูปภาพ ให้แจ้งเตือนและยกเลิกการวางแบบ Text ปกติ
+            if (imagePasted) {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'success',
+                    title: 'วางรูปภาพโจทย์สำเร็จ',
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 1500
+                });
+            }
+        });
+
+        // ---------------------------------------------------------
+        // 2. ระบบลากแล้ววาง (Drag & Drop) สำหรับกล่องอัพโหลด
+        // ---------------------------------------------------------
+        const $dropzone = $('#main-image-upload-zone');
+
+        $dropzone.on('dragover', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            $(this).addClass('dragover'); // เปลี่ยนสีกล่องเมื่อลากไฟล์มาจ่อ
+        });
+
+        $dropzone.on('dragleave', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            $(this).removeClass('dragover'); // คืนสีเดิมเมื่อลากไฟล์ออก
+        });
+
+        $dropzone.on('drop', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            $(this).removeClass('dragover');
+
+            // รับไฟล์ที่ถูก Drop ลงมา
+            let files = e.originalEvent.dataTransfer.files;
+            if (files.length === 0) return;
+
+            let promises = [];
+            for (let i = 0; i < files.length; i++) {
+                if (files[i].type.includes('image/')) {
+                    promises.push(getBase64(files[i]));
+                }
+            }
+
+            if (promises.length > 0) {
+                Promise.all(promises).then(base64Array => {
+                    pendingMainImages = pendingMainImages.concat(base64Array);
+                    syncMainImageGallery();
+                    Swal.fire({
+                        icon: 'success', title: 'เพิ่มรูปภาพสำเร็จ', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500
+                    });
+                });
+            } else {
+                Swal.fire('ข้อผิดพลาด', 'กรุณาลากเฉพาะไฟล์รูปภาพเท่านั้น', 'warning');
+            }
+        });
+        // ล้างค่าเมื่อปิด Modal (Cancel)
+        $('#editQuestionModal').on('hidden.bs.modal', function () {
+            existingMainImages = [];
+            pendingMainImages = [];
+            choiceImagesData = {};
+            $('#main-image-hidden-input').val('');
+            syncMainImageGallery();
         });
 
         // --- 2.1 Image Gallery Controls Binding (Edit Modal) ---
@@ -4015,104 +4140,157 @@
     }
 
     async function saveQuestionChanges() {
-        // ... (โค้ด saveQuestionChanges เดิม) ...
-        if (!confirmAdmin()) return;
+            if (!confirmAdmin()) return;
 
-        if (activeUploadsCount > 0) {
-            Swal.fire('กรุณารอสักครู่', 'มีรูปภาพที่กำลังอัปโหลดอยู่เบื้องหลัง กรุณารอให้อัปโหลดเสร็จก่อนบันทึกครับ', 'warning');
-            return;
-        }
+            // 1. ดึงข้อมูล Text / Categories ทั้งหมดไว้ก่อน
+            const qId = $('#edit-q-id').val();
+            const problemText = $('#edit-problem').val();
+            const explainText = $('#edit-explanation').val();
 
-        syncChoicesToHiddenInput();
-        syncImagesToHiddenInput();
-        syncCategoriesToHiddenInput();
+            const categories = [];
+            $('#dynamic-categories-container .category-id-select').each(function () {
+                const val = $(this).val();
+                if (val) categories.push(val);
+            });
 
-        const qId = $('#edit-q-id').val();
-        const originalQuestionData = globalData.questions.find(q => q.questionId == qId);
-        const originalProblemText = originalQuestionData ? originalQuestionData.problem.trim() : "";
+            // 2. ปิด Modal ทันทีเพื่อให้ User ทำอย่างอื่นต่อได้
+            $('#editQuestionModal').modal('hide');
 
-        const categoryString = $('#edit-category-hidden').val();
-        let categoryArray = [];
-        try {
-            categoryArray = JSON.parse(categoryString);
-        } catch (e) {
-            console.error("Error parsing categories:", e);
-            categoryArray = [];
-        }
+            // 3. แสดง SweetAlert โหลดเบื้องหลัง
+            let Toast = Swal.fire({
+                title: 'กำลังบันทึกข้อมูลและอัพโหลดรูปภาพ...',
+                html: '<span id="upload-status-text">รอสักครู่...</span>',
+                icon: 'info',
+                toast: true,
+                position: 'bottom-end',
+                showConfirmButton: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
 
-        const payload = {
-            id: qId,
-            problem: $('#edit-problem').val(),
-            img: $('#edit-img').val(),
-            choices: $('#edit-choices').val(),
-            answer: $('#edit-answer').val(),
-            explain: $('#edit-explanation').val(),
-            category: categoryArray
-        };
+            try {
+                let finalMainImageUrls = [...existingMainImages];
+                let mainUploadCount = 0;
+                let choiceUploadCount = 0;
 
-        await sendAdminAction('editQuestion', payload);
-
-        try {
-            const reportData = $('#editQuestionModal').data('reportData');
-
-            if (reportData) {
-                const reportPayload = {
-                    action: 'updateReportStatus',
-                    username: currentUser.username,
-                    adminPass: adminPass,
-                    data: {
-                        timestamp: reportData.timestamp,
-                        adminNote: reportData.adminNote,
-                        status: 'Resolved',
-                        done: 'TRUE'
+                // --- 4. อัพโหลดรูป Main เบื้องหลัง ---
+                for (let i = 0; i < pendingMainImages.length; i++) {
+                    $('#upload-status-text').text(`กำลังอัพโหลดรูปโจทย์ (${i + 1}/${pendingMainImages.length})...`);
+                    let res = await sendWithRetry({
+                        action: 'uploadImage', username: currentUser.username, adminPass: adminPass,
+                        data: { base64: pendingMainImages[i], questionId: qId, type: 'Main' }
+                    });
+                    if (res.result === 'success') {
+                        finalMainImageUrls.push(res.url);
+                        mainUploadCount++;
                     }
-                };
-
-                await fetch(APPSCRIPT_URL, {
-                    method: 'POST',
-                    redirect: "follow",
-                    headers: { "Content-Type": "text/plain" },
-                    body: JSON.stringify(reportPayload)
-                });
-
-                console.log('Report auto-resolved successfully.');
-                $('#editQuestionModal').removeData('reportData');
-            } else {
-                const pendingReports = (globalData.report || []).filter(r =>
-                    r['Question'] && r['Question'].trim() === originalProblemText &&
-                    (!r['Done'] || String(r['Done']).toUpperCase() === 'FALSE')
-                );
-
-                if (pendingReports.length > 0) {
-                    for (const rep of pendingReports) {
-                        const fallbackPayload = {
-                            action: 'updateReportStatus',
-                            adminPass: adminPass,
-                            data: {
-                                timestamp: rep['Time'],
-                                adminNote: 'Auto-resolved via question edit',
-                                status: 'Resolved',
-                                done: 'TRUE'
-                            }
-                        };
-
-                        fetch(APPSCRIPT_URL, {
-                            method: 'POST',
-                            redirect: "follow",
-                            headers: { "Content-Type": "text/plain" },
-                            body: JSON.stringify(fallbackPayload)
-                        }).catch(e => console.error("Auto-resolve failed:", e));
-                    }
-                    console.log(`Auto-resolved ${pendingReports.length} reports.`);
                 }
-            }
-        } catch (e) {
-            console.error('Error in auto-resolve logic:', e);
-        }
 
-        $('#editQuestionModal').modal('hide');
-        fetchData();
-        // ... (จบโค้ด saveQuestionChanges เดิม) ...
+                // --- 5. อัพโหลดรูป Choice และรวบรวม Choices ---
+                let finalChoices = [];
+                let correctAnswer = "";
+
+                let choiceRows = $('#dynamic-choices-container .choice-item');
+
+                for (let i = 0; i < choiceRows.length; i++) {
+                    let $row = $(choiceRows[i]);
+                    let rowId = $row.attr('id');
+                    let isChecked = $row.find('.choice-radio').is(':checked');
+                    let finalValue = "";
+
+                    if ($row.hasClass('choice-has-image')) {
+                        // Choice เป็นรูปภาพ
+                        let imgData = choiceImagesData[rowId];
+                        if (imgData.type === 'existing') {
+                            finalValue = imgData.data; // URL เดิม
+                        } else if (imgData.type === 'pending') {
+                            // อัพโหลดรูป Choice เบื้องหลัง
+                            $('#upload-status-text').text(`กำลังอัพโหลดรูปตัวเลือก...`);
+                            let res = await sendWithRetry({
+                                action: 'uploadImage', username: currentUser.username, adminPass: adminPass,
+                                data: { base64: imgData.data, questionId: qId, type: 'Choice' }
+                            });
+                            if (res.result === 'success') {
+                                finalValue = res.url;
+                                choiceUploadCount++;
+                            }
+                        }
+                    } else {
+                        // Choice เป็น Text
+                        finalValue = $row.find('.choice-text-input').val().trim();
+                    }
+
+                    if (finalValue !== "") {
+                        finalChoices.push(finalValue);
+                        if (isChecked) correctAnswer = finalValue;
+                    }
+                }
+
+                // --- 6. ส่งข้อมูลทั้งหมดเพื่อเซฟลง Sheet ---
+            $('#upload-status-text').text(`กำลังอัปเดตฐานข้อมูล...`);
+            const payload = {
+                id: qId,
+                problem: problemText,
+                img: finalMainImageUrls.join('///'),
+                choices: finalChoices.join('///'),
+                answer: correctAnswer,
+                explain: explainText,
+                category: categories
+            };
+
+            // สั่งบันทึกข้อมูล โดยใส่พารามิเตอร์ true เพื่อบอกว่า "ไม่ต้อง Reload ข้อมูลใหม่ทั้งเว็บ"
+            await sendAdminAction('editQuestion', payload, true);
+
+            // --- 7. อัปเดตข้อมูลในหน้าเว็บแบบ Real-time (ไม่ต้องรอเซิร์ฟเวอร์โหลดใหม่) ---
+            $('#upload-status-text').text(`กำลังอัปเดตการแสดงผล...`);
+
+            // 7.1 อัปเดตในตัวแปร Global
+            const qIndex = globalData.questions.findIndex(q => q.questionId === qId);
+            if (qIndex !== -1) {
+                globalData.questions[qIndex].problem = payload.problem;
+                globalData.questions[qIndex].img = payload.img;
+                globalData.questions[qIndex].choices = payload.choices;
+                globalData.questions[qIndex].answer = payload.answer;
+                globalData.questions[qIndex].explain = payload.explain;
+                globalData.questions[qIndex].category = payload.category;
+            }
+
+            // 7.2 บันทึกลง IndexedDB (Cache ในเครื่อง) ให้เป็นข้อมูลล่าสุด
+            await setCacheDB('global_admin_data', globalData);
+
+            // 7.3 สั่งให้ DataTables วาดตารางใหม่โดยใช้ข้อมูลล่าสุด (ใส่ false เพื่อไม่ให้หน้าตารางเด้งกลับไปหน้า 1)
+            if ($.fn.DataTable.isDataTable('#publicTable')) {
+                $('#publicTable').DataTable().clear().rows.add(globalData.questions).draw(false);
+            }
+            if ($.fn.DataTable.isDataTable('#adminTable')) {
+                $('#adminTable').DataTable().clear().rows.add(globalData.questions).draw(false);
+            }
+
+            // 7.4 อัปเดตตัวเลข Dashboard และระบบ Report
+            updateDashboard();
+            if (!$('#editQuestionModal').data('reportData')) {
+                renderReportList();
+            }
+
+            // --- 8. แจ้งเตือนความสำเร็จ ---
+            let successMsg = "บันทึกและอัปเดตข้อสอบเรียบร้อย";
+            if (mainUploadCount > 0 || choiceUploadCount > 0) {
+                successMsg += `<br><small>อัปโหลดรูปสำเร็จ: รูปโจทย์ ✅ ${mainUploadCount} รูป | ตัวเลือก ✅ ${choiceUploadCount} รูป</small>`;
+            }
+
+            Swal.fire({
+                icon: 'success',
+                title: 'สำเร็จ!',
+                html: successMsg,
+                toast: true,
+                position: 'bottom-end',
+                showConfirmButton: false,
+                timer: 4000
+            });
+
+        } catch (error) {
+            console.error(error);
+            Swal.fire('เกิดข้อผิดพลาด', 'บันทึกข้อมูลไม่สำเร็จ: ' + error.message, 'error');
+        }
     }
 
     async function deleteQuestion() {
@@ -4152,35 +4330,6 @@
         updateEditImageGallery();
         // ... (จบโค้ด handleImageInput เดิม) ...
     };
-
-    const updateEditImageGallery = () => {
-        // ... (โค้ด updateEditImageGallery เดิม) ...
-        const $container = $('#edit-image-gallery-container');
-        const $img = $('#edit-gallery-img');
-        const $prevBtn = $('#prev-img-btn');
-        const $nextBtn = $('#next-img-btn');
-        const $counter = $('#image-counter');
-
-        if (editImageArray.length === 0) {
-            $container.hide();
-            return;
-        }
-
-        $container.show();
-        $img.attr('src', transformUrl(editImageArray[editImageIndex]));
-
-        if (editImageArray.length > 1) {
-            $prevBtn.show();
-            $nextBtn.show();
-            $counter.show().text(`${editImageIndex + 1} / ${editImageArray.length}`);
-        } else {
-            $prevBtn.hide();
-            $nextBtn.hide();
-            $counter.hide();
-        }
-        // ... (จบโค้ด updateEditImageGallery เดิม) ...
-    };
-
 
     // ====================================================================
     // 6. QUESTION CONTENT (Choices & Images) LOGIC
@@ -4332,70 +4481,96 @@
 
     // --- Choice Logic ---
     function renderChoicesUI(choicesStr, correctAnsStr, suggestedAnsStr = null) {
-        // ... (โค้ด renderChoicesUI เดิม) ...
-        const $container = $('#dynamic-choices-container');
-        $container.empty();
+            const $container = $('#dynamic-choices-container');
+            $container.empty();
+            choiceImagesData = {}; // รีเซ็ตข้อมูลรูป choice
 
-        let choices = (choicesStr || "").split('///').map(c => c.trim()).filter(c => c !== "");
-        if (choices.length === 0) choices = ["A. ", "B. ", "C. ", "D. "];
+            let choices = (choicesStr || "").split('///').map(c => c.trim()).filter(c => c !== "");
+            if (choices.length === 0) choices = ["A. ", "B. ", "C. ", "D. "];
 
-        const cleanCorrect = (correctAnsStr || "").trim();
-        const cleanSuggested = (suggestedAnsStr || "").trim();
+            const cleanCorrect = (correctAnsStr || "").trim();
+            const cleanSuggested = (suggestedAnsStr || "").trim();
 
-        choices.forEach((choiceText) => {
-            const isOriginalCorrect = (choiceText === cleanCorrect);
-            const isSuggested = (cleanSuggested !== "" && choiceText === cleanSuggested);
-            addChoiceRow(choiceText, isOriginalCorrect, isSuggested);
-        });
-
-        if (suggestedAnsStr && !choices.includes(cleanSuggested)) {
-            $container.prepend(`
-                <div class="alert alert-warning small py-2 mb-2">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    คำตอบที่เสนอมาคือ: <strong>"${cleanSuggested}"</strong> (ไม่มีในตัวเลือกเดิม)
-                </div>
-             `);
+            choices.forEach((choiceText) => {
+                const isOriginalCorrect = (choiceText === cleanCorrect);
+                const isSuggested = (cleanSuggested !== "" && choiceText === cleanSuggested);
+                addChoiceRow(choiceText, isOriginalCorrect, isSuggested);
+            });
         }
 
-        syncChoicesToHiddenInput();
-        // ... (จบโค้ด renderChoicesUI เดิม) ...
-    }
-
     function addChoiceRow(value = "", isOriginalCorrect = false, isSuggested = false) {
-        const $container = $('#dynamic-choices-container');
+            choiceRowCounter++;
+            const rowId = 'choice-row-' + choiceRowCounter;
+            const $container = $('#dynamic-choices-container');
 
-        const rowHtml = `
-<div class="choice-item ${isSuggested ? 'suggested-choice' : ''} mb-3 p-2 border rounded bg-white">
-    <div class="choice-input-group d-flex align-items-center">
-        <input class="form-check-input choice-radio me-2" type="radio" name="correct_answer_group" ${isOriginalCorrect ? 'checked' : ''}>
-        <input type="text" class="form-control choice-text-input" value="${value}" placeholder="ข้อความตัวเลือก หรือ ลิงก์รูปภาพ...">
-        <label class="btn btn-sm btn-outline-primary ms-2 mb-0" title="อัปโหลดรูปสำหรับตัวเลือกนี้">
-            <i class="fas fa-image"></i>
-            <input type="file" class="d-none" accept="image/*" onchange="handleFileUpload(this, 'Choice')">
-        </label>
-        <i class="fas fa-trash-alt btn-remove-choice ms-2 text-danger" style="cursor:pointer" onclick="removeChoiceRowWithTrash(this)"></i>
-    </div>
-    <!-- ส่วนแสดง Preview รูปภาพของ Choice -->
-    <div class="choice-preview-container mt-2 text-center" style="display:none;">
-        <img src="" class="img-thumbnail" style="max-height: 100px; object-fit: contain;">
-        <div class="small text-muted mt-1">Choice Image Preview</div>
-    </div>
-</div>`;
+            // ตรวจสอบว่า Value เป็นรูปภาพหรือไม่ (URL จาก Drive)
+        const isImage = (value.includes('drive.google.com') || value.startsWith('http')) && !value.toLowerCase().includes("require_img");
 
-        const $row = $(rowHtml);
-        $container.append($row);
+            if (isImage) {
+                choiceImagesData[rowId] = { type: 'existing', data: value };
+            }
 
-        // สั่งให้เช็คลิงก์ทันทีที่สร้างแถว (กรณีมีข้อมูลเดิมอยู่แล้ว)
-        renderChoicePreview($row.find('.choice-text-input'));
+            const rowHtml = `
+    <div class="choice-item ${isSuggested ? 'suggested-choice' : ''} mb-3 p-2 border rounded bg-white ${isImage ? 'choice-has-image' : ''}" id="${rowId}">
+        <div class="choice-input-group d-flex align-items-center">
+            <input class="form-check-input choice-radio me-2" type="radio" name="correct_answer_group" ${isOriginalCorrect ? 'checked' : ''}>
+            
+            <!-- กรณีเป็น Text -->
+            <input type="text" class="form-control choice-text-input" value="${isImage ? '' : value}" placeholder="ข้อความตัวเลือก...">
+            
+            <!-- ปุ่ม Upload ภาพ Choice -->
+            <label class="btn btn-sm btn-outline-primary ms-2 mb-0 choice-img-btn" title="อัปโหลดรูปตัวเลือก">
+                <i class="fas fa-image"></i>
+                <input type="file" class="d-none" accept="image/*" onchange="handleChoiceImageSelect(this, '${rowId}')">
+            </label>
+            
+            <!-- ปุ่มลบ Choice ทั้งแถว -->
+            <i class="fas fa-trash-alt btn-remove-choice ms-2 text-danger" style="cursor:pointer" onclick="removeChoiceRow('${rowId}')"></i>
+        </div>
+        
+        <!-- กรณีเป็นรูปภาพ (Preview) -->
+        <div class="choice-preview-container mt-2 d-flex flex-column align-items-center bg-light p-2 border rounded" style="display:none !important;">
+            <img src="${isImage ? transformUrl(value) : ''}" class="img-thumbnail mb-2" style="max-height: 120px; object-fit: contain;">
+            <button type="button" class="btn btn-sm btn-danger" onclick="removeChoiceImage('${rowId}')">
+                <i class="fas fa-times"></i> ลบรูปนี้และใช้ข้อความ
+            </button>
+        </div>
+    </div>`;
+
+            $container.append(rowHtml);
+        }
+    
+    function handleChoiceImageSelect(input, rowId) {
+            if (!input.files || input.files.length === 0) return;
+
+            getBase64(input.files[0]).then(base64 => {
+                choiceImagesData[rowId] = { type: 'pending', data: base64 };
+
+                const $row = $('#' + rowId);
+                $row.addClass('choice-has-image');
+                $row.find('.choice-preview-container img').attr('src', base64);
+                input.value = ''; // เคลียร์ไฟล์
+            });
+        }
+
+    function removeChoiceImage(rowId) {
+        const imgData = choiceImagesData[rowId];
+        if (imgData && imgData.type === 'existing') {
+            // ย้ายลงถังขยะ Drive เบื้องหลัง
+            sendWithRetry({ action: 'deleteImage', username: currentUser.username, adminPass: adminPass, data: { url: imgData.data } });
+        }
+
+        delete choiceImagesData[rowId];
+        const $row = $('#' + rowId);
+        $row.removeClass('choice-has-image');
+        $row.find('.choice-text-input').val(''); // ล้างข้อความให้พิมพ์ใหม่
     }
 
-    function removeChoiceRow(btn) {
-        // ... (โค้ด removeChoiceRow เดิม) ...
-        $(btn).closest('.choice-item').remove();
-        syncChoicesToHiddenInput();
-        // ... (จบโค้ด removeChoiceRow เดิม) ...
+    function removeChoiceRow(rowId) {
+        removeChoiceImage(rowId); // ลบรูปใน Drive ก่อนถ้ามี
+        $('#' + rowId).remove();
     }
-
+    
     function addNewChoiceRow() {
         addChoiceRow("");
     }
@@ -4446,37 +4621,95 @@
 
     // --- Image Logic ---
     function renderImagesUI(imgStr) {
-        // ... (โค้ด renderImagesUI เดิม) ...
-        const $container = $('#dynamic-images-container');
-        $container.empty();
+            existingMainImages = (imgStr || "").split('///')
+                .map(u => u.trim())
+                .filter(u => u !== "" && !u.toLowerCase().includes("require_img"));
 
-        const driveInfoHtml = `
-        <div class="alert alert-primary py-2 px-3 mb-3 border-0 shadow-sm" style="font-size: 0.85rem; background-color: #e8f0fe; border-left: 4px solid #1a73e8 !important;">
-            <div class="d-flex align-items-center">
-                <i class="fab fa-google-drive fa-lg me-2" style="color: #1a73e8;"></i>
-                <div>
-                    <strong>คำแนะนำการใช้งานรูปภาพ:</strong><br>
-                    1. <a href="https://drive.google.com/drive/folders/14rBli4nQQeMIvTIqb6wMahQuAzKzuyjM?usp=sharing" target="_blank" class="fw-bold text-decoration-underline">คลิกเพื่ออัปโหลดรูปที่ Google Drive</a><br>
-                    2. เมื่ออัปโหลดเสร็จแล้ว ให้ <b>Copy Link</b> ของรูปภาพมาวางในช่องด้านล่าง
-                </div>
-            </div>
-        </div>
-    `;
-        $container.append(driveInfoHtml);
+            pendingMainImages = [];
+            syncMainImageGallery();
+        }
 
-        let images = (imgStr || "").split('///').map(u => u.trim()).filter(u => u !== "");
+    function handleMainImagesSelection(input) {
+            if (!input.files || input.files.length === 0) return;
 
-        if (images.length === 0) {
-            addImageRow("");
-        } else {
-            images.forEach(url => {
-                addImageRow(url);
+            let promises = [];
+            for (let i = 0; i < input.files.length; i++) {
+                promises.push(getBase64(input.files[i]));
+            }
+
+            Promise.all(promises).then(base64Array => {
+                pendingMainImages = pendingMainImages.concat(base64Array);
+                syncMainImageGallery();
+                input.value = ''; // เคลียร์ input
             });
         }
 
-        syncImagesToHiddenInput();
-        // ... (จบโค้ด renderImagesUI เดิม) ...
-    }
+        function syncMainImageGallery() {
+                // รวม Array รูปรอแสดงผล
+                editImageArray = [...existingMainImages, ...pendingMainImages];
+
+                if (editImageIndex >= editImageArray.length) {
+                    editImageIndex = Math.max(0, editImageArray.length - 1);
+                }
+                updateEditImageGallery();
+            }
+
+    function updateEditImageGallery() {
+            const $container = $('#edit-image-gallery-container');
+            const $img = $('#edit-gallery-img');
+            const $prevBtn = $('#prev-img-btn');
+            const $nextBtn = $('#next-img-btn');
+            const $counter = $('#image-counter');
+
+            if (editImageArray.length === 0) {
+                $container.hide();
+                return;
+            }
+
+            $container.show();
+
+            // เช็คว่าเป็น URL เดิม (http) หรือ Base64 ใหม่
+            let currentSrc = editImageArray[editImageIndex];
+            if (currentSrc.startsWith('http')) {
+                $img.attr('src', transformUrl(currentSrc));
+            } else {
+                $img.attr('src', currentSrc); // แสดง Base64 ได้เลย
+            }
+
+            if (editImageArray.length > 1) {
+                $prevBtn.show();
+                $nextBtn.show();
+                $counter.show().text(`${editImageIndex + 1} / ${editImageArray.length}`);
+            } else {
+                $prevBtn.hide();
+                $nextBtn.hide();
+                $counter.hide();
+            }
+        }
+
+    function removeCurrentImageFromGallery() {
+            let isExisting = editImageIndex < existingMainImages.length;
+
+            if (isExisting) {
+                // รูปเก่า (จาก DB)
+                let urlToRemove = existingMainImages[editImageIndex];
+                Swal.fire({
+                    title: 'ลบรูปภาพเดิม?', text: "รูปลบจะถูกย้ายลงถังขยะใน Drive", icon: 'warning', showCancelButton: true, confirmButtonText: 'ลบ'
+                }).then(async (result) => {
+                    if (result.isConfirmed) {
+                        // ย้ายลงถังขยะเงียบๆ
+                        sendWithRetry({ action: 'deleteImage', username: currentUser.username, adminPass: adminPass, data: { url: urlToRemove } });
+                        existingMainImages.splice(editImageIndex, 1);
+                        syncMainImageGallery();
+                    }
+                });
+            } else {
+                // รูปใหม่ที่เพิ่ง Paste (ยังไม่ได้ขึ้น Drive) แค่ลบจาก Array
+                let pendingIndex = editImageIndex - existingMainImages.length;
+                pendingMainImages.splice(pendingIndex, 1);
+                syncMainImageGallery();
+            }
+        }
 
     function addImageRow(value = "") {
         const $container = $('#dynamic-images-container');
@@ -6105,43 +6338,43 @@
             $('#user-status-display').text('Guest User').css('color', 'rgba(255,255,255,0.6)');
         }
     }
-    async function sendAdminAction(actionName, dataObj) {
-        $('#loading-overlay').show();
-        try {
-            const payload = {
-                action: actionName,
-                username: currentUser.username,
-                adminPass: adminPass,
-                user: currentUser.displayName,
-                data: dataObj,
-                metadata: navigator.userAgent
-            };
+    async function sendAdminAction(actionName, dataObj, skipReload = false) {
+            $('#loading-overlay').show();
+            try {
+                const payload = {
+                    action: actionName,
+                    username: currentUser.username,
+                    adminPass: adminPass,
+                    user: currentUser.displayName,
+                    data: dataObj,
+                    metadata: navigator.userAgent
+                };
 
-            const resJson = await sendWithRetry(payload);
+                const resJson = await sendWithRetry(payload);
 
-            if (resJson.result === 'success') {
-                // --- ส่วนที่เพิ่ม/แก้ไข ---
-                await clearAdminCache(); // ลบ Cache ทันทีเมื่อมีการเปลี่ยนแปลงข้อมูล
+                if (resJson.result === 'success') {
+                    await clearAdminCache(); // ลบ Cache เดิมทิ้ง
 
-                Swal.fire({
-                    icon: 'success',
-                    title: 'บันทึกสำเร็จ',
-                    toast: true,
-                    position: 'top-end',
-                    showConfirmButton: false,
-                    timer: 2000
-                });
-                fetchData(true); // บังคับโหลดข้อมูลใหม่จาก Server
-                // -----------------------
-            } else {
-                throw new Error(resJson.message || resJson.error || 'Unknown Error');
+                    if (skipReload) {
+                        $('#loading-overlay').hide();
+                        return resJson;
+                    }
+
+                    Swal.fire({
+                        icon: 'success', title: 'บันทึกสำเร็จ', toast: true, position: 'top-end', showConfirmButton: false, timer: 2000
+                    });
+                    fetchData(true);
+                    return resJson;
+                } else {
+                    throw new Error(resJson.message || resJson.error || 'Unknown Error');
+                }
+            } catch (e) {
+                Swal.fire('Error', 'เกิดข้อผิดพลาด: ' + e.message, 'error');
+                $('#loading-overlay').hide();
+                throw e; // โยน Error ออกไปให้ฟังก์ชันที่เรียกใช้จัดการต่อ
             }
-        } catch (e) {
-            Swal.fire('Error', 'เกิดข้อผิดพลาด: ' + e.message, 'error');
-        } finally {
-            $('#loading-overlay').hide();
         }
-    }
+
     function formatDate(dateString) {
         // ... (โค้ด formatDate เดิม) ...
         if (!dateString) return '';
