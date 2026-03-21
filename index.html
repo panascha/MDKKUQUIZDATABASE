@@ -1086,7 +1086,7 @@
         }
 
         .img-preview-mini:hover {
-            transform: scale(2.5);
+            transform: scale(1.5);
             transition: transform 0.2s;
             z-index: 100;
             position: relative;
@@ -1359,6 +1359,45 @@
             box-shadow: 0 2px 8px rgba(198, 40, 40, 0.2);
         }
 
+        .btn-group .btn-outline-primary {
+    border-color: #d1d3e2;
+    color: #858796;
+}
+
+.btn-group .btn-outline-primary:hover {
+    background-color: #f8f9fc;
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.btn-group .btn-outline-primary.active {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #fff;
+    box-shadow: inset 0 3px 5px rgba(0,0,0,.125);
+}
+
+.view-as-card {
+    display: block !important;
+}
+
+.view-as-card tbody {
+    display: block !important;
+    width: 100% !important;
+}
+
+.view-as-card.table-bordered {
+    border: none !important;
+}
+
+.view-as-card.table-bordered > :not(caption) > * > * {
+    border-width: 0 0 1px 0 !important;
+}
+
+.content-section:not(.hidden) .view-as-card {
+    animation: fadeIn 0.5s ease-in-out;
+}
+
         /* ระบบเปิด-ปิด (Collapse) */
         .toggle-icon {
             cursor: pointer;
@@ -1441,115 +1480,80 @@
 }
 
 /* --- Mobile Responsive Table (Card View) --- */
+/* --- โหมดการ์ด (Card View Mode) --- */
+/* ทำงานเมื่อตารางมีคลาส .view-as-card หรือเมื่ออยู่ในมือถืออัตโนมัติ */
 @media (max-width: 767.98px) {
-    /* 1. ซ่อนหัวตารางดั้งเดิม */
-    #publicTable thead, #adminTable thead,
-    #publicTable_wrapper .dataTables_scrollHead,
-    #adminTable_wrapper .dataTables_scrollHead {
-        display: none !important;
-    }
-
-    /* 2. ปรับแต่ง Container ของตาราง */
-    #publicTable, #adminTable {
-        border: none !important;
-        display: block !important;
-        width: 100% !important;
-    }
-
-    #publicTable tbody, #adminTable tbody {
-        display: block !important;
-        width: 100% !important;
-    }
-
-    /* 3. เปลี่ยนแต่ละแถว (TR) ให้เป็นการ์ด */
-    #publicTable tr, #adminTable tr {
-        display: block !important;
-        margin-bottom: 20px !important;
-        background-color: #fff !important;
-        border-radius: 15px !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.08) !important;
-        border: 1px solid #e3e6f0 !important;
-        overflow: hidden;
-        position: relative;
-    }
-
-    /* 4. ปรับแต่งแต่ละเซลล์ (TD) */
-    #publicTable td, #adminTable td {
-        display: flex !important;
-        flex-direction: row;
-        justify-content: flex-start;
-        align-items: flex-start;
-        padding: 12px 15px !important;
-        border: none !important;
-        border-bottom: 1px solid #f1f3f9 !important;
-        width: 100% !important;
-        white-space: normal !important;
-        font-size: 0.9rem;
-    }
-
-    /* 5. แทรกชื่อคอลัมน์ (Label) ไว้ข้างหน้าข้อมูล */
-    #publicTable td::before, #adminTable td::before {
-        content: attr(data-label);
-        font-weight: 700;
-        color: var(--primary-color);
-        width: 100px; /* บังคับความกว้าง Label ให้เท่ากัน */
-        min-width: 100px;
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        display: inline-block;
-    }
-
-    /* 6. ปรับแต่งเฉพาะคอลัมน์ Question (โจทย์) ให้เด่นที่สุด */
-    #publicTable td:nth-child(3), #adminTable td:nth-child(3) {
-        display: block !important; /* โจทย์ให้โชว์เป็นแนวตั้งเต็มแถว */
-        background-color: #f8faff;
-        border-left: 5px solid var(--primary-color) !important;
-    }
-    #publicTable td:nth-child(3)::before, #adminTable td:nth-child(3)::before {
-        display: block;
-        margin-bottom: 8px;
-    }
-
-    /* 7. ปรับแต่งการแสดงผลรูปภาพ */
-    #publicTable td:nth-child(4), #adminTable td:nth-child(4) {
-        align-items: center;
-    }
-    .img-preview-mini {
-        max-height: 100px !important;
-        width: auto !important;
-        border-radius: 8px !important;
-        margin-top: 5px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    }
-
-    /* 8. คอลัมน์ Answer (เฉลย) ให้ใช้ตัวหนา */
-    #publicTable td:nth-child(5), #adminTable td:nth-child(5) {
-        color: #1cc88a;
-        font-weight: 600;
-    }
-
-    /* 9. จัดการปุ่ม Action (ท้ายการ์ด) */
-    #publicTable td:last-child, #adminTable td:last-child {
-        border-bottom: none !important;
-        padding: 15px !important;
-        background-color: #f1f3f9;
-        justify-content: center;
-    }
-    #publicTable td:last-child::before, #adminTable td:last-child::before {
-        display: none; /* ซ่อน Label ในช่อง Action */
-    }
-    #publicTable td:last-child .btn, #adminTable td:last-child .btn {
-        width: 100%; /* ปุ่มขยายเต็มความกว้างให้ใช้นิ้วกดง่าย */
-        padding: 10px;
-        font-weight: bold;
-        border-radius: 10px;
-    }
-    
-    /* ซ่อนคอลัมน์ที่ไม่จำเป็นมากในหน้าจอเล็ก (เช่น Subject ถ้ามี Category อยู่แล้ว) */
-    #publicTable td:nth-child(1), #adminTable td:nth-child(1) {
-        /* display: none !important; */ /* เปิดคอมเม้นต์นี้ถ้าอยากซ่อน Subject */
-    }
+    .table-responsive table { display: block !important; }
 }
+
+.view-as-card thead {
+    display: none !important;
+}
+
+.view-as-card tbody {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 20px;
+    padding: 10px 0;
+    background: transparent !important;
+}
+
+.view-as-card tr {
+    display: block !important;
+    background-color: #fff !important;
+    border-radius: 15px !important;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08) !important;
+    border: 1px solid #e3e6f0 !important;
+    overflow: hidden;
+    width: 100% !important; /* ค่าเริ่มต้น 1 ใบต่อแถว */
+    transition: transform 0.2s;
+}
+
+.view-as-card td {
+    display: flex !important;
+    padding: 12px 15px !important;
+    border: none !important;
+    border-bottom: 1px solid #f1f3f9 !important;
+    width: 100% !important;
+    font-size: 0.9rem;
+    align-items: flex-start;
+}
+
+.view-as-card td::before {
+    content: attr(data-label);
+    font-weight: 700;
+    color: var(--primary-color);
+    width: 100px;
+    min-width: 100px;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+}
+
+/* โจทย์ (Question) */
+.view-as-card td:nth-child(3) {
+    display: block !important;
+    background-color: #f8faff;
+    border-left: 5px solid var(--primary-color) !important;
+}
+.view-as-card td:nth-child(3)::before {
+    display: block;
+    margin-bottom: 8px;
+}
+
+/* รูปภาพ */
+.view-as-card .img-preview-mini {
+    max-height: 120px !important;
+    border-radius: 8px;
+}
+
+/* ปุ่ม Action */
+.view-as-card td:last-child {
+    background-color: #f1f3f9;
+    justify-content: center;
+    border-bottom: none !important;
+}
+.view-as-card td:last-child::before { display: none; }
+.view-as-card td:last-child .btn { width: 100%; }
 
         /* General small-device tweaks */
         @media (max-width: 575.98px) {
@@ -1891,34 +1895,58 @@
             <!-- SECTION: Public Search -->
             <div id="sec-public-search" class="content-section hidden">
                 <div class="card card-dashboard">
-                    <div class="card-header-custom">
+                    <div class="card-header-custom d-flex justify-content-between align-items-center">
                         <span><i class="fas fa-search me-2"></i> ค้นหาข้อสอบ (Read Only)</span>
+                        <!-- (Optional) ถ้าอยากเอาปุ่มไปไว้ที่ Header ให้ย้ายชุด btn-group มาไว้ตรงนี้ -->
                     </div>
                     <div class="card-body">
-                        <!-- Filters -->
-                        <div class="row mb-3">
-                            <div class="col-md-3">
-                                <select class="form-select" id="search-subject-filter">
+                        <!-- Filter & View Toggle Row -->
+                        <div class="row mb-3 align-items-end">
+                            <!-- Select Subject -->
+                            <div class="col-md-4 col-sm-5 mb-2 mb-md-0">
+                                <label class="small fw-bold mb-1 text-muted">วิชา (Subject):</label>
+                                <select class="form-select form-select-sm" id="search-subject-filter">
                                     <option value="">All Subjects</option>
                                 </select>
                             </div>
-                            <div class="col-md-3">
-                                <select class="form-select" id="search-category-filter">
+            
+                            <!-- Select Category -->
+                            <div class="col-md-4 col-sm-5 mb-2 mb-md-0">
+                                <label class="small fw-bold mb-1 text-muted">หัวข้อ (Category):</label>
+                                <select class="form-select form-select-sm" id="search-category-filter">
                                     <option value="">All Categories</option>
                                 </select>
                             </div>
+            
+                            <!-- View Mode Toggle (จัดชิดขวาในคอม) -->
+                            <div class="col-md-4 col-sm-2 text-md-end">
+                                <div class="d-inline-block">
+                                    <label class="small fw-bold mb-1 text-muted d-block d-md-none">มุมมอง:</label>
+                                    <div class="btn-group btn-group-sm shadow-sm" role="group" aria-label="View Mode">
+                                        <button type="button" class="btn btn-outline-primary"
+                                            onclick="setTableView('publicTable', 'table', this)" title="Table View">
+                                            <i class="fas fa-table"></i> <span class="d-none d-lg-inline ms-1">Table</span>
+                                        </button>
+                                        <button type="button" class="btn btn-outline-primary active"
+                                            onclick="setTableView('publicTable', 'card', this)" title="Card View">
+                                            <i class="fas fa-th-large"></i> <span class="d-none d-lg-inline ms-1">Cards</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-
-                        <div class="table-responsive">
-                            <table id="publicTable" class="table table-bordered table-striped" style="width:100%">
-                                <thead>
+            
+                        <!-- Table Area -->
+                        <div class="table-responsive border-top pt-3" style="overflow-x: visible;">
+                                <table id="publicTable" class="table table-bordered table-striped view-as-card" style="width:100%">
+                                <thead class="table-light">
                                     <tr>
                                         <th>Subject</th>
                                         <th>Category</th>
                                         <th>Question</th>
                                         <th>Img</th>
                                         <th>Answer</th>
-                                        <th>Action</th>
+                                        <th style="width: 80px;">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1960,12 +1988,20 @@
                 <div class="card card-dashboard">
                     <div class="card-header-custom">
                         <span><i class="fas fa-database me-2"></i> จัดการคลังข้อสอบ (Edit Mode)</span>
-                        <div>
-                            <!-- เพิ่มปุ่มนี้เข้าไป -->
+                        <div class="d-flex align-items-center">
                             <!-- <button class="btn btn-outline-secondary btn-sm shadow-sm me-2" onclick="promptRestoreImage()">
                                 <i class="fas fa-trash-restore"></i> กู้คืนรูปภาพ
                             </button> -->
-                            <!-- ปุ่มเดิมที่มีอยู่แล้ว -->
+                            <div class="btn-group btn-group-sm me-3" role="group">
+                                <button type="button" class="btn btn-outline-primary" onclick="setTableView('adminTable', 'table', this)"
+                                    title="Table View">
+                                    <i class="fas fa-list"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-primary active" onclick="setTableView('adminTable', 'card', this)"
+                                    title="Card View">
+                                    <i class="fas fa-window-restore"></i>
+                                </button>
+                            </div>
                             <button class="btn btn-success btn-sm shadow-sm" onclick="showSection('converter')">
                                 <i class="fas fa-plus"></i> Import New
                             </button>
@@ -1995,7 +2031,7 @@
                         </div>
 
                         <div class="table-responsive">
-                            <table id="adminTable" class="table table-bordered table-striped" style="width:100%">
+                            <table id="adminTable" class="table table-bordered table-striped view-as-card" style="width:100%">
                                 <thead class="table-light">
                                     <tr>
                                         <th>Subject</th> <!-- แยก Subject -->
@@ -3752,6 +3788,13 @@
         if (!$('#sec-dashboard').hasClass('hidden')) {
             updateDashboard();
         }
+
+        if ($.fn.DataTable.isDataTable('#publicTable')) {
+            $('#publicTable').DataTable().columns.adjust();
+        }
+        if ($.fn.DataTable.isDataTable('#adminTable')) {
+            $('#adminTable').DataTable().columns.adjust();
+        }
     }
     function updateDashboard() {
         // 1. Stats Cards เดิม
@@ -3952,6 +3995,31 @@
     // 4. TABLES INITIALIZATION
     // ====================================================================
 
+    function setTableView(tableId, mode, btn) {
+            const $table = $('#' + tableId);
+
+            // 1. จัดการ UI ของปุ่ม (Siblings คือปุ่มข้างๆ ในกลุ่มเดียวกัน)
+            $(btn).parent().find('.btn').removeClass('active');
+            $(btn).addClass('active');
+
+            // 2. จัดการมุมมอง
+            if (mode === 'card') {
+                $table.addClass('view-as-card');
+                // ปิด Horizontal Scroll ของ Wrapper
+                $table.closest('.table-responsive').css('overflow-x', 'visible');
+            } else {
+                $table.removeClass('view-as-card');
+                // เปิด Horizontal Scroll ของ Wrapper
+                $table.closest('.table-responsive').css('overflow-x', 'auto');
+            }
+
+            // 3. ปรับการแสดงผล DataTables (ป้องกันตารางเบี้ยว)
+            if ($.fn.DataTable.isDataTable('#' + tableId)) {
+                const dt = $('#' + tableId).DataTable();
+                dt.columns.adjust().draw(); // คำนวณความกว้างใหม่
+            }
+        }
+
     function initPublicTable() {
         // ... (โค้ด initPublicTable เดิม) ...
         if ($.fn.DataTable.isDataTable('#publicTable')) return;
@@ -3960,22 +4028,30 @@
             data: globalData.questions,
             columns: [
                 {
-                    data: 'subject',
-                    createdCell: function (td) { $(td).attr('data-label', 'Subject'); }, // เพิ่มบรรทัดนี้
-                    render: function (data, type, row) { return getSubjectFromCategory(row.category); }
+                    data: null,
+                    defaultContent: '-',
+                    createdCell: (td) => $(td).attr('data-label', 'Subject'),
+                    render: function (data, type, row) {
+                        // ป้องกัน Error กรณี row หรือ category ไม่มีค่า
+                        if (!row || !row.category) return '-';
+                        return getSubjectFromCategory(row.category);
+                    }                
                 },
                 {
                     data: 'category',
-                    createdCell: function (td) { $(td).attr('data-label', 'Category'); }, // เพิ่มบรรทัดนี้
-                    render: function (data) { return Array.isArray(data) ? data.join(', ') : data; }
-                },
+                    defaultContent: '-',
+                    createdCell: (td) => $(td).attr('data-label', 'Category'),
+                    render: function (data) {
+                        if (!data) return '-';
+                        return Array.isArray(data) ? data.join(', ') : data;
+                    }                },
                 {
                     data: 'problem',
-                    createdCell: function (td) { $(td).attr('data-label', 'Question'); } // เพิ่มบรรทัดนี้
+                    createdCell: (td) => $(td).attr('data-label', 'Question'),
                 },
                 {
                     data: 'img',
-                    createdCell: function (td) { $(td).attr('data-label', 'Image'); }, // เพิ่มบรรทัดนี้
+                    createdCell: (td) => $(td).attr('data-label', 'Image'),
                     render: function (data) {
                         if (!data) return '-';
                         let firstImg = data.split('///')[0];
@@ -3984,7 +4060,7 @@
                 },
                 {
                     data: 'answer',
-                    createdCell: function (td) { $(td).attr('data-label', 'Answer'); } // เพิ่มบรรทัดนี้
+                    createdCell: (td) => $(td).attr('data-label', 'Answer') // เพิ่มบรรทัดนี้
                 },
                 {
                     data: null,
@@ -4023,27 +4099,28 @@
             data: globalData.questions,
             columns: [
                 {
-                    data: 'subject',
+                    data: null,
                     defaultContent: '-',
-                    createdCell: function (td) { $(td).attr('data-label', 'Subject'); }, // เพิ่มบรรทัดนี้
+                    createdCell: (td) => $(td).attr('data-label', 'Subject'),
                     render: function (data, type, row) {
+                        if (!row || !row.category) return '-';
                         return getSubjectFromCategory(row.category);
                     }
                 },
                 {
                     data: 'category',
-                    createdCell: function (td) { $(td).attr('data-label', 'Category'); }, // เพิ่มบรรทัดนี้
+                    createdCell: (td) => $(td).attr('data-label', 'Category'), // เพิ่มบรรทัดนี้
                     render: function (data) {
                         if (!data) return '-';
                         return Array.isArray(data) ? data.join(', ') : data;
                     }
                 },
                 {   data: 'problem',
-                    createdCell: function (td) { $(td).attr('data-label', 'Question'); }, // เพิ่มบรรทัดนี้
+                    createdCell: (td) => $(td).attr('data-label', 'Question'), // เพิ่มบรรทัดนี้
                     defaultContent: '' },
                 {
                     data: 'img',
-                    createdCell: function (td) { $(td).attr('data-label', 'Image'); }, // เพิ่มบรรทัดนี้
+                    createdCell: (td) => $(td).attr('data-label', 'Image'), // เพิ่มบรรทัดนี้
                     render: function (data) {
                         if (!data) return '-';
                         // ถ้าเจอ require_img ให้แสดงเป็น Badge สีเหลืองเพื่อให้สังเกตง่ายในตาราง
@@ -4055,7 +4132,7 @@
                     }
                 },
                 {   data: 'answer',
-                    createdCell: function (td) { $(td).attr('data-label', 'Answer'); }, // เพิ่มบรรทัดนี้
+                    createdCell: (td) => $(td).attr('data-label', 'Answer'), // เพิ่มบรรทัดนี้
                     defaultContent: '' },
                 {
                     data: null,
