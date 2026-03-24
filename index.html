@@ -953,6 +953,26 @@
             width: 100%;
         }
 
+        .svg-render-area, .svg-choice-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 8px;
+    background-color: #ffffff;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+/* บังคับขนาด SVG ให้พอดีกรอบ ไม่ให้ล้น */
+.svg-render-area svg, .svg-choice-container svg {
+    max-width: 100% !important;
+    max-height: 150px !important; /* ปรับเพิ่ม/ลดได้ตามความเหมาะสม */
+    width: auto !important;
+    height: auto !important;
+    display: block;
+}
+
         .btn-remove-choice {
             color: #dc3545;
             cursor: pointer;
@@ -1044,6 +1064,21 @@
     position: relative;
     height: 120px;
 }
+.svg-preview-box {
+    width: 100%;
+    height: 100%;
+    padding: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.svg-preview-box svg {
+    max-width: 80px;
+    max-height: 80px;
+    width: auto;
+    height: auto;
+}
 .library-item:hover {
     border-color: var(--primary-color);
     transform: scale(1.05);
@@ -1053,6 +1088,12 @@
     width: 100%;
     height: 100%;
     object-fit: contain;
+    background: #fff;
+}
+.library-item.svg-item {
+    display: flex;
+    justify-content: center;
+    align-items: center;
     background: #fff;
 }
 .library-group-header {
@@ -3660,45 +3701,60 @@
     }
 
     async function fetchData(forceRefresh = false, isAutoPoll = false) {
+            if (isFetching) return;
+            isFetching = true;
 
-        if (isFetching) return; // ป้องกันการดึงข้อมูลซ้ำซ้อน
-        isFetching = true;
+            const cacheKey = 'global_admin_data';
+            const verKey = 'global_admin_ver';
 
-        const cacheKey = 'global_admin_data';
-        const verKey = 'global_admin_ver';
+            // 1. ดึงข้อมูลจากเครื่อง (IndexedDB) มาเก็บไว้ก่อน
+            const localData = await getCacheDB(cacheKey);
+            const localVer = await getCacheDB(verKey);
 
-        // 1. ดึงข้อมูลจากเครื่อง (IndexedDB) มาโชว์ก่อนทันทีเพื่อความเร็ว
-        const localData = await getCacheDB(cacheKey);
-        const localVer = await getCacheDB(verKey);
+            // แสดงผลข้อมูลที่มีในเครื่องทันทีเพื่อให้ User ไม่ต้องรอ (Optimistic UI)
+            if (localData) {
+                globalData = localData;
+                finalizeDataLoading();
+            }
 
-        // ถ้ามีข้อมูลในเครื่องและไม่บังคับรีเฟรช ให้ใช้ข้อมูลนั้นก่อน (เพื่อความเร็วในการแสดงผล)
-        if (localData && !forceRefresh) {
-            globalData = localData;
-            finalizeDataLoading();
-        }
+            try {
+                // 2. เช็ค Version จาก Server ก่อนเสมอ (ใช้ Request ขนาดเล็กมาก)
+                const resVer = await fetch(`${APPSCRIPT_URL}?action=checkVersion`).then(r => r.json());
+                const serverVersion = resVer.v;
 
-        try {
-            if (!isAutoPoll) $('#loading-overlay').fadeIn(200).css('display', 'flex'); // โชว์โหลดเฉพาะตอนกดเอง
-            // 2. เช็คเวอร์ชันและโหลดข้อมูลใหม่ในพื้นหลัง
-            const resVer = await fetch(`${APPSCRIPT_URL}?action=checkVersion`).then(r => r.json());
-            const serverVersion = resVer.v;
+                // --- จุดที่ปรับปรุงใหม่: ตรวจสอบเงื่อนไขการ Skip ---
+                // ถ้า (ไม่ใช่การบังคับดึงใหม่) และ (มีข้อมูลในเครื่อง) และ (Version ตรงกัน)
+                if (!forceRefresh && localData && localVer === serverVersion) {
+                    console.log("🚀 ข้อมูลเป็นเวอร์ชันล่าสุดแล้ว (${serverVersion}) - ข้ามการดึงข้อมูลจาก Server");
 
-            if (forceRefresh || localVer !== serverVersion || !localData) {
-                if (isAutoPoll && localData && localVer !== serverVersion) {
-                    Swal.fire({
-                        icon: 'info',
-                        title: 'พบข้อมูลอัปเดตใหม่',
-                        text: 'กำลังซิงค์ข้อมูลล่าสุดจากฐานข้อมูล...',
-                        toast: true,
-                        position: 'bottom-end',
-                        showConfirmButton: false,
-                        timer: 3000
-                    });
+                    // ถ้าเป็นการกด Refresh เอง (ไม่ใช่ AutoPoll) ให้แจ้ง Toast บอกว่าข้อมูลล่าสุดแล้ว
+                    if (!isAutoPoll) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'ข้อมูลเป็นปัจจุบันแล้ว',
+                            toast: true,
+                            position: 'top-end',
+                            showConfirmButton: false,
+                            timer: 1500
+                        });
+                    }
+
+                    isFetching = false;
+                    $('#loading-overlay').hide();
+                    return; // จบการทำงาน ไม่ต้องดึง getAllData
                 }
+                // ---------------------------------------------
+
+                // 3. ถ้า Version ไม่ตรง หรือไม่มีข้อมูล หรือสั่ง forceRefresh ให้เริ่มดึงข้อมูลทั้งหมด
+                if (!isAutoPoll) {
+                    $('#loading-overlay').fadeIn(200).css('display', 'flex');
+                    $('#loading-overlay').find('h5').text('พบข้อมูลเวอร์ชันใหม่ กำลังโหลด...');
+                }
+
                 const response = await fetch(`${APPSCRIPT_URL}?action=getAllData`);
                 const data = await response.json();
 
-                // Data Processing
+                // --- Data Processing (ส่วนเดิมของคุณ) ---
                 globalData.questions = (data.questions || []).map(q => {
                     if (typeof q.category === 'string' && q.category.startsWith('[')) {
                         try { q.category = JSON.parse(q.category.replace(/'/g, '"')); }
@@ -3715,25 +3771,39 @@
                 globalData.logs = data.logs || [];
                 globalData.admins = data.admins || [];
 
-                // บันทึก Cache
+                // 4. บันทึกข้อมูลและ Version ใหม่ลง Cache
                 await setCacheDB(cacheKey, globalData);
                 await setCacheDB(verKey, serverVersion);
 
+                // แสดง Toast แจ้งเตือนกรณีเจอข้อมูลใหม่ตอน AutoPoll
+                if (isAutoPoll && localData && localVer !== serverVersion) {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'อัปเดตข้อมูลแล้ว',
+                        text: 'ระบบพบข้อมูลเวอร์ชันใหม่และซิงค์เรียบร้อย',
+                        toast: true,
+                        position: 'bottom-end',
+                        showConfirmButton: false,
+                        timer: 3000
+                    });
+                }
+
                 const isUserBusy = $('.modal.show').length > 0;
                 if (isAutoPoll && isUserBusy) {
-                    console.log("User is busy. Data cached in background. UI will update on next navigation.");
+                    console.log("User is busy. Data cached in background.");
                 } else {
                     finalizeDataLoading();
                 }
-            }
 
-        } catch (error) {
-            console.error("Fetch Data Error:", error);
-            if (!localData) Swal.fire('Error', 'ไม่สามารถโหลดข้อมูลได้: ' + error.message, 'error');
-        } finally {
-            $('#loading-overlay').hide();
+            } catch (error) {
+                console.error("Fetch Data Error:", error);
+                if (!localData) Swal.fire('Error', 'ไม่สามารถโหลดข้อมูลได้: ' + error.message, 'error');
+            } finally {
+                isFetching = false; // ต้องปลดล็อคเพื่อให้กดโหลดใหม่ได้
+                $('#loading-overlay').hide();
+            }
         }
-    }
+
     function finalizeDataLoading() {
         updateDashboard();
         populateFilters();
@@ -4926,43 +4996,43 @@
             const rowId = 'choice-row-' + choiceRowCounter;
             const $container = $('#dynamic-choices-container');
 
-            // ตรวจสอบว่า Value เป็นรูปภาพหรือไม่ (URL จาก Drive)
-        const isImage = (value.includes('drive.google.com') || value.startsWith('http')) && !value.toLowerCase().includes("require_img");
+            // ตรวจสอบเบื้องต้นว่าเป็นไฟล์ภาพจาก Drive หรือไม่ (เพื่อจัดการเรื่องลบไฟล์)
+            const isImageFile = (value.includes('drive.google.com') || value.startsWith('http')) && !value.toLowerCase().includes("require_img");
 
-            if (isImage) {
+            if (isImageFile) {
                 choiceImagesData[rowId] = { type: 'existing', data: value };
             }
 
             const rowHtml = `
-    <div class="choice-item ${isSuggested ? 'suggested-choice' : ''} mb-3 p-2 border rounded bg-white ${isImage ? 'choice-has-image' : ''}" id="${rowId}">
+    <div class="choice-item ${isSuggested ? 'suggested-choice' : ''} mb-3 p-2 border rounded bg-white" id="${rowId}">
         <div class="choice-input-group d-flex align-items-center">
             <input class="form-check-input choice-radio me-2" type="radio" name="correct_answer_group" ${isOriginalCorrect ? 'checked' : ''}>
             
-            <!-- กรณีเป็น Text -->
-            <input type="text" class="form-control choice-text-input" value="${isImage ? '' : value}" placeholder="ข้อความตัวเลือก...">
+            <!-- ช่อง Input เว้น value ไว้ใส่ทีหลังด้วย .val() -->
+            <input type="text" class="form-control choice-text-input" placeholder="ข้อความตัวเลือก หรือวาง <svg>...">
             
-            <!-- ปุ่ม Upload ภาพ Choice -->
-            <label class="btn btn-sm btn-outline-primary ms-2 mb-0 choice-img-btn" title="อัปโหลดรูปตัวเลือก">
+            <label class="btn btn-sm btn-outline-primary ms-2 mb-0" title="อัปโหลดรูป">
                 <i class="fas fa-image"></i>
                 <input type="file" class="d-none" accept="image/*" onchange="handleChoiceImageSelect(this, '${rowId}')">
             </label>
             
-            <!-- ปุ่มลบ Choice ทั้งแถว -->
             <i class="fas fa-trash-alt btn-remove-choice ms-2 text-danger" style="cursor:pointer" onclick="removeChoiceRow('${rowId}')"></i>
         </div>
         
-        <!-- กรณีเป็นรูปภาพ (Preview) -->
-        <div class="choice-preview-container mt-2 d-flex flex-column align-items-center bg-light p-2 border rounded" style="display:none !important;">
-            <img src="${isImage ? transformUrl(value) : ''}" class="img-thumbnail mb-2" style="max-height: 120px; object-fit: contain;">
-            <button type="button" class="btn btn-sm btn-danger" onclick="removeChoiceImage('${rowId}')">
-                <i class="fas fa-times"></i> ลบรูปนี้และใช้ข้อความ
+        <div class="choice-preview-container mt-2 d-flex flex-column align-items-center bg-light p-2 border rounded" style="display:none;">
+            <img src="" class="img-thumbnail mb-2" style="max-height: 120px; object-fit: contain; display:none;">
+            <button type="button" class="btn btn-sm btn-danger btn-remove-svg" onclick="removeChoiceImage('${rowId}')" style="display:none;">
+                <i class="fas fa-times"></i> ลบสื่อนี้
             </button>
         </div>
-    </div>`;
+    </div>`;            
+            const $row = $(rowHtml);
+            $row.find('.choice-text-input').val(value);
+            $container.append($row);
 
-            $container.append(rowHtml);
+            // สั่งให้ Render Preview ทันทีที่เพิ่มแถว
+            renderChoicePreview($row.find('.choice-text-input'));
         }
-    
     function handleChoiceImageSelect(input, rowId) {
             if (!input.files || input.files.length === 0) return;
 
@@ -4977,11 +5047,13 @@
         }
 
     function removeChoiceImage(rowId) {
+            const $row = $('#' + rowId);
+            const $input = $row.find('.choice-text-input');
             const imgData = choiceImagesData[rowId];
-            let qId = $('#edit-q-id').val(); // ดึง ID ข้อปัจจุบัน
+            const qId = $('#edit-q-id').val();
 
-            if (imgData && imgData.type === 'existing') {
-                // ส่งลบเบื้องหลัง พร้อมแนบ currentQid ไปด้วย
+            // 1. ถ้าเป็นรูปใน Google Drive ให้ส่งคำสั่งลบไปที่ Server
+            if (imgData && imgData.type === 'existing' && imgData.data.includes('drive.google.com')) {
                 sendWithRetry({
                     action: 'deleteImage',
                     username: currentUser.username,
@@ -4990,10 +5062,12 @@
                 });
             }
 
+            // 2. ล้างข้อมูลใน Memory
             delete choiceImagesData[rowId];
-            const $row = $('#' + rowId);
-            $row.removeClass('choice-has-image');
-            $row.find('.choice-text-input').val(''); // ล้างข้อความให้พิมพ์ใหม่
+
+            // 3. ล้างค่าในช่อง Input และสั่งรีเฟรช Preview
+            $input.val('');
+            renderChoicePreview($input);
         }
 
     function removeChoiceRow(rowId) {
@@ -5031,29 +5105,46 @@
 
     // ฟังก์ชันช่วยแสดง Preview รูปภาพใน Choice
     function renderChoicePreview($inputEl) {
-        const text = $inputEl.val().trim();
-        const $previewContainer = $inputEl.closest('.choice-item').find('.choice-preview-container');
-        const $previewImg = $previewContainer.find('img');
+            const text = $inputEl.val().trim();
+            const $item = $inputEl.closest('.choice-item');
+            const $previewContainer = $item.find('.choice-preview-container');
+            const $previewImg = $previewContainer.find('img');
+            const $btnRemoveSvg = $item.find('.btn-remove-svg'); // ดึงตัวแปรปุ่มมาเตรียมไว้
 
-        // ตรวจสอบว่าเป็นลิงก์รูปภาพ (Drive หรือ URL ทั่วไป)
-        if (text.includes('drive.google.com') || text.match(/\.(jpeg|jpg|gif|png|webp)$/i) || text.startsWith('http')) {
-            $previewImg.attr('src', transformUrl(text));
-            $previewContainer.show();
-
-            // กรณีโหลดรูปไม่ขึ้น (ไม่ใช่รูปจริงๆ) ให้ซ่อน
-            $previewImg.off('error').on('error', function () {
-                $previewContainer.hide();
-            });
-        } else {
+            // 1. ล้างสถานะเดิมทิ้งทั้งหมดก่อน
+            $previewContainer.find('.svg-render-area').remove();
+            $previewImg.attr('src', '').hide();
+            $btnRemoveSvg.hide(); // ซ่อนปุ่ม "ลบสื่อนี้" ไว้ก่อนเสมอ
             $previewContainer.hide();
+
+            if (!text) return;
+
+            // 2. ตรวจสอบว่าเป็น SVG Code หรือไม่
+            if (text.startsWith('<svg')) {
+                $previewContainer.prepend(`<div class="svg-render-area">${text}</div>`);
+                $btnRemoveSvg.show(); // <<< แสดงปุ่ม "ลบสื่อนี้" เฉพาะกรณี SVG
+                $previewContainer.show();
+            }
+            // 3. ตรวจสอบว่าเป็นลิงก์รูปภาพ (Drive, Direct Link, blob, data:image)
+            else if (text.includes('drive.google.com') || text.startsWith('http') || text.startsWith('blob:') || text.startsWith('data:image')) {
+                const finalUrl = transformUrl(text);
+                $previewImg.attr('src', finalUrl).show();
+
+                $btnRemoveSvg.hide(); // <<< มั่นใจว่าปุ่มถูกซ่อนเมื่อเป็นรูปภาพ
+                $previewContainer.show();
+
+                $previewImg.off('error').on('error', function () {
+                    $(this).hide();
+                    $previewContainer.hide();
+                });
+            }
         }
-    }
 
     // --- Image Logic ---
     function renderImagesUI(imgStr) {
             existingMainImages = (imgStr || "").split('///')
                 .map(u => u.trim())
-                .filter(u => u !== "" && !u.toLowerCase().includes("require_img"));
+                .filter(u => u !== "");
 
             pendingMainImages = [];
             syncMainImageGallery();
@@ -5208,102 +5299,102 @@
         // ==========================================
 
         function openImageLibrary() {
-            // 1. หาวิชาปัจจุบันจากข้อสอบที่กำลังแก้ไขอยู่
-            const categoryString = $('#edit-category-hidden').val();
-            let currentCategories = [];
-            try { currentCategories = JSON.parse(categoryString); } catch (e) { }
+                const categoryString = $('#edit-category-hidden').val();
+                let currentCategories = [];
+                try { currentCategories = JSON.parse(categoryString); } catch (e) { }
 
-            if (currentCategories.length === 0) {
-                Swal.fire('แจ้งเตือน', 'กรุณาเลือกวิชาและหัวข้อ (Category) ก่อนเปิดคลังรูปภาพ', 'warning');
-                return;
+                if (currentCategories.length === 0) {
+                    Swal.fire('แจ้งเตือน', 'กรุณาเลือกวิชาและหัวข้อก่อนเปิดคลังสื่อ', 'warning');
+                    return;
+                }
+
+                const currentSubject = getSubjectFromCategory(currentCategories[0]);
+                $('#library-subject-name').text(currentSubject);
+
+                const libraryMap = {};
+                let totalItems = 0;
+
+                globalData.questions.forEach(q => {
+                    const qSubject = getSubjectFromCategory(q.category);
+                    if (qSubject !== currentSubject) return;
+
+                    const qCategoryName = Array.isArray(q.category) ? q.category[0] : q.category;
+
+                    // ฟังก์ชันช่วยตรวจสอบและเพิ่มสื่อลง Library
+                    const extractMedia = (str) => {
+                        if (!str) return;
+                        const parts = str.split('///').map(u => u.trim()).filter(Boolean);
+                        parts.forEach(part => {
+                            // เช็คว่าเป็นลิงก์รูปภาพ หรือ โค้ด SVG
+                            if (part.includes('drive.google.com') || part.startsWith('http') || part.startsWith('<svg')) {
+                                if (!libraryMap[qCategoryName]) libraryMap[qCategoryName] = new Set();
+                                libraryMap[qCategoryName].add(part);
+                                totalItems++;
+                            }
+                        });
+                    };
+
+                    extractMedia(q.img);     // ดึงจากรูปโจทย์
+                    extractMedia(q.choices); // ดึงจากตัวเลือก
+                });
+
+                const $container = $('#library-grid-container');
+                $container.empty();
+
+                if (totalItems === 0) {
+                    $container.html('<div class="col-12 text-center text-muted py-5">ยังไม่มีสื่อในวิชานี้</div>');
+                } else {
+                    for (const [catName, mediaSet] of Object.entries(libraryMap)) {
+                        $container.append(`<div class="library-group-header"><i class="fas fa-folder-open"></i> หัวข้อ: ${catName}</div>`);
+
+                        mediaSet.forEach(item => {
+                            let previewHtml = "";
+                            // ถ้าเป็น SVG ให้ Render โค้ดตรงๆ ในหน้า Library
+                            if (item.startsWith('<svg')) {
+                                previewHtml = `<div class="library-item svg-item" onclick="selectImageFromLibrary(\`${item.replace(/"/g, '&quot;')}\`)" title="คลิกเพื่อใช้ SVG นี้">
+                                    <div class="svg-preview-box">${item}</div>
+                                   </div>`;
+                            } else {
+                                // ถ้าเป็นรูปภาพปกติ
+                                previewHtml = `<div class="library-item" onclick="selectImageFromLibrary('${item}')" title="คลิกเพื่อใช้รูปนี้">
+                                    <img src="${transformUrl(item)}" loading="lazy">
+                                   </div>`;
+                            }
+                            $container.append(previewHtml);
+                        });
+                    }
+                }
+                $('#imageLibraryModal').modal('show');
             }
-
-            // ดึงรหัสวิชา (เช่น GI, MS) จาก Category แรก
-            const currentSubject = getSubjectFromCategory(currentCategories[0]);
-            $('#library-subject-name').text(currentSubject);
-
-            // 2. ค้นหารูปภาพทั้งหมดใน Database ที่เป็นวิชานี้
-            const libraryMap = {}; // { 'CategoryName': [url1, url2] }
-            let totalImages = 0;
-
-            globalData.questions.forEach(q => {
-                // เช็ควิชา
-                const qSubject = getSubjectFromCategory(q.category);
-                if (qSubject !== currentSubject) return;
-
-                const qCategoryName = Array.isArray(q.category) ? q.category[0] : q.category;
-
-                // ดึงรูปโจทย์
-                if (q.img && !q.img.toLowerCase().includes('require_img')) {
-                    const urls = q.img.split('///').map(u => u.trim()).filter(Boolean);
-                    urls.forEach(url => {
-                        if (url.includes('drive.google.com') || url.startsWith('http')) {
-                            if (!libraryMap[qCategoryName]) libraryMap[qCategoryName] = new Set();
-                            libraryMap[qCategoryName].add(url);
-                            totalImages++;
-                        }
-                    });
-                }
-
-                // ดึงรูปจาก Choices
-                if (q.choices) {
-                    const choicesUrls = q.choices.split('///').map(u => u.trim()).filter(Boolean);
-                    choicesUrls.forEach(url => {
-                        if (url.includes('drive.google.com') || url.startsWith('http')) {
-                            if (!libraryMap[qCategoryName]) libraryMap[qCategoryName] = new Set();
-                            libraryMap[qCategoryName].add(url);
-                            totalImages++;
-                        }
-                    });
-                }
-            });
-
-            // 3. สร้าง UI แสดงรูปภาพ
-            const $container = $('#library-grid-container');
-            $container.empty();
-
-            if (totalImages === 0) {
-                $container.html('<div class="col-12 text-center text-muted py-5"><i class="fas fa-box-open fa-3x mb-3"></i><br>ยังไม่มีรูปภาพในวิชานี้</div>');
-            } else {
-                // วนลูปสร้างตามกลุ่ม Category
-                for (const [catName, urlSet] of Object.entries(libraryMap)) {
-                    $container.append(`<div class="library-group-header"><i class="fas fa-folder-open"></i> หัวข้อ: ${catName}</div>`);
-
-                    urlSet.forEach(url => {
-                        // ปุ่มนี้เมื่อคลิก จะส่ง URL ไปฟังก์ชัน selectImageFromLibrary
-                        const imgHtml = `
-                <div class="library-item" onclick="selectImageFromLibrary('${url}')" title="คลิกเพื่อใช้รูปนี้">
-                    <img src="${transformUrl(url)}" loading="lazy">
-                </div>`;
-                        $container.append(imgHtml);
-                    });
-                }
-            }
-
-            // เปิด Modal
-            $('#imageLibraryModal').modal('show');
-        }
-
         // เมื่อผู้ใช้คลิกเลือกรูปภาพจากคลัง
-        function selectImageFromLibrary(url) {
-            // เช็คว่ารูปนี้ถูกเลือกไปแล้วหรือยัง
-            if (existingMainImages.includes(url) || pendingMainImages.includes(url)) {
-                Swal.fire({ icon: 'info', title: 'รูปนี้ถูกเลือกไปแล้ว', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
-                return;
+        function selectImageFromLibrary(content) {
+                // 1. ตรวจสอบว่ารูป/SVG นี้มีอยู่แล้วในชุดแก้ไขปัจจุบันหรือไม่
+                if (existingMainImages.includes(content) || pendingMainImages.includes(content)) {
+                    Swal.fire({ icon: 'info', title: 'สื่อนี้ถูกเลือกไปแล้ว', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
+                    return;
+                }
+
+                Swal.fire({
+                    title: 'นำสื่อนี้ไปใช้ที่ไหน?',
+                    icon: 'question',
+                    showDenyButton: true,
+                    showCancelButton: true,
+                    confirmButtonText: 'รูปโจทย์ (Main)',
+                    denyButtonText: 'เพิ่มในตัวเลือก (Choice)',
+                    cancelButtonText: 'ยกเลิก'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // ใส่ในรูปโจทย์
+                        existingMainImages.push(content);
+                        syncMainImageGallery();
+                        $('#imageLibraryModal').modal('hide');
+                    } else if (result.isDenied) {
+                        // เพิ่มเป็น Choice ใหม่
+                        addChoiceRow(content);
+                        $('#imageLibraryModal').modal('hide');
+                    }
+                });
             }
-
-            // เอาลิงก์ Drive ยัดใส่ existingMainImages ได้เลย (เพราะมันอยู่บน Drive แล้ว ไม่ต้องอัพโหลดซ้ำ)
-            existingMainImages.push(url);
-
-            // อัปเดต Gallery
-            syncMainImageGallery();
-
-            // ปิดคลังรูปภาพ
-            $('#imageLibraryModal').modal('hide');
-
-            Swal.fire({ icon: 'success', title: 'ดึงรูปภาพมาใช้เรียบร้อย', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
-        }
-
     // ====================================================================
     // [NEW] IMAGE CRUD: Upload, Delete (Recycle Bin), Restore
     // ====================================================================
