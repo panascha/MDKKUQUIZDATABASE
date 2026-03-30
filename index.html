@@ -859,6 +859,65 @@
             color: var(--primary-color);
         }
 
+        .dash-card {
+    border: none;
+    border-radius: 15px;
+    transition: all 0.3s ease;
+    background: #fff;
+}
+
+.dash-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+}
+
+.stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+
+/* สีเฉพาะสำหรับสถิติ */
+.bg-gradient-primary { background: linear-gradient(135deg, #4e73df 0%, #224abe 100%); color: white; }
+.bg-gradient-danger  { background: linear-gradient(135deg, #e74a3b 0%, #be2617 100%); color: white; }
+.bg-gradient-success { background: linear-gradient(135deg, #1cc88a 0%, #13855c 100%); color: white; }
+.bg-gradient-warning { background: linear-gradient(135deg, #f6c23e 0%, #dda20a 100%); color: white; }
+
+@media (max-width: 767.98px) {
+    #dashboardRecentTable {
+        display: block;
+    }
+    #dashboardRecentTable thead {
+        display: none;
+    }
+    #dashboardRecentTable tbody tr {
+        display: block;
+        margin-bottom: 1rem;
+        border: 1px solid #e3e6f0;
+        border-radius: 10px;
+        background: #fff;
+        padding: 10px;
+    }
+    #dashboardRecentTable td {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 5px;
+        border: none;
+        border-bottom: 1px dashed #eee;
+    }
+    #dashboardRecentTable td:last-child { border-bottom: none; }
+    #dashboardRecentTable td::before {
+        content: attr(data-label);
+        font-weight: bold;
+        color: #4e73df;
+        margin-right: 10px;
+    }
+}
+
         @media (max-width: 575.98px) {
             .card-header-custom {
                 flex-direction: column;
@@ -1866,105 +1925,84 @@
 
             <!-- SECTION: Dashboard (Public) -->
             <div id="sec-dashboard" class="content-section">
-                <!-- 2.2.1 Stats Cards -->
-                <div class="row">
-                    <!-- Card: Total Questions -->
-                    <div class="col-xl-3 col-md-6 mb-4">
-                        <div class="card card-dashboard border-left-primary h-100 py-2"
-                            style="border-left: 4px solid var(--primary-color);">
+                <!-- Stats Row -->
+                <div class="row g-3 mb-4">
+                    <!-- Total -->
+                    <div class="col-6 col-md-3">
+                        <div class="card dash-card shadow-sm h-100">
                             <div class="card-body">
-                                <div class="row no-gutters align-items-center">
-                                    <div class="col mr-2">
-                                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
-                                            โจทย์ทั้งหมด</div>
-                                        <div class="h5 mb-0 font-weight-bold text-gray-800" id="stat-total-q">...
-                                        </div>
-                                    </div>
-                                    <div class="col-auto"><i class="fas fa-question-circle fa-2x text-gray-300"></i>
-                                    </div>
+                                <div class="stat-icon bg-gradient-primary mb-3">
+                                    <i class="fas fa-database"></i>
                                 </div>
+                                <div class="small fw-bold text-muted">โจทย์ทั้งหมด</div>
+                                <div class="h3 mb-0 fw-bold" id="stat-total-q">...</div>
                             </div>
                         </div>
                     </div>
-                    <!-- Card: Pending Review -->
-                    <div class="col-xl-3 col-md-6 mb-4">
-                        <div class="card card-dashboard h-100 py-2" style="border-left: 4px solid var(--danger-color);">
+                    <!-- Pending -->
+                    <div class="col-6 col-md-3">
+                        <div class="card dash-card shadow-sm h-100">
                             <div class="card-body">
-                                <div class="row no-gutters align-items-center">
-                                    <div class="col mr-2">
-                                        <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
-                                            รอตรวจสอบ (Pending)</div>
-                                        <div class="h5 mb-0 font-weight-bold text-gray-800" id="stat-pending-q">...
-                                        </div>
-                                    </div>
-                                    <div class="col-auto"><i class="fas fa-clipboard-list fa-2x text-gray-300"></i>
-                                    </div>
+                                <div class="stat-icon bg-gradient-danger mb-3">
+                                    <i class="fas fa-exclamation-circle"></i>
                                 </div>
+                                <div class="small fw-bold text-muted">รอตรวจสอบ</div>
+                                <div class="h3 mb-0 fw-bold text-danger" id="stat-pending-q">...</div>
                             </div>
                         </div>
                     </div>
-                    <!-- Card: Resolved -->
-                    <div class="col-xl-3 col-md-6 mb-4">
-                        <div class="card card-dashboard h-100 py-2"
-                            style="border-left: 4px solid var(--success-color);">
+                    <!-- Resolved -->
+                    <div class="col-6 col-md-3">
+                        <div class="card dash-card shadow-sm h-100">
                             <div class="card-body">
-                                <div class="row no-gutters align-items-center">
-                                    <div class="col mr-2">
-                                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
-                                            แก้ไขแล้ว (Resolved)</div>
-                                        <div class="h5 mb-0 font-weight-bold text-gray-800" id="stat-resolved-q">...
-                                        </div>
-                                    </div>
-                                    <div class="col-auto"><i class="fas fa-check-double fa-2x text-gray-300"></i>
-                                    </div>
+                                <div class="stat-icon bg-gradient-success mb-3">
+                                    <i class="fas fa-check-double"></i>
                                 </div>
+                                <div class="small fw-bold text-muted">แก้ไขแล้ว</div>
+                                <div class="h3 mb-0 fw-bold text-success" id="stat-resolved-q">...</div>
                             </div>
                         </div>
                     </div>
-                    <!-- Card: Require Images -->
-                    <div class="col-xl-3 col-md-6 mb-4">
-                        <div class="card card-dashboard h-100 py-2"
-                            style="border-left: 4px solid var(--warning-color);">
+                    <!-- Require Img -->
+                    <div class="col-6 col-md-3">
+                        <div class="card dash-card shadow-sm h-100">
                             <div class="card-body">
-                                <div class="row no-gutters align-items-center">
-                                    <div class="col mr-2">
-                                        <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
-                                            รอเพิ่มรูปภาพ (Require Img)</div>
-                                        <div class="h5 mb-0 font-weight-bold text-gray-800" id="stat-require-img">0 ข้อ
-                                        </div>
-                                    </div>
-                                    <div class="col-auto"><i class="fas fa-image fa-2x text-gray-300"></i></div>
+                                <div class="stat-icon bg-gradient-warning mb-3">
+                                    <i class="fas fa-image"></i>
                                 </div>
+                                <div class="small fw-bold text-muted">รอรูปภาพ</div>
+                                <div class="h3 mb-0 fw-bold text-warning" id="stat-require-img">...</div>
                             </div>
                         </div>
                     </div>
                 </div>
-
-                <!-- 2.2.2 Recent Activity Table -->
-                <div class="card card-dashboard">
-                    <div class="card-header-custom">
-                        <span><i class="fas fa-history me-2"></i> การแก้ไขล่าสุด (Recent Updates)</span>
+            
+                <!-- Recent Activity Table -->
+                <div class="card dash-card shadow-sm border-0">
+                    <div class="card-header bg-white py-3 border-0">
+                        <h6 class="m-0 font-weight-bold text-primary">
+                            <i class="fas fa-history me-2"></i> การแก้ไขล่าสุด (Recent Updates)
+                        </h6>
                     </div>
-                    <div class="card-body">
+                    <div class="card-body p-0 p-md-3">
                         <div class="table-responsive">
-                            <table class="table table-bordered" width="100%" cellspacing="0" id="dashboardRecentTable">
-                                <thead>
+                            <table class="table table-hover align-middle mb-0" id="dashboardRecentTable">
+                                <thead class="bg-light">
                                     <tr>
-                                        <th style="width: 10%;">วันที่</th>
-                                        <th style="width: 20%;">ข้อที่แก้ไข (คลิกดู)</th>
-                                        <th style="width: 30%;">Report Detail</th>
-                                        <th style="width: 30%;">การตอบกลับ (Admin Note)</th>
-                                        <th style="width: 10%;">สถานะ</th>
+                                        <th>วันที่</th>
+                                        <th>ข้อที่แก้ไข</th>
+                                        <th>รายละเอียดปัญหา</th>
+                                        <th>Admin Note</th>
+                                        <th class="text-center">สถานะ</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <!-- JS จะมาเติมข้อมูลตรงนี้ -->
+                                    <!-- เนื้อหาจะถูกเติมโดย JavaScript -->
                                 </tbody>
                             </table>
                         </div>
                     </div>
                 </div>
-
             </div>
 
             <!-- SECTION: Public Search -->
@@ -3931,110 +3969,57 @@
         }
     }
     function updateDashboard() {
-        // 1. Stats Cards เดิม
-        $('#stat-total-q').text(globalData.questions ? globalData.questions.length + " ข้อ" : "0 ข้อ");
+            // 1. อัปเดตตัวเลข Stats
+            $('#stat-total-q').text(globalData.questions ? globalData.questions.length : "0");
+            const pendingCount = (globalData.report || []).filter(r => !r.Done || String(r.Done).toUpperCase() === 'FALSE').length;
+            $('#stat-pending-q').text(pendingCount);
 
-        const pendingCount = (globalData.report || []).filter(r => !r.Done || String(r.Done).toUpperCase() === 'FALSE').length;
-        $('#stat-pending-q').text(pendingCount + " รายการ");
+            // อัปเดต Badge ที่ Sidebar ด้วย
+            $('#sidebar-report-count').text(pendingCount).toggle(pendingCount > 0);
 
-        const $sidebarBadge = $('#sidebar-report-count');
-        $sidebarBadge.text(pendingCount);
-        pendingCount > 0 ? $sidebarBadge.show() : $sidebarBadge.hide();
+            $('#stat-resolved-q').text((globalData.report || []).filter(r => String(r.Done).toUpperCase() === 'TRUE').length);
+            $('#stat-require-img').text((globalData.questions || []).filter(q => q.img && q.img.toLowerCase().includes("require_img")).length);
 
-        const resolvedCount = (globalData.report || []).filter(r => String(r.Done).toUpperCase() === 'TRUE').length;
-        $('#stat-resolved-q').text(resolvedCount + " รายการ");
+            // 2. อัปเดตตาราง Recent Updates
+            const recentReports = (globalData.report || [])
+                .sort((a, b) => new Date(b.Time) - new Date(a.Time))
+                .slice(0, 50); // แสดงแค่ 50 รายการล่าสุดเพื่อให้หน้า Dashboard ไม่ยาวเกินไป
 
-        // --- ส่วนที่เพิ่มใหม่: ตรวจสอบ Require Image ---
-        const requireImgQuestions = (globalData.questions || []).filter(q =>
-            q.img && q.img.toLowerCase().includes("require_img")
-        );
+            let html = '';
+            if (recentReports.length === 0) {
+                html = '<tr><td colspan="5" class="text-center text-muted py-5">ยังไม่มีประวัติการแจ้งปัญหา</td></tr>';
+            } else {
+                recentReports.forEach(r => {
+                    const dateStr = formatDate(r.Time);
+                    const questionTextShort = r.Question ? r.Question.substring(0, 40) + '...' : '(ไม่ระบุ)';
 
-        $('#stat-require-img').text(requireImgQuestions.length + " ข้อ");
-
-        // แจ้งเตือนถ้ามีรูปภาพที่ต้องเพิ่ม
-        if (requireImgQuestions.length > 0) {
-            // จัดกลุ่มตามวิชา
-            const subjectsMissing = {};
-            requireImgQuestions.forEach(q => {
-                const subj = getSubjectFromCategory(q.category);
-                subjectsMissing[subj] = (subjectsMissing[subj] || 0) + 1;
-            });
-
-            // สร้างข้อความแจ้งเตือน
-            let alertMsg = "<b>พบข้อสอบที่ยังไม่เพิ่มรูปภาพ:</b><br><ul class='text-start mt-2'>";
-            for (const [subj, count] of Object.entries(subjectsMissing)) {
-                alertMsg += `<li>วิชา <b>${subj}</b>: จำนวน ${count} ข้อ</li>`;
-            }
-            alertMsg += "</ul><small class='text-muted'>กรุณาแก้ไขโดยด่วนเพื่อความสมบูรณ์ของระบบ</small>";
-            // แสดงผลเป็น Alert บน Dashboard (ถ้ายังไม่ได้เปิดดูหน้าอื่นอยู่)
-            if (!$('#sec-dashboard').hasClass('hidden') && isAdmin) {
-                Swal.fire({
-                    title: 'พบข้อมูลไม่สมบูรณ์',
-                    html: alertMsg,
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonText: 'ไปที่หน้าแก้ไขทันที',
-                    cancelButtonText: 'รับทราบ',
-                    confirmButtonColor: '#4e73df',
-                    cancelButtonColor: '#858796'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        // --- ส่วนที่เพิ่มใหม่ ---
-                        // 1. ย้ายไปหน้า Database
-                        showSection('database');
-
-                        // 2. ติ๊กถูกที่ช่อง "เฉพาะที่รอรูปภาพ"
-                        $('#db-require-img-filter').prop('checked', true);
-
-                        // 3. สั่งให้ DataTable กรองข้อมูลใหม่
-                        if ($.fn.DataTable.isDataTable('#adminTable')) {
-                            $('#adminTable').DataTable().draw();
+                    // สร้างลิงก์ Diff ถ้ามี Log
+                    let displayLink = `<span class="small text-dark">${questionTextShort}</span>`;
+                    const qObj = globalData.questions.find(q => q.problem.trim() === (r.Question || '').trim());
+                    if (qObj) {
+                        const log = (globalData.logs || []).find(l => l.TargetID === qObj.questionId && l.OldValue);
+                        if (log) {
+                            displayLink = `<a href="#" class="dashboard-diff-btn fw-bold text-decoration-none" data-old="${encodeURIComponent(log.OldValue)}" data-new="${encodeURIComponent(log.NewValue)}">
+                                    <i class="fas fa-search-plus me-1"></i> ${questionTextShort}</a>`;
                         }
-
-                        // เลื่อนหน้าจอขึ้นไปบนสุด
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
                     }
+
+                    const statusBadge = (String(r.Done).toUpperCase() === 'TRUE')
+                        ? '<span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3">Resolved</span>'
+                        : '<span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill px-3 text-dark">Pending</span>';
+
+                    html += `
+                <tr>
+                    <td data-label="วันที่"><small class="text-muted">${dateStr}</small></td>
+                    <td data-label="โจทย์">${displayLink}</td>
+                    <td data-label="ปัญหา"><small class="text-truncate d-inline-block" style="max-width: 200px;">${r.ReportDetail || '-'}</small></td>
+                    <td data-label="Admin Note"><small class="text-primary italic">${r.AdminNote || '-'}</small></td>
+                    <td data-label="สถานะ" class="text-md-center">${statusBadge}</td>
+                </tr>`;
                 });
             }
+            $('#dashboardRecentTable tbody').html(html);
         }
-        // ------------------------------------------
-
-        // 2. Table Data (Recent Updates) - เหมือนเดิม
-        const reports = (globalData.report || []).sort((a, b) => new Date(b.Time) - new Date(a.Time));
-        const recentReports = reports.slice(0, 20);
-        let html = '';
-
-        if (recentReports.length === 0) {
-            html = '<tr><td colspan="5" class="text-center text-muted py-4">ยังไม่มีประวัติการแจ้งปัญหา</td></tr>';
-        } else {
-            recentReports.forEach(r => {
-                let dateStr = formatDate(r.Time);
-                let questionTextShort = r.Question ? r.Question.substring(0, 60) + (r.Question.length > 60 ? '...' : '') : '(ไม่ระบุโจทย์)';
-                let displayLink = `<span class="text-muted">${questionTextShort}</span>`;
-                const qObj = globalData.questions.find(q => q.problem.trim() === (r.Question || '').trim());
-
-                if (qObj) {
-                    const relatedLog = (globalData.logs || []).find(l =>
-                        l.TargetID === qObj.questionId &&
-                        (String(l.ActionType).includes('EDIT') || String(l.ActionType).includes('UPDATE')) &&
-                        (l.OldValue && l.NewValue)
-                    );
-                    if (relatedLog) {
-                        const oldValSafe = encodeURIComponent(relatedLog.OldValue);
-                        const newValSafe = encodeURIComponent(relatedLog.NewValue);
-                        displayLink = `<a href="#" class="question-link dashboard-diff-btn" data-old="${oldValSafe}" data-new="${newValSafe}"><i class="fas fa-search me-1"></i> ${questionTextShort}</a>`;
-                    }
-                }
-
-                let reportDetail = r.ReportDetail || r.SuggestedAnswer || '-';
-                let adminNote = r.AdminNote ? `<span class="text-primary">${r.AdminNote}</span>` : '-';
-                let statusBadge = (String(r.Done).toUpperCase() === 'TRUE') ? '<span class="badge bg-success rounded-pill">Resolved</span>' : '<span class="badge bg-warning text-dark rounded-pill">Pending</span>';
-
-                html += `<tr><td>${dateStr}</td><td>${displayLink}</td><td><small>${reportDetail}</small></td><td><small>${adminNote}</small></td><td class="text-center">${statusBadge}</td></tr>`;
-            });
-        }
-        $('#dashboardRecentTable tbody').html(html);
-    }
     function populateFilters() {
         // ... (โค้ด populateFilters เดิม) ...
         const subjects = [...new Set(globalData.structure.map(s => s.SubjectID))].sort();
