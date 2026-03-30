@@ -4604,7 +4604,7 @@
             const explainText = $('#edit-explanation').val();
             const categories = JSON.parse($('#edit-category-hidden').val() || "[]");
 
-            // --- เพิ่มส่วนนี้: ดึงข้อมูล Report ที่ฝากไว้ (ถ้ามี) ---
+            // --- 1. เตรียมข้อมูล Report ---
             const reportData = $('#editQuestionModal').data('reportData');
 
             let choicesSnapshot = [];
@@ -4618,11 +4618,27 @@
                 });
             });
 
+            // --- 2. OPTIMISTIC UPDATE (ทำทันทีไม่ต้องรอ Server) ---
             $('#editQuestionModal').modal('hide');
 
-            // ถ้ามาจากหน้า Report Inbox ให้ทำการลบ Card ทันที (Optimistic UI)
             if (reportData) {
-                $(`button[onclick*="${reportData.timestamp}"]`).closest('.card').fadeOut(300);
+                // หาตำแหน่งใน globalData.report แล้วเปลี่ยนสถานะเป็น TRUE ทันที
+                const rIndex = globalData.report.findIndex(r => String(r.Time) === String(reportData.timestamp));
+                if (rIndex !== -1) {
+                    globalData.report[rIndex].Done = 'TRUE'; // หลอกเครื่องว่าเสร็จแล้ว
+                    globalData.report[rIndex].Status = 'Resolved';
+                    globalData.report[rIndex].AdminNote = reportData.adminNote || "แก้ไขเรียบร้อยแล้ว";
+                }
+
+                // ลบการ์ดออกจากหน้าจอทันที
+                $(`button[onclick*="${reportData.timestamp}"]`).closest('.card').fadeOut(300, function () {
+                    $(this).remove(); // ลบ Element ออกจาก DOM เลย
+                    // ถ้าไม่เหลือการ์ดแล้วให้โชว์ Empty State
+                    if ($('#report-list-container .card').length === 0) renderReportList();
+                });
+
+                // อัปเดตตัวเลข Dashboard/Sidebar ทันที
+                updateDashboard();
             }
 
             const bgToast = Swal.mixin({
@@ -4633,9 +4649,10 @@
             });
             bgToast.fire({ icon: 'info', title: 'กำลังอัปโหลดและบันทึกข้อมูลเบื้องหลัง...' });
 
+            // --- 3. BACKGROUND PROCESSING ---
             (async () => {
                 try {
-                    // --- A & B: อัปโหลดรูปภาพ (เหมือนเดิม) ---
+                    // A & B: Upload Images... (โค้ดเดิมของคุณ)
                     let finalMainUrls = [...existingMainImages];
                     for (let base64 of pendingMainImages) {
                         let res = await sendWithRetry({
@@ -4668,7 +4685,7 @@
                         }
                     }
 
-                    // --- C: บันทึก Question (อัปเดตชีต Questions) ---
+                    // C: อัปเดต Question
                     const savePayload = {
                         id: qId,
                         problem: problemText,
@@ -4686,7 +4703,7 @@
                         data: savePayload
                     });
 
-                    // --- D: (เพิ่มใหม่) ถ้ามาจาก Report ให้บันทึกสถานะในชีต Report ด้วย ---
+                    // D: อัปเดตสถานะ Report ใน Google Sheet
                     if (reportData) {
                         await sendWithRetry({
                             action: 'updateReportStatus',
@@ -4699,26 +4716,25 @@
                                 done: 'TRUE'
                             }
                         });
-                        // ล้างข้อมูลที่ค้างไว้ใน Modal
                         $('#editQuestionModal').removeData('reportData');
                     }
 
-                    bgToast.fire({
-                        icon: 'success',
-                        title: 'บันทึกสำเร็จ!',
-                        text: `อัปเดตข้อมูลและจัดการรายงานเรียบร้อยแล้ว`,
-                        timer: 4000
-                    });
+                    // บันทึก Cache ลง IndexedDB เพื่อให้ข้อมูลที่ "หลอก" ไว้ยังอยู่แม้จะ Refresh หน้าจอ
+                    await setCacheDB('global_admin_data', globalData);
 
-                    fetchData(true); // รีเฟรชข้อมูลทั้งหมด
+                    bgToast.fire({ icon: 'success', title: 'บันทึกสำเร็จ!', timer: 3000 });
+
+                    // สำคัญ: fetchData(true) จะทำให้ข้อมูลที่อัปเดตจริงจาก Server มาแทนที่ข้อมูลที่เราหลอกไว้
+                    // ถ้า Server อัปเดตช้า รายการอาจจะโผล่มาแวบนึงแล้วหายไปเมื่อ Fetch รอบหน้า
+                    fetchData(true);
 
                 } catch (error) {
                     console.error("Save Error:", error);
-                    Swal.fire('บันทึกไม่สำเร็จ', error.message, 'error');
+                    Swal.fire('บันทึกไม่สำเร็จ', 'โจทย์บันทึกแล้ว แต่สถานะ Report อาจยังไม่เปลี่ยน: ' + error.message, 'error');
                 }
             })();
         }
-        async function deleteQuestion() {
+            async function deleteQuestion() {
         // ... (โค้ด deleteQuestion เดิม) ...
         if (!confirmAdmin()) return;
         if (!confirm('Are you sure you want to DELETE this question?')) return;
