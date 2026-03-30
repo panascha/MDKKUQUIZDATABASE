@@ -4599,13 +4599,14 @@
     async function saveQuestionChanges() {
             if (!confirmAdmin()) return;
 
-            // 1. ถ่าย Snapshot ข้อมูลจากหน้าจอไว้ทันที (ก่อนปิด Modal)
             const qId = $('#edit-q-id').val();
             const problemText = $('#edit-problem').val();
             const explainText = $('#edit-explanation').val();
             const categories = JSON.parse($('#edit-category-hidden').val() || "[]");
 
-            // ดึงสถานะของ Choice ทั้งหมด (ว่าอันไหนติ๊กถูก อันไหนเป็นรูป/ข้อความ)
+            // --- เพิ่มส่วนนี้: ดึงข้อมูล Report ที่ฝากไว้ (ถ้ามี) ---
+            const reportData = $('#editQuestionModal').data('reportData');
+
             let choicesSnapshot = [];
             $('#dynamic-choices-container .choice-item').each(function () {
                 const rowId = $(this).attr('id');
@@ -4613,14 +4614,17 @@
                     rowId: rowId,
                     textValue: $(this).find('.choice-text-input').val().trim(),
                     isCorrect: $(this).find('.choice-radio').is(':checked'),
-                    pendingData: choiceImagesData[rowId] // ข้อมูลรูปภาพ (ถ้ามี)
+                    pendingData: choiceImagesData[rowId]
                 });
             });
 
-            // 2. ปิด Modal ทันที (Optimistic UI)
             $('#editQuestionModal').modal('hide');
 
-            // แจ้งเตือนเริ่มทำงานเบื้องหลัง
+            // ถ้ามาจากหน้า Report Inbox ให้ทำการลบ Card ทันที (Optimistic UI)
+            if (reportData) {
+                $(`button[onclick*="${reportData.timestamp}"]`).closest('.card').fadeOut(300);
+            }
+
             const bgToast = Swal.mixin({
                 toast: true,
                 position: 'bottom-end',
@@ -4629,10 +4633,9 @@
             });
             bgToast.fire({ icon: 'info', title: 'กำลังอัปโหลดและบันทึกข้อมูลเบื้องหลัง...' });
 
-            // 3. เริ่มกระบวนการ Background Processing (IIFE)
             (async () => {
                 try {
-                    // --- ขั้นตอนที่ A: อัปโหลดรูปโจทย์ (Main) ---
+                    // --- A & B: อัปโหลดรูปภาพ (เหมือนเดิม) ---
                     let finalMainUrls = [...existingMainImages];
                     for (let base64 of pendingMainImages) {
                         let res = await sendWithRetry({
@@ -4643,14 +4646,11 @@
                         if (res.result === 'success') finalMainUrls.push(res.url);
                     }
 
-                    // --- ขั้นตอนที่ B: อัปโหลดรูปตัวเลือก (Choice) ---
                     let finalChoicesStrings = [];
                     let finalAnswer = "";
-
                     for (let item of choicesSnapshot) {
                         let finalVal = "";
                         if (item.pendingData && item.pendingData.type === 'pending') {
-                            // เป็นรูปใหม่ -> อัปโหลดก่อน
                             let res = await sendWithRetry({
                                 action: 'uploadImage',
                                 username: currentUser.username, adminPass: adminPass,
@@ -4658,20 +4658,17 @@
                             });
                             finalVal = res.url;
                         } else if (item.pendingData && item.pendingData.type === 'existing') {
-                            // เป็นรูปเดิม -> ใช้ลิงก์เดิม
                             finalVal = item.pendingData.data;
                         } else {
-                            // เป็นข้อความ/SVG -> ใช้ค่าจาก Input
                             finalVal = item.textValue;
                         }
-
                         if (finalVal !== "") {
                             finalChoicesStrings.push(finalVal);
                             if (item.isCorrect) finalAnswer = finalVal;
                         }
                     }
 
-                    // --- ขั้นตอนที่ C: ส่งข้อมูลสรุปเข้า Google Sheet ---
+                    // --- C: บันทึก Question (อัปเดตชีต Questions) ---
                     const savePayload = {
                         id: qId,
                         problem: problemText,
@@ -4689,29 +4686,38 @@
                         data: savePayload
                     });
 
-                    // --- ขั้นตอนที่ D: เสร็จสมบูรณ์ ---
+                    // --- D: (เพิ่มใหม่) ถ้ามาจาก Report ให้บันทึกสถานะในชีต Report ด้วย ---
+                    if (reportData) {
+                        await sendWithRetry({
+                            action: 'updateReportStatus',
+                            username: currentUser.username,
+                            adminPass: adminPass,
+                            data: {
+                                timestamp: reportData.timestamp,
+                                adminNote: reportData.adminNote || "แก้ไขเรียบร้อยแล้ว",
+                                status: 'Resolved',
+                                done: 'TRUE'
+                            }
+                        });
+                        // ล้างข้อมูลที่ค้างไว้ใน Modal
+                        $('#editQuestionModal').removeData('reportData');
+                    }
+
                     bgToast.fire({
                         icon: 'success',
                         title: 'บันทึกสำเร็จ!',
-                        text: `โจทย์ ID: ${qId} อัปเดตข้อมูลเรียบร้อยแล้ว`,
+                        text: `อัปเดตข้อมูลและจัดการรายงานเรียบร้อยแล้ว`,
                         timer: 4000
                     });
 
-                    // รีเฟรชข้อมูลในหน้าเว็บ (Optional: ถ้าต้องการให้ตารางอัปเดตทันที)
-                    fetchData(true);
+                    fetchData(true); // รีเฟรชข้อมูลทั้งหมด
 
                 } catch (error) {
-                    console.error("Background Save Error:", error);
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'บันทึกไม่สำเร็จ!',
-                        text: 'เกิดข้อผิดพลาดในการบันทึกข้อมูลเบื้องหลัง กรุณาตรวจสอบการเชื่อมต่อ',
-                        confirmButtonText: 'รับทราบ'
-                    });
+                    console.error("Save Error:", error);
+                    Swal.fire('บันทึกไม่สำเร็จ', error.message, 'error');
                 }
             })();
         }
-
         async function deleteQuestion() {
         // ... (โค้ด deleteQuestion เดิม) ...
         if (!confirmAdmin()) return;
