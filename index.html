@@ -491,6 +491,17 @@
             font-weight: 600;
         }
 
+        .pulse-animation {
+    animation: pulse-red 2s infinite;
+    box-shadow: 0 0 0 0 rgba(231, 74, 59, 0.7);
+}
+
+@keyframes pulse-red {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(231, 74, 59, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(231, 74, 59, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(231, 74, 59, 0); }
+}
+
         /* -------------------------------------------------------------------- */
         /* 4.6 Vote Modal Specific Styles */
         /* -------------------------------------------------------------------- */
@@ -3082,7 +3093,7 @@
     // ====================================================================
     // 1. GLOBAL CONFIGURATION & VARIABLES
     // ====================================================================
-    const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxgB-69t4JOHrTl4pOttZpAW_qeQz-9Sl_3AtLAOPD88goR2FXgKSNp5h7h0Kdxb9Ti/exec';
+    const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxMuN0ZkqqmvQXW5yJEZzQBO2acc8twh51XbzXgWNjDx9Z7G7yao9JOZiCy_HVbxUom/exec';
 
     let globalData = {
         questions: [],
@@ -3413,6 +3424,7 @@
                 action: 'submitReport',
                 from: subjectFrom,
                 category: categoryString,
+                questionId: current_question.questionId,
                 question: current_question.problem,
                 questionImages: questionImagesString,
                 allChoices: allChoices,
@@ -3899,12 +3911,18 @@
 
                     // สร้างลิงก์ Diff ถ้ามี Log
                     let displayLink = `<span class="small text-dark">${questionTextShort}</span>`;
-                    const qObj = globalData.questions.find(q => q.problem.trim() === (r.Question || '').trim());
+                    const rQid = r.QuestionID || "";
+                    const qObj = globalData.questions.find(q => q.questionId === rQid);
                     if (qObj) {
-                        const log = (globalData.logs || []).find(l => l.TargetID === qObj.questionId && l.OldValue);
+                        const log = (globalData.logs || [])
+                            .filter(l => l.TargetID === qObj.questionId && l.OldValue)
+                            .sort((a, b) => new Date(b.Timestamp) - new Date(a.Timestamp))[0]; // เอาอันล่าสุด
+
                         if (log) {
-                            displayLink = `<a href="#" class="dashboard-diff-btn fw-bold text-decoration-none" data-old="${encodeURIComponent(log.OldValue)}" data-new="${encodeURIComponent(log.NewValue)}">
-                                    <i class="fas fa-search-plus me-1"></i> ${questionTextShort}</a>`;
+                            displayLink = `<a href="#" class="dashboard-diff-btn fw-bold text-decoration-none" 
+                        data-old="${encodeURIComponent(log.OldValue)}" 
+                        data-new="${encodeURIComponent(log.NewValue)}">
+                        <i class="fas fa-search-plus me-1"></i> ${questionTextShort}</a>`;
                         }
                     }
 
@@ -4123,11 +4141,18 @@
             columns: [
                 {
                     data: null,
-                    defaultContent: '-',
-                    createdCell: (td) => $(td).attr('data-label', 'Subject'),
                     render: function (data, type, row) {
-                        if (!row || !row.category) return '-';
-                        return getSubjectFromCategory(row.category);
+                        // --- เพิ่มส่วนเช็ค Report ค้าง ---
+                        const hasReport = (globalData.report || []).some(r =>
+                            r.QuestionID === row.questionId &&
+                            (String(r.Done).toUpperCase() === 'FALSE' || !r.Done)
+                        );
+
+                        const reportBadge = hasReport
+                            ? `<span class="badge bg-danger pulse-animation" title="มีรายงานปัญหาค้างอยู่"><i class="fas fa-exclamation-circle"></i> REPORT</span> `
+                            : '';
+
+                        return reportBadge + getSubjectFromCategory(row.category);
                     }
                 },
                 {
@@ -4485,17 +4510,20 @@
         // ... (จบโค้ด openEditModal เดิม) ...
     }
 
-    async function saveQuestionChanges() {
+    // --- แก้ไขฟังก์ชัน saveQuestionChanges ใน Manager Center (Admin UI) ---
+        async function saveQuestionChanges() {
             if (!confirmAdmin()) return;
 
+            // 1. ดึงข้อมูลจากฟอร์ม
             const qId = $('#edit-q-id').val();
             const problemText = $('#edit-problem').val();
             const explainText = $('#edit-explanation').val();
             const categories = JSON.parse($('#edit-category-hidden').val() || "[]");
 
-            // --- 1. เตรียมข้อมูล Report ---
+            // ตรวจสอบว่าเป็นการแก้ไขที่มาจาก Report Inbox หรือไม่
             const reportData = $('#editQuestionModal').data('reportData');
 
+            // เตรียม Snapshot ของตัวเลือก (Choices)
             let choicesSnapshot = [];
             $('#dynamic-choices-container .choice-item').each(function () {
                 const rowId = $(this).attr('id');
@@ -4507,27 +4535,27 @@
                 });
             });
 
-            // --- 2. OPTIMISTIC UPDATE (ทำทันทีไม่ต้องรอ Server) ---
+            // ---------------------------------------------------------
+            // STEP 2: OPTIMISTIC UPDATE (จัดการ UI ทันทีไม่ต้องรอ Server)
+            // ---------------------------------------------------------
             $('#editQuestionModal').modal('hide');
 
             if (reportData) {
-                // หาตำแหน่งใน globalData.report แล้วเปลี่ยนสถานะเป็น TRUE ทันที
+                // หาตำแหน่งใน Local Data แล้วเปลี่ยนสถานะเป็น Resolved ทันที
                 const rIndex = globalData.report.findIndex(r => String(r.Time) === String(reportData.timestamp));
                 if (rIndex !== -1) {
-                    globalData.report[rIndex].Done = 'TRUE'; // หลอกเครื่องว่าเสร็จแล้ว
+                    globalData.report[rIndex].Done = 'TRUE';
                     globalData.report[rIndex].Status = 'Resolved';
                     globalData.report[rIndex].AdminNote = reportData.adminNote || "แก้ไขเรียบร้อยแล้ว";
                 }
 
-                // ลบการ์ดออกจากหน้าจอทันที
+                // ลบการ์ด Report ออกจากหน้าจอ Inbox ทันที
                 $(`button[onclick*="${reportData.timestamp}"]`).closest('.card').fadeOut(300, function () {
-                    $(this).remove(); // ลบ Element ออกจาก DOM เลย
-                    // ถ้าไม่เหลือการ์ดแล้วให้โชว์ Empty State
+                    $(this).remove();
                     if ($('#report-list-container .card').length === 0) renderReportList();
                 });
 
-                // อัปเดตตัวเลข Dashboard/Sidebar ทันที
-                updateDashboard();
+                updateDashboard(); // อัปเดตตัวเลข Stats บน Dashboard
             }
 
             const bgToast = Swal.mixin({
@@ -4536,12 +4564,14 @@
                 showConfirmButton: false,
                 timerProgressBar: true
             });
-            bgToast.fire({ icon: 'info', title: 'กำลังอัปโหลดและบันทึกข้อมูลเบื้องหลัง...' });
+            bgToast.fire({ icon: 'info', title: 'กำลังบันทึกข้อมูลเบื้องหลัง...' });
 
-            // --- 3. BACKGROUND PROCESSING ---
+            // ---------------------------------------------------------
+            // STEP 3: BACKGROUND PROCESSING (อัปโหลดรูปและส่งข้อมูลไป Server)
+            // ---------------------------------------------------------
             (async () => {
                 try {
-                    // A & B: Upload Images... (โค้ดเดิมของคุณ)
+                    // A. จัดการรูปโจทย์ (Main Images)
                     let finalMainUrls = [...existingMainImages];
                     for (let base64 of pendingMainImages) {
                         let res = await sendWithRetry({
@@ -4552,6 +4582,7 @@
                         if (res.result === 'success') finalMainUrls.push(res.url);
                     }
 
+                    // B. จัดการรูปตัวเลือก (Choice Images)
                     let finalChoicesStrings = [];
                     let finalAnswer = "";
                     for (let item of choicesSnapshot) {
@@ -4574,7 +4605,7 @@
                         }
                     }
 
-                    // C: อัปเดต Question
+                    // C. ส่งคำสั่งแก้ไขข้อสอบ (Edit Question)
                     const savePayload = {
                         id: qId,
                         problem: problemText,
@@ -4592,7 +4623,7 @@
                         data: savePayload
                     });
 
-                    // D: อัปเดตสถานะ Report ใน Google Sheet
+                    // D. กรณีมาจากหน้า Report: สั่งอัปเดตสถานะใน Google Sheet ด้วย
                     if (reportData) {
                         await sendWithRetry({
                             action: 'updateReportStatus',
@@ -4605,25 +4636,23 @@
                                 done: 'TRUE'
                             }
                         });
-                        $('#editQuestionModal').removeData('reportData');
+                        $('#editQuestionModal').removeData('reportData'); // ล้างข้อมูล Report ค้าง
                     }
 
-                    // บันทึก Cache ลง IndexedDB เพื่อให้ข้อมูลที่ "หลอก" ไว้ยังอยู่แม้จะ Refresh หน้าจอ
-                    await setCacheDB('global_admin_data', globalData);
-
+                    // E. สิ้นสุดการทำงาน
+                    await clearAdminCache(); // ล้าง Cache ในเครื่อง
                     bgToast.fire({ icon: 'success', title: 'บันทึกสำเร็จ!', timer: 3000 });
 
-                    // สำคัญ: fetchData(true) จะทำให้ข้อมูลที่อัปเดตจริงจาก Server มาแทนที่ข้อมูลที่เราหลอกไว้
-                    // ถ้า Server อัปเดตช้า รายการอาจจะโผล่มาแวบนึงแล้วหายไปเมื่อ Fetch รอบหน้า
+                    // โหลดข้อมูลใหม่จาก Server เพื่อซิงค์เวอร์ชันล่าสุด
                     fetchData(true);
 
                 } catch (error) {
                     console.error("Save Error:", error);
-                    Swal.fire('บันทึกไม่สำเร็จ', 'โจทย์บันทึกแล้ว แต่สถานะ Report อาจยังไม่เปลี่ยน: ' + error.message, 'error');
+                    Swal.fire('บันทึกไม่สำเร็จ', 'โจทย์อาจถูกแก้ไขแล้ว แต่สถานะ Report ใน Sheet อาจยังไม่เปลี่ยน: ' + error.message, 'error');
                 }
             })();
-        }
-            async function deleteQuestion() {
+        }    
+        async function deleteQuestion() {
         // ... (โค้ด deleteQuestion เดิม) ...
         if (!confirmAdmin()) return;
         if (!confirm('Are you sure you want to DELETE this question?')) return;
@@ -5586,7 +5615,11 @@
             let reportDetail = r['ReportDetail'] || '-';
             let suggested = r['SuggestedAnswer'] || '-';
 
-            let dbQuestion = globalData.questions.find(q => q.problem.trim() === (r['Question'] || '').trim()) || {};
+            const rQid = r['QuestionID'] || "";
+            let dbQuestion = globalData.questions.find(q => q.questionId === rQid);
+            if (!dbQuestion) {
+                dbQuestion = globalData.questions.find(q => q.problem.trim() === (r['Question'] || '').trim()) || {};
+            }
 
             let currentAns = dbQuestion.answer || 'ไม่พบข้อมูลใน DB';
             let explanation = dbQuestion.explain || '(ไม่มีคำอธิบาย)';
@@ -5782,8 +5815,13 @@
             const pending = globalData.report.filter(r => !r.Done || r.Done.toString().toUpperCase() === 'FALSE');
             const r = pending.find(report => report.Time.toString() === reportTime);
 
-            let dbQuestion = globalData.questions.find(q => q.problem.trim() === r['Question'].trim());
+            const rQid = r['QuestionID'] || "";
+        let dbQuestion = globalData.questions.find(q => q.questionId === rQid);
 
+        // Fallback สำหรับข้อมูลเก่า
+        if (!dbQuestion) {
+            dbQuestion = globalData.questions.find(q => q.problem.trim() === r['Question'].trim());
+        }
             if (!dbQuestion) {
                 Swal.fire('Error', 'ไม่พบต้นฉบับข้อสอบนี้ใน Database', 'error');
                 return;
