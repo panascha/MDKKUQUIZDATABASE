@@ -3170,7 +3170,7 @@
     // ====================================================================
     // 1. GLOBAL CONFIGURATION & VARIABLES
     // ====================================================================
-    const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzKYjuWpKCMjLIAvgLAQKdkNEBQ2gaEezMVEpvT4D7WAj23J8ftCP9xDKW9soSH2xk/exec';
+    const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyGIWxK-Zv6s2eaV4eOHyuGYKP7WapHO3G_as0nfSkIewi5ROHhDuTqTFcrmJKXvDI6/exec';
 
     let globalData = {
         questions: [],
@@ -3271,11 +3271,12 @@
                     // --- กรณีที่ 1: วางลงใน Choice ที่เลือกไว้ ---
                     if ($targetChoiceRow.length > 0) {
                         let rowId = $targetChoiceRow.attr('id');
-                        getBase64(blob).then(base64 => {
+                        getBase64(blob).then(async base64 => {
+                            const compressedBase64 = await compressImage(base64, 800, 800);
                             const localBlobUrl = URL.createObjectURL(blob);
                             choiceImagesData[rowId] = {
                                 type: 'pending',
-                                data: base64,
+                                data: compressedBase64,
                                 blob: localBlobUrl
                             };
                             const $input = $targetChoiceRow.find('.choice-text-input');
@@ -4294,15 +4295,28 @@
                     data: 'answer',
                     createdCell: (td) => $(td).attr('data-label', 'Answer'),
                     render: function (data, type, row) {
-                        // ถ้าในช้อยส์มีคำว่า require_img ให้แสดง Badge แจ้งเตือนในช่องคำตอบ
                         const choicesRaw = String(row.choices || "");
+
+                        // 1. ถ้ามีข้อความ require_img ให้แสดง Badge แจ้งเตือน
                         if (choicesRaw.toLowerCase().includes('require_img')) {
-                            return `<span class="badge bg-info text-dark"><i class="fas fa-file-image"></i> รอรูปช้อยส์</span><br><small>${data}</small>`;
+                            return `<span class="badge bg-info text-dark"><i class="fas fa-file-image"></i> รอรูปช้อยส์</span><br><small class="text-muted">${data}</small>`;
                         }
-                        if(choicesRaw.toLowerCase().includes('https://drive.google.com')) {
-                            return `<img src="${transformUrl(choicesRaw.split('///')[0])}" class="img-preview-mini"><br>`;
+
+                        // 2. ตรวจสอบว่า "คำตอบที่ถูกต้อง" (data) เป็นลิงก์รูปภาพหรือไม่
+                        // ถ้าเป็นลิงก์ Google Drive หรือขึ้นต้นด้วย http ให้แสดงเป็นรูป
+                        if (data && (data.includes('drive.google.com') || data.startsWith('http'))) {
+                            return `
+                                <div class="text-center">
+                                    <img src="${transformUrl(data)}" class="img-preview-mini shadow-sm border" 
+                                         onclick="window.open('${transformUrl(data)}', '_blank')" 
+                                         style="max-height: 50px; cursor: pointer;" 
+                                         title="คลิกเพื่อดูรูปใหญ่">
+                                    <div style="font-size: 0.65rem; color: #666; margin-top: 2px;">(Image Answer)</div>
+                                </div>`;
                         }
-                        return data || '-';
+
+                        // 3. ถ้าไม่ใช่รูปภาพ ให้แสดงเป็นข้อความปกติ
+                        return data || '<span class="text-muted">-</span>';
                     }
                 },
                 {
@@ -4636,122 +4650,147 @@
         async function saveQuestionChanges() {
                 if (!confirmAdmin()) return;
 
-                // --- STEP 1: ดึงข้อมูลจากฟอร์มปัจจุบัน ---
+                // --- STEP 1: ดึงข้อมูลและสร้าง Snapshot (Capture ทุกอย่างก่อนปิด Modal) ---
                 const qId = $('#edit-q-id').val();
                 const problemText = $('#edit-problem').val().trim();
                 const explainText = $('#edit-explanation').val().trim();
                 const categories = JSON.parse($('#edit-category-hidden').val() || "[]");
 
-                // 1.1 จัดการรูปโจทย์ (Main Images)
-                let localMainImages = [...existingMainImages];
-                // ถ้ามีการวางรูปใหม่ หรือมีรูปที่อัปโหลดค้างไว้ ให้กรองคำว่า require_img ออกทันที
-                if (pendingMainImages.length > 0) {
-                    localMainImages = localMainImages.filter(u => !u.toLowerCase().includes('require_img'));
-                }
-                // สร้าง String สำหรับแสดงผลในเครื่องชั่วคราว (รูปใหม่จะขึ้นเป็น [รูปภาพใหม่])
-                const finalImgStringLocal = [...localMainImages, ...pendingMainImages.map(() => "[รูปภาพใหม่]")].join('///');
+                // Snapshot ข้อมูลภาพโจทย์ (Main)
+                const snapshotPendingMain = [...pendingMainImages];
+                const snapshotExistingMain = [...existingMainImages];
 
-                // 1.2 จัดการตัวเลือก (Choices)
-                let localChoicesArray = [];
-                let finalAnswerLocal = "";
+                // Snapshot ข้อมูลตัวเลือก (Choices) พร้อม ImageData ป้องกัน Error
+                const rowsSnapshot = [];
+                let pendingChoiceImagesCount = 0;
 
                 $('#dynamic-choices-container .choice-item').each(function () {
                     const rowId = $(this).attr('id');
-                    const $input = $(this).find('.choice-text-input');
-                    const isChecked = $(this).find('.choice-radio').is(':checked');
-                    let textVal = $input.val().trim();
+                    const imgEntry = choiceImagesData[rowId];
+                    const textValInInput = $(this).find('.choice-text-input').val().trim();
+                    const isCorrect = $(this).find('.choice-radio').is(':checked');
 
-                    // ถ้าช้อยส์นี้มีการเลือกรูปใหม่ (pending)
-                    if (choiceImagesData[rowId] && choiceImagesData[rowId].type === 'pending') {
-                        textVal = "[รูปภาพใหม่]";
-                    }
-                    // ถ้าเป็น require_img แต่ยังไม่ได้เลือกรูป (กรณีทีมงานแก้ข้อความอย่างเดียว)
-                    else if (textVal === "" && $(this).hasClass('border-warning')) {
-                        textVal = "require_img";
-                    }
+                    const isPending = !!(imgEntry && imgEntry.type === 'pending');
+                    if (isPending) pendingChoiceImagesCount++;
 
-                    if (textVal !== "") {
-                        localChoicesArray.push(textVal);
-                        if (isChecked) finalAnswerLocal = textVal;
-                    }
+                    rowsSnapshot.push({
+                        id: rowId,
+                        isPending: isPending,
+                        imageData: imgEntry ? imgEntry.data : null, // เก็บ Base64 ไว้ที่นี่เลย
+                        isExisting: !!(imgEntry && imgEntry.type === 'existing'),
+                        text: textValInInput,
+                        isCorrect: isCorrect,
+                        wasRequireImg: $(this).hasClass('border-warning') // ตรวจสอบสถานะเดิม
+                    });
                 });
 
-                const finalChoicesStringLocal = localChoicesArray.join('///');
+                const totalImagesToUpload = snapshotPendingMain.length + pendingChoiceImagesCount;
 
-                // --- STEP 2: อัปเดตข้อมูลในเครื่องทันที (Optimistic Update) ---
+                // --- STEP 2: Optimistic UI Update (แก้หน้าจอทันที) ---
                 const qIndex = globalData.questions.findIndex(q => q.questionId === qId);
                 if (qIndex !== -1) {
-                    // อัปเดตตัวแปร Global
+                    // อัปเดตข้อมูลจำลองในเครื่องก่อน เพื่อให้ User เห็นความเปลี่ยนแปลงทันที
                     globalData.questions[qIndex].problem = problemText;
                     globalData.questions[qIndex].explain = explainText;
                     globalData.questions[qIndex].category = categories;
-                    globalData.questions[qIndex].img = finalImgStringLocal;
-                    globalData.questions[qIndex].choices = finalChoicesStringLocal;
-                    globalData.questions[qIndex].answer = finalAnswerLocal;
 
-                    // บันทึกลง IndexedDB ทันที (กันพลาดถ้า User กด Refresh)
+                    // บันทึกลง IndexedDB เบื้องต้น
                     await setCacheDB('global_admin_data', globalData);
-
-                    // สั่งวาดตารางและ Dashboard ใหม่ทันที
                     refreshTables();
                     updateDashboard();
                 }
 
-                // ปิด Modal ทันทีเพื่อให้ User ทำงานข้ออื่นต่อได้
+                // ปิดหน้าต่างแก้ไขทันที เพื่อให้แอดมินทำงานข้ออื่นต่อได้
                 $('#editQuestionModal').modal('hide');
 
-                // แจ้งเตือนสถานะเบื้องหลัง
+                // สร้าง Toast แจ้งเตือนสถานะเบื้องหลัง
                 const bgToast = Swal.mixin({
                     toast: true,
                     position: 'bottom-end',
                     showConfirmButton: false,
                     timerProgressBar: true
                 });
-                bgToast.fire({ icon: 'info', title: 'บันทึกในเครื่องแล้ว กำลังซิงค์เซิร์ฟเวอร์...', timer: 3000 });
+
+                bgToast.fire({
+                    icon: 'info',
+                    title: totalImagesToUpload > 0 ? `เริ่มซิงค์ข้อมูล (${totalImagesToUpload} ภาพ)...` : 'กำลังบันทึกข้อมูล...',
+                    timer: 3000
+                });
 
                 // --- STEP 3: ทำงานเบื้องหลัง (Background Processing) ---
                 (async () => {
                     try {
                         activeUploadsCount++;
+                        const delay = ms => new Promise(res => setTimeout(res, ms));
+                        let currentImageCount = 0;
 
                         // 3.1 อัปโหลดรูปโจทย์ (Main Images)
-                        let serverMainUrls = [...localMainImages];
-                        for (let base64 of pendingMainImages) {
-                            let res = await sendWithRetry({
-                                action: 'uploadImage',
-                                username: currentUser.username, adminPass: adminPass,
-                                data: { base64: base64, questionId: qId, type: 'Main' }
-                            });
-                            if (res.result === 'success') serverMainUrls.push(res.url);
+                        let serverMainUrls = [...snapshotExistingMain];
+                        if (snapshotPendingMain.length > 0) {
+                            // กรองคำว่า require_img ออกถ้ากำลังจะมีรูปจริงมาแทน
+                            serverMainUrls = serverMainUrls.filter(u => !u.toLowerCase().includes('require_img'));
+
+                            for (const base64 of snapshotPendingMain) {
+                                currentImageCount++;
+                                bgToast.fire({
+                                    icon: 'info',
+                                    title: `กำลังอัปโหลดรูปที่ ${currentImageCount}/${totalImagesToUpload}`,
+                                    text: 'ส่วนของ: รูปภาพโจทย์',
+                                    timer: 60000
+                                });
+
+                                const res = await sendWithRetry({
+                                    action: 'uploadImage',
+                                    username: currentUser.username, adminPass: adminPass,
+                                    data: { base64: base64, questionId: qId, type: 'Main' }
+                                });
+
+                                if (res.result === 'success') {
+                                    serverMainUrls.push(res.url);
+                                    await delay(400); // หน่วงเวลาสั้นลง (400ms) เพื่อความเร็ว
+                                } else {
+                                    throw new Error(`รูปโจทย์ภาพที่ ${currentImageCount} ล้มเหลว`);
+                                }
+                            }
                         }
 
                         // 3.2 อัปโหลดรูปตัวเลือก (Choice Images)
-                        let serverChoicesArray = [];
+                        const serverChoicesArray = [];
                         let finalAnswerServer = "";
 
-                        // เราต้องวนลูปตามลำดับแถวจริงๆ ในหน้าจอ (Snapshot)
-                        const rowsSnapshot = [];
-                        $('#dynamic-choices-container .choice-item').each(function () {
-                            rowsSnapshot.push({
-                                id: $(this).attr('id'),
-                                text: $(this).find('.choice-text-input').val().trim(),
-                                isCorrect: $(this).find('.choice-radio').is(':checked')
-                            });
-                        });
+                        for (const row of rowsSnapshot) {
+                            let finalVal = "";
 
-                        for (let row of rowsSnapshot) {
-                            let finalVal = row.text;
-                            const imgData = choiceImagesData[row.id];
+                            if (row.isPending) {
+                                currentImageCount++;
+                                bgToast.fire({
+                                    icon: 'info',
+                                    title: `กำลังอัปโหลดรูปที่ ${currentImageCount}/${totalImagesToUpload}`,
+                                    text: 'ส่วนของ: ตัวเลือก',
+                                    timer: 60000
+                                });
 
-                            if (imgData && imgData.type === 'pending') {
-                                let res = await sendWithRetry({
+                                const res = await sendWithRetry({
                                     action: 'uploadImage',
                                     username: currentUser.username, adminPass: adminPass,
-                                    data: { base64: imgData.data, questionId: qId, type: 'Choice' }
+                                    data: { base64: row.imageData, questionId: qId, type: 'Choice' }
                                 });
-                                if (res.result === 'success') finalVal = res.url;
-                            } else if (imgData && imgData.type === 'existing') {
-                                finalVal = imgData.data;
+
+                                if (res.result === 'success') {
+                                    finalVal = res.url;
+                                    await delay(400);
+                                } else {
+                                    throw new Error(`รูปตัวเลือกที่ ${currentImageCount} ล้มเหลว`);
+                                }
+                            } else if (row.isExisting) {
+                                finalVal = row.imageData; // URL เดิม
+                            } else {
+                                finalVal = row.text; // ข้อความปกติ
+                            }
+
+                            // จัดการกรณี require_img (ถ้าช่องว่างแต่เดิมระบุว่าต้องมีรูป ให้คงไว้)
+                            if (finalVal === "" && row.text === "" && row.isPending === false && row.wasRequireImg) {
+                                finalVal = "require_img";
                             }
 
                             if (finalVal !== "") {
@@ -4760,7 +4799,9 @@
                             }
                         }
 
-                        // 3.3 ส่งคำสั่ง EditQuestion ไปยัง Google Sheets
+                        // 3.3 ส่งข้อมูลสรุปเข้า Google Sheets
+                        bgToast.fire({ icon: 'info', title: 'กำลังบันทึกลงฐานข้อมูล...', timer: 30000 });
+
                         const savePayload = {
                             id: qId,
                             problem: problemText,
@@ -4771,13 +4812,14 @@
                             answer: finalAnswerServer
                         };
 
+                        // 🔥 แก้ไขจุดนี้: เพิ่ม const finalRes = เพื่อรับค่าจากฟังก์ชัน
                         const finalRes = await sendWithRetry({
                             action: 'editQuestion',
                             username: currentUser.username, adminPass: adminPass,
                             data: savePayload
                         });
 
-                        // 3.4 ถ้ามาจาก Report ให้ Auto-Resolve ทันที
+                        // 3.4 จัดการ Report (ถ้ามี)
                         const reportData = $('#editQuestionModal').data('reportData');
                         if (reportData) {
                             await sendWithRetry({
@@ -4785,28 +4827,44 @@
                                 username: currentUser.username, adminPass: adminPass,
                                 data: {
                                     timestamp: reportData.timestamp,
-                                    adminNote: reportData.adminNote || "แก้ไขและเพิ่มรูปเรียบร้อยแล้ว",
+                                    adminNote: reportData.adminNote || "แก้ไขเรียบร้อยแล้ว",
                                     status: 'Resolved', done: 'TRUE'
                                 }
                             });
                             $('#editQuestionModal').removeData('reportData');
                         }
 
-                        // เสร็จสิ้นสมบูรณ์: โหลดข้อมูลใหม่เงียบๆ มาทับเพื่อความแม่นยำ
-                        await clearAdminCache();
-                        await fetchData(true, true);
-                        bgToast.fire({ icon: 'success', title: 'ซิงค์ข้อมูลสำเร็จ', timer: 2000 });
+                        // 🔥 แจ้งเตือนสำเร็จทันที
+                        if (finalRes && finalRes.result === 'success') {
+                            bgToast.fire({
+                                icon: 'success',
+                                title: 'บันทึกสำเร็จ!',
+                                text: `ข้อมูลข้อสอบ ${qId} ถูกเขียนลงฐานข้อมูลแล้ว`,
+                                timer: 2000
+                            });
+                        }
+
+                        // ✅ ทำงานเบื้องหลัง (ไม่ใช้ await เพื่อให้จบฟังก์ชันทันที)
+                        (async () => {
+                            await clearAdminCache();
+                            await fetchData(true, true);
+                            console.log("Background Data Sync Completed.");
+                        })();
 
                     } catch (error) {
                         console.error("Sync Error:", error);
-                        Swal.fire('การซิงค์ข้อมูลขัดข้อง', 'บันทึกในเครื่องสำเร็จ แต่ข้อมูลอาจยังไม่ไปถึงเซิร์ฟเวอร์: ' + error.message, 'error');
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'การซิงค์ข้อมูลขัดข้อง',
+                            text: error.message,
+                        });
                     } finally {
                         activeUploadsCount--;
                     }
                 })();
             }
-
-    async function deleteQuestion() {
+    
+            async function deleteQuestion() {
         // ... (โค้ด deleteQuestion เดิม) ...
         if (!confirmAdmin()) return;
         if (!confirm('Are you sure you want to DELETE this question?')) return;
@@ -4868,70 +4926,63 @@
     }
 
     function _renderNewCategoryRow(selectedCategoryID = null) {
-        const $container = $('#dynamic-categories-container');
-        const subjects = [...new Set(globalData.category.map(c => c.SubjectRef))].filter(s => s);
+            const $container = $('#dynamic-categories-container');
+            const subjects = [...new Set(globalData.category.map(c => c.SubjectRef))].filter(s => s);
 
-        // 1. สร้าง Option สำหรับ Subject
-        let subjectOptions = `<option value="">-- เลือกวิชา --</option>`;
-        subjects.sort().forEach(s => {
-            subjectOptions += `<option value="${s}">${s}</option>`;
-        });
+            let subjectOptions = `<option value="">-- เลือกวิชา --</option>`;
+            subjects.sort().forEach(s => {
+                subjectOptions += `<option value="${s}">${s}</option>`;
+            });
 
-        // 2. หา Subject/Group ของ Category ที่เลือกไว้ (ถ้ามี)
-        let selectedSubject = '';
-        let selectedGroup = '';
-        let categoryName = '';
-        if (selectedCategoryID) {
-            const cat = globalData.category.find(c => c.CategoryID === selectedCategoryID);
-            if (cat) {
-                selectedSubject = cat.SubjectRef;
-                selectedGroup = cat.AccordionGroup;
-                categoryName = cat.CategoryName;
+            let selectedSubject = '';
+            let selectedGroup = '';
+
+            // ค้นหาข้อมูล Category จาก Master List
+            if (selectedCategoryID) {
+                // ล้างช่องว่างหัวท้ายเพื่อป้องกัน Error
+                const cleanID = String(selectedCategoryID).trim();
+                const cat = globalData.category.find(c => String(c.CategoryID).trim() === cleanID);
+
+                if (cat) {
+                    selectedSubject = cat.SubjectRef;
+                    selectedGroup = cat.AccordionGroup;
+                }
             }
-        }
 
-        const rowHtml = `
-            <div class="category-row d-flex gap-2 align-items-center bg-light p-2 rounded">
-                <select class="form-select form-select-sm category-subject-select" onchange="updateGroupSelect(this)" style="flex: 1;">
-                    ${subjectOptions}
-                </select>
-                <select class="form-select form-select-sm category-group-select" onchange="updateCategorySelect(this)" style="flex: 1;">
-                    <option value="">-- กลุ่ม --</option>
-                </select>
-                <select class="form-select form-select-sm category-id-select" onchange="syncCategoriesToHiddenInput()" style="flex: 2;">
-                    <option value="">-- หัวข้อ/Category --</option>
-                </select>
-                <button class="btn btn-sm btn-outline-danger" type="button" onclick="removeCategoryRow(this)">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        `;
-        const $row = $(rowHtml);
+            const rowHtml = `
+        <div class="category-row d-flex gap-2 align-items-center bg-light p-2 rounded">
+            <select class="form-select form-select-sm category-subject-select" onchange="updateGroupSelect(this)" style="flex: 1;">
+                ${subjectOptions}
+            </select>
+            <select class="form-select form-select-sm category-group-select" onchange="updateCategorySelect(this)" style="flex: 1;">
+                <option value="">-- กลุ่ม --</option>
+            </select>
+            <select class="form-select form-select-sm category-id-select" onchange="syncCategoriesToHiddenInput()" style="flex: 2;">
+                <option value="">-- หัวข้อ/Category --</option>
+                ${(selectedCategoryID && !selectedSubject) ? `<option value="${selectedCategoryID}" selected>${selectedCategoryID} (ไม่พบในฐานข้อมูล)</option>` : ''}
+            </select>
+            <button class="btn btn-sm btn-outline-danger" type="button" onclick="removeCategoryRow(this)">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `;
+            const $row = $(rowHtml);
 
-        // 3. ตั้งค่า Selected Subject และเรียกฟังก์ชัน Update Group/Category
-        if (selectedSubject) {
-            $row.find('.category-subject-select').val(selectedSubject).trigger('change');
+            if (selectedSubject) {
+                $row.find('.category-subject-select').val(selectedSubject).trigger('change');
 
-            // ตั้งค่า Selected Group
-            if (selectedGroup) {
-                // ต้องรอให้ Group Select ถูก Populate ก่อน
+                // ใช้ฟังก์ชัน Callback แทนการใช้ setTimeout แบบสุ่มเสี่ยง
                 setTimeout(() => {
                     $row.find('.category-group-select').val(selectedGroup).trigger('change');
-
-                    // ตั้งค่า Selected CategoryID
-                    if (selectedCategoryID) {
-                        setTimeout(() => {
-                            $row.find('.category-id-select').val(selectedCategoryID);
-                            syncCategoriesToHiddenInput();
-                        }, 50);
-                    }
-                }, 50);
+                    setTimeout(() => {
+                        $row.find('.category-id-select').val(selectedCategoryID);
+                        syncCategoriesToHiddenInput();
+                    }, 100);
+                }, 100);
             }
+
+            $container.append($row);
         }
-
-        $container.append($row);
-    }
-
     function removeCategoryRow(btn) {
         $(btn).closest('.category-row').remove();
         syncCategoriesToHiddenInput();
@@ -5092,11 +5143,14 @@
         const file = input.files[0];
         const localBlobUrl = URL.createObjectURL(file);
 
-        getBase64(file).then(base64 => {
+        getBase64(file).then(async base64 => {
+
+            const compressedBase64 = await compressImage(base64, 800, 800); 
+
             // เก็บข้อมูลไว้ในตัวแปร รออัปโหลดตอน Save ครั้งเดียว
             choiceImagesData[rowId] = {
                 type: 'pending',
-                data: base64, // ข้อมูล Base64 สำหรับอัปโหลด
+                data: compressedBase64, // ข้อมูล Base64 สำหรับอัปโหลด
                 blob: localBlobUrl
             };
             const $input = $('#' + rowId).find('.choice-text-input');
@@ -5134,22 +5188,36 @@
         $('#' + rowId).remove();
     }
     function removeChoiceMedia(rowId) {
-        const $row = $('#' + rowId);
-        const $input = $row.find('.choice-text-input');
+            const $row = $('#' + rowId);
+            const $input = $row.find('.choice-text-input');
+            const urlToRemove = $input.val().trim();
+            const qId = $('#edit-q-id').val();
 
-        // ล้างข้อมูลในความจำ
-        if (choiceImagesData[rowId] && choiceImagesData[rowId].blob) {
-            URL.revokeObjectURL(choiceImagesData[rowId].blob);
+            // 1. ถ้าเป็นลิงก์ Google Drive ให้สั่งลบใน Drive ด้วย
+            if (urlToRemove.includes('drive.google.com')) {
+                sendWithRetry({
+                    action: 'deleteImage',
+                    username: currentUser.username,
+                    adminPass: adminPass,
+                    data: { url: urlToRemove, currentQid: qId }
+                });
+            }
+
+            // 2. 🔥 ล้างข้อมูลใน Memory และช่อง Input ทันทีในคลิกเดียว
+            if (choiceImagesData[rowId] && choiceImagesData[rowId].blob) {
+                URL.revokeObjectURL(choiceImagesData[rowId].blob);
+            }
+            delete choiceImagesData[rowId];
+
+            // 3. 🔥 เคลียร์ค่าในช่อง Input ให้ว่างเปล่า (เพื่อให้ตอน Save ลิงก์หายไปจาก Sheet)
+            $input.val('').show();
+
+            // 4. อัปเดต UI พรีวิว
+            renderChoicePreview($input);
+            syncChoicesToHiddenInput();
+
+            bgToast.fire({ icon: 'success', title: 'ลบสื่อและลิงก์ออกแล้ว', timer: 1500 });
         }
-        delete choiceImagesData[rowId];
-
-        // ล้างค่าในช่อง Input และเปิดการแสดงผล
-        $input.val('').show();
-
-        // อัปเดต UI
-        renderChoicePreview($input);
-        syncChoicesToHiddenInput();
-    }
 
     function addNewChoiceRow() {
         addChoiceRow("");
@@ -5293,37 +5361,43 @@
     }
 
     function removeCurrentImageFromGallery() {
-        let isExisting = editImageIndex < existingMainImages.length;
-        let qId = $('#edit-q-id').val(); // ดึง ID ข้อปัจจุบัน
+            let isExisting = editImageIndex < existingMainImages.length;
+            let qId = $('#edit-q-id').val();
 
-        if (isExisting) {
-            let urlToRemove = existingMainImages[editImageIndex];
-            Swal.fire({
-                title: 'ลบรูปภาพเดิม?',
-                text: "หากรูปนี้ไม่ได้ใช้ในข้ออื่น จะถูกย้ายลงถังขยะ",
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonText: 'ลบ'
-            }).then(async (result) => {
-                if (result.isConfirmed) {
-                    // ส่งลบเบื้องหลัง พร้อมแนบ currentQid ไปด้วย
-                    sendWithRetry({
-                        action: 'deleteImage',
-                        username: currentUser.username,
-                        adminPass: adminPass,
-                        data: { url: urlToRemove, currentQid: qId }
-                    });
-                    existingMainImages.splice(editImageIndex, 1);
-                    syncMainImageGallery();
-                }
-            });
-        } else {
-            // รูปใหม่ที่เพิ่ง Paste (ยังไม่ได้ขึ้น Drive) แค่ลบจาก Array
-            let pendingIndex = editImageIndex - existingMainImages.length;
-            pendingMainImages.splice(pendingIndex, 1);
-            syncMainImageGallery();
+            if (isExisting) {
+                let urlToRemove = existingMainImages[editImageIndex];
+                Swal.fire({
+                    title: 'ลบรูปภาพโจทย์?',
+                    text: "ไฟล์จะถูกย้ายลงถังขยะและลิงก์จะถูกนำออกจากข้อสอบทันที",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'ลบภาพและลิงก์'
+                }).then(async (result) => {
+                    if (result.isConfirmed) {
+                        // 1. ส่งคำสั่งลบไฟล์ใน Drive (ทำงานเบื้องหลัง)
+                        sendWithRetry({
+                            action: 'deleteImage',
+                            username: currentUser.username,
+                            adminPass: adminPass,
+                            data: { url: urlToRemove, currentQid: qId }
+                        });
+
+                        // 2. 🔥 ลบลิงก์ออกจากรายการในหน้าจอทันที (สำคัญ!)
+                        existingMainImages.splice(editImageIndex, 1);
+
+                        // 3. อัปเดตการแสดงผลหน้าจอ
+                        syncMainImageGallery();
+
+                        bgToast.fire({ icon: 'success', title: 'นำรูปภาพและลิงก์ออกแล้ว (อย่าลืมกด Save Changes)', timer: 2000 });
+                    }
+                });
+            } else {
+                // รูปใหม่ที่ยังไม่ได้ขึ้น Drive แค่ลบจาก Array
+                let pendingIndex = editImageIndex - existingMainImages.length;
+                pendingMainImages.splice(pendingIndex, 1);
+                syncMainImageGallery();
+            }
         }
-    }
     function addImageRow(value = "") {
         const $container = $('#dynamic-images-container');
         const rowHtml = `
