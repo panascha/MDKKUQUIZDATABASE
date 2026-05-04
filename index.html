@@ -3907,6 +3907,7 @@
             isFetching = false;
             $('#loading-overlay').hide(); // เผื่อกรณีค้าง
         }
+        finalizeDataLoading();
     }
 
     $(document).on('hidden.bs.modal', '.modal', function () {
@@ -3936,15 +3937,12 @@
         updateDashboard();
         populateFilters();
         //renderReportList();
+        
+        refreshTables(true); // true = รักษาหน้าปัจจุบันไว้
 
         // Only refresh report list if not currently editing a report
-        if (!$('#editQuestionModal').data('reportData')) {
+        if (!$('#sec-report-inbox').hasClass('hidden')) {
             renderReportList();
-        }
-        refreshTables();
-
-        if (!$('#sec-structure').hasClass('hidden')) {
-            renderStructureTree($('#struct-subject-filter').val());
         }
     }
     function startVersionPolling() {
@@ -3957,16 +3955,23 @@
             fetchData(false, true);
         }, 60000);
     }
-    function refreshTables() {
+    function refreshTables(keepState = false) {
         // 1. ตาราง Public Search
         if (!$('#sec-public-search').hasClass('hidden') && $.fn.DataTable.isDataTable('#publicTable')) {
-            $('#publicTable').DataTable().clear().rows.add(globalData.questions).draw(false);
+            const table = $('#publicTable').DataTable();
+            table.clear().rows.add(globalData.questions).draw(!keepState); // draw(false) จะรักษาหน้าปัจจุบันไว้
+            // บังคับ Re-search ตามค่าใน Select ล่าสุด
+            table.column(0).search($('#search-subject-filter').val()).draw();
+            table.column(1).search($('#search-category-filter').val()).draw();
         }
 
         // 2. ตาราง Admin Database
         if (!$('#sec-database').hasClass('hidden') && $.fn.DataTable.isDataTable('#adminTable')) {
-            $('#adminTable').DataTable().clear().rows.add(globalData.questions).draw(false);
-        }
+        const table = $('#adminTable').DataTable();
+        table.clear().rows.add(globalData.questions).draw(!keepState);
+        table.column(0).search($('#db-subject-filter').val()).draw();
+        table.column(1).search($('#db-category-filter').val()).draw();
+    }
 
         // 3. ตาราง Logs
         if (!$('#sec-logs').hasClass('hidden')) {
@@ -4053,61 +4058,79 @@
         $('#dashboardRecentTable tbody').html(html);
     }
     function populateFilters() {
-        // ... (โค้ด populateFilters เดิม) ...
-        const subjects = [...new Set(globalData.structure.map(s => s.SubjectID))].sort();
+            // --- 1. เก็บค่าที่ User เลือกค้างไว้ในปัจจุบันก่อนจะโดน Reset ---
+            const currentValues = {
+                searchSubj: $('#search-subject-filter').val(),
+                searchCat: $('#search-category-filter').val(),
+                dbSubj: $('#db-subject-filter').val(),
+                dbCat: $('#db-category-filter').val(),
+                reportSubj: $('#report-subject-filter').val(),
+                structSubj: $('#struct-subject-filter').val()
+            };
 
-        let subjOpts = '<option value="">All Subjects</option>';
-        subjects.forEach(s => subjOpts += `<option value="${s}">${s}</option>`);
+            // --- 2. สร้างรายการ Subject Options ตามปกติ ---
+            const subjects = [...new Set(globalData.structure.map(s => s.SubjectID))].sort();
+            let subjOpts = '<option value="">All Subjects</option>';
+            subjects.forEach(s => subjOpts += `<option value="${s}">${s}</option>`);
 
-        $('#search-subject-filter, #db-subject-filter, #struct-subject-filter, #report-subject-filter').html(subjOpts);
-        $('#new-category-subject').html('<option value="">-- Select Subject --</option>' + subjOpts.replace('All Subjects', ''));
+            // อัปเดต HTML ของ Subject Select ทุกตัว
+            $('#search-subject-filter, #db-subject-filter, #struct-subject-filter, #report-subject-filter').html(subjOpts);
+            $('#new-category-subject').html('<option value="">-- Select Subject --</option>' + subjOpts.replace('All Subjects', ''));
 
-        let categoryOpts = '<option value="">All Categories</option>';
-        subjects.forEach(subj => {
-            const catsInSubj = globalData.category.filter(c => c.SubjectRef === subj);
+            // --- 3. สร้างรายการ Category Options (แบบ Group ตามวิชา) ---
+            let categoryOpts = '<option value="">All Categories</option>';
+            subjects.forEach(subj => {
+                const catsInSubj = globalData.category.filter(c => c.SubjectRef === subj);
+                if (catsInSubj.length > 0) {
+                    categoryOpts += `<optgroup label="${subj}">`;
+                    catsInSubj.forEach(t => {
+                        categoryOpts += `<option value="${t.CategoryID}">${t.CategoryName}</option>`;
+                    });
+                    categoryOpts += `</optgroup>`;
+                }
+            });
 
-            if (catsInSubj.length > 0) {
-                categoryOpts += `<optgroup label="${subj}">`;
-                catsInSubj.forEach(t => {
-                    categoryOpts += `<option value="${t.CategoryID}">${t.CategoryName}</option>`;
+            const orphanCats = globalData.category.filter(c => !c.SubjectRef || !subjects.includes(c.SubjectRef));
+            if (orphanCats.length > 0) {
+                categoryOpts += `<optgroup label="Others">`;
+                orphanCats.forEach(t => {
+                    categoryOpts += `<option value="${t.CategoryID}">${t.CategoryName} (${t.CategoryID})</option>`;
                 });
                 categoryOpts += `</optgroup>`;
             }
-        });
 
-        const orphanCats = globalData.category.filter(c => !c.SubjectRef || !subjects.includes(c.SubjectRef));
-        if (orphanCats.length > 0) {
-            categoryOpts += `<optgroup label="Others">`;
-            orphanCats.forEach(t => {
-                categoryOpts += `<option value="${t.CategoryID}">${t.CategoryName} (${t.CategoryID})</option>`;
+            // อัปเดต HTML ของ Category Select
+            $('#search-category-filter, #db-category-filter').html(categoryOpts);
+
+            // --- 4. คืนค่าเดิมที่ User เคยเลือกไว้ (The "Remember" Logic) ---
+
+            // คืนค่า Subject
+            if (currentValues.searchSubj) $('#search-subject-filter').val(currentValues.searchSubj);
+            if (currentValues.dbSubj) $('#db-subject-filter').val(currentValues.dbSubj);
+            if (currentValues.reportSubj) $('#report-subject-filter').val(currentValues.reportSubj);
+            if (currentValues.structSubj) $('#struct-subject-filter').val(currentValues.structSubj);
+
+            // สำคัญ: เนื่องจาก Category ขึ้นกับ Subject ต้องสั่งอัปเดต List ของ Category 
+            // เฉพาะอันที่ไม่ได้เลือก "All" ไว้ เพื่อให้ Option ใน Dropdown ถูกต้องตามวิชานั้น
+            if (currentValues.searchSubj) updateCategoryDropdown(currentValues.searchSubj, '#search-category-filter');
+            if (currentValues.dbSubj) updateCategoryDropdown(currentValues.dbSubj, '#db-category-filter');
+
+            // คืนค่า Category
+            if (currentValues.searchCat) $('#search-category-filter').val(currentValues.searchCat);
+            if (currentValues.dbCat) $('#db-category-filter').val(currentValues.dbCat);
+
+            // --- 5. จัดการ Datalist สำหรับหน้า Converter (เหมือนเดิม) ---
+            const uniqueSubjects = [];
+            const seen = new Set();
+            globalData.structure.forEach(s => {
+                if (!seen.has(s.SubjectID)) {
+                    uniqueSubjects.push(s);
+                    seen.add(s.SubjectID);
+                }
             });
-            categoryOpts += `</optgroup>`;
+            $('#subjectIdList').html(uniqueSubjects.map(s => `<option value="${s.SubjectID}">`).join(''));
+            $('#subjectNameList').html(uniqueSubjects.map(s => `<option value="${s.SubjectName}">`).join(''));
         }
-
-        $('#search-category-filter, #db-category-filter').html(categoryOpts);
-
-        let multiSelectOpts = '';
-        globalData.category.forEach(t => {
-            multiSelectOpts += `<option value="${t.CategoryID}">${t.CategoryName} (${t.CategoryID})</option>`;
-        });
-        $('#edit-category').html(multiSelectOpts);
-        // ... (จบโค้ด populateFilters เดิม) ...
-
-        const uniqueSubjects = [];
-        const seen = new Set();
-
-        globalData.structure.forEach(s => {
-            if (!seen.has(s.SubjectID)) {
-                uniqueSubjects.push(s);
-                seen.add(s.SubjectID);
-            }
-        });
-
-        // ใส่ข้อมูลใน Datalist
-        $('#subjectIdList').html(uniqueSubjects.map(s => `<option value="${s.SubjectID}">`).join(''));
-        $('#subjectNameList').html(uniqueSubjects.map(s => `<option value="${s.SubjectName}">`).join(''));
-
-    }
 
     function updateCategoryDropdown(subjectId, targetSelector) {
         // ... (โค้ด updateCategoryDropdown เดิม) ...
@@ -4694,9 +4717,15 @@
                     globalData.questions[qIndex].explain = explainText;
                     globalData.questions[qIndex].category = categories;
 
+                    if (snapshotPendingMain.length > 0) {
+                        globalData.questions[qIndex].img = snapshotPendingMain[0];
+                    } else {
+                        globalData.questions[qIndex].img = snapshotExistingMain.join('///');
+                    }
+
                     // บันทึกลง IndexedDB เบื้องต้น
                     await setCacheDB('global_admin_data', globalData);
-                    refreshTables();
+                    refreshTables(true); // รีเฟรชตารางทันทีด้วยข้อมูลใหม่
                     updateDashboard();
                 }
 
