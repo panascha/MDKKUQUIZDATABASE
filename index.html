@@ -1156,20 +1156,20 @@
         }
 
         .svg-preview-box {
-            width: 100%;
-            height: 100%;
-            padding: 10px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    pointer-events: none; /* ป้องกันการคลิกโดนองค์ประกอบภายใน SVG */
+}
 
         .svg-preview-box svg {
-            max-width: 80px;
-            max-height: 80px;
-            width: auto;
-            height: auto;
-        }
+    max-width: 100%;
+    max-height: 80px; /* จำกัดความสูงในหน้า Library */
+    width: auto;
+    height: auto;
+}
 
         .library-item:hover {
             border-color: var(--primary-color);
@@ -1185,11 +1185,12 @@
         }
 
         .library-item.svg-item {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background: #fff;
-        }
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #fff;
+    padding: 10px;
+}
 
         .library-group-header {
             grid-column: 1 / -1;
@@ -5486,94 +5487,106 @@
     // ==========================================
 
     function openImageLibrary() {
-        const categoryString = $('#edit-category-hidden').val();
-        let currentCategories = [];
-        try { currentCategories = JSON.parse(categoryString); } catch (e) { }
+            const categoryString = $('#edit-category-hidden').val();
+            let currentCategories = [];
+            try { currentCategories = JSON.parse(categoryString); } catch (e) { }
 
-        if (currentCategories.length === 0) {
-            Swal.fire('แจ้งเตือน', 'กรุณาเลือกวิชาและหัวข้อก่อนเปิดคลังสื่อ', 'warning');
-            return;
-        }
-
-        const currentSubject = getSubjectFromCategory(currentCategories[0]);
-        $('#library-subject-name').text(currentSubject);
-
-        const libraryMap = {};
-        let totalItems = 0;
-
-        globalData.questions.forEach(q => {
-            const qSubject = getSubjectFromCategory(q.category);
-            if (qSubject !== currentSubject) return;
-
-            const qCategoryName = Array.isArray(q.category) ? q.category[0] : q.category;
-
-            // ฟังก์ชันช่วยตรวจสอบและเพิ่มสื่อลง Library
-            const extractMedia = (str) => {
-                if (!str) return;
-                const parts = str.split('///').map(u => u.trim()).filter(Boolean);
-                parts.forEach(part => {
-                    // เช็คว่าเป็นลิงก์รูปภาพ หรือ โค้ด SVG
-                    if (part.includes('drive.google.com') || part.startsWith('http') || part.startsWith('<svg')) {
-                        if (!libraryMap[qCategoryName]) libraryMap[qCategoryName] = new Set();
-                        libraryMap[qCategoryName].add(part);
-                        totalItems++;
-                    }
-                });
-            };
-
-            extractMedia(q.img);     // ดึงจากรูปโจทย์
-            extractMedia(q.choices); // ดึงจากตัวเลือก
-        });
-
-        const $container = $('#library-grid-container');
-        $container.empty();
-
-        if (totalItems === 0) {
-            $container.html('<div class="col-12 text-center text-muted py-5">ยังไม่มีสื่อในวิชานี้</div>');
-        } else {
-            for (const [catName, mediaSet] of Object.entries(libraryMap)) {
-                $container.append(`<div class="library-group-header"><i class="fas fa-folder-open"></i> หัวข้อ: ${catName}</div>`);
-
-                mediaSet.forEach(item => {
-                    let previewHtml = "";
-                    // ถ้าเป็น SVG ให้ Render โค้ดตรงๆ ในหน้า Library
-                    if (item.startsWith('<svg')) {
-                        previewHtml = `<div class="library-item svg-item" onclick="selectImageFromLibrary(\`${item.replace(/"/g, '&quot;')}\`)" title="คลิกเพื่อใช้ SVG นี้">
-                                    <div class="svg-preview-box">${item}</div>
-                                   </div>`;
-                    } else {
-                        // ถ้าเป็นรูปภาพปกติ
-                        previewHtml = `<div class="library-item" onclick="selectImageFromLibrary('${item}')" title="คลิกเพื่อใช้รูปนี้">
-                                    <img src="${transformUrl(item)}" loading="lazy">
-                                   </div>`;
-                    }
-                    $container.append(previewHtml);
-                });
-            }
-        }
-        $('#imageLibraryModal').modal('show');
-    }
-    // เมื่อผู้ใช้คลิกเลือกรูปภาพจากคลัง
-    function selectImageFromLibrary(content) {
-        if (currentLibraryTarget.type === 'main') {
-            if (existingMainImages.includes(content) || pendingMainImages.includes(content)) {
-                Swal.fire({ icon: 'info', title: 'สื่อนี้ถูกเลือกไปแล้ว', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
+            if (currentCategories.length === 0) {
+                Swal.fire('แจ้งเตือน', 'กรุณาเลือกวิชาและหัวข้อก่อนเปิดคลังสื่อ', 'warning');
                 return;
             }
-            existingMainImages.push(content);
-            syncMainImageGallery();
-        } else {
-            // ลงใน Choice ที่ระบุ
-            const $row = $('#' + currentLibraryTarget.rowId);
-            const $input = $row.find('.choice-text-input');
-            $input.val(content);
-            renderChoicePreview($input);
-            syncChoicesToHiddenInput();
-        }
 
-        $('#imageLibraryModal').modal('hide');
-        Swal.fire({ icon: 'success', title: 'นำสื่อมาใช้แล้ว', toast: true, position: 'top-end', showConfirmButton: false, timer: 1000 });
-    }
+            const currentSubject = getSubjectFromCategory(currentCategories[0]);
+            $('#library-subject-name').text(currentSubject);
+
+            const libraryMap = {};
+            let totalItems = 0;
+
+            // กรองคำถามเฉพาะวิชาเดียวกัน
+            globalData.questions.forEach(q => {
+                const qSubject = getSubjectFromCategory(q.category);
+                if (qSubject !== currentSubject) return;
+
+                const qCategoryName = Array.isArray(q.category) ? q.category[0] : q.category;
+
+                // ฟังก์ชันช่วยสกัดทั้ง URL รูปภาพ และ SVG Code
+                const extractMedia = (str) => {
+                    if (!str) return;
+                    const parts = str.split('///').map(u => u.trim()).filter(Boolean);
+                    parts.forEach(part => {
+                        // ตรวจสอบว่าเป็น URL หรือเป็น SVG Code
+                        if (part.includes('drive.google.com') || part.startsWith('http') || part.startsWith('<svg')) {
+                            if (!libraryMap[qCategoryName]) libraryMap[qCategoryName] = new Set();
+                            libraryMap[qCategoryName].add(part);
+                            totalItems++;
+                        }
+                    });
+                };
+
+                extractMedia(q.img);     // ดึงจากรูปโจทย์
+                extractMedia(q.choices); // ดึงจากตัวเลือก
+            });
+
+            const $container = $('#library-grid-container');
+            $container.empty();
+
+            if (totalItems === 0) {
+                $container.html('<div class="col-12 text-center text-muted py-5">ยังไม่มีสื่อหรือ SVG ในวิชานี้</div>');
+            } else {
+                for (const [catName, mediaSet] of Object.entries(libraryMap)) {
+                    $container.append(`<div class="library-group-header"><i class="fas fa-folder-open"></i> หัวข้อ: ${catName}</div>`);
+
+                    mediaSet.forEach(item => {
+                        let previewHtml = "";
+
+                        // กรณีเป็น SVG Code
+                        if (item.startsWith('<svg')) {
+                            // ใช้ backticks (`) เพื่อหุ้ม string ของ SVG ที่อาจจะมีฟันหนูเยอะ
+                            const safeSvg = item.replace(/`/g, '\\`');
+                            previewHtml = `
+                        <div class="library-item svg-item" onclick="selectImageFromLibrary(\`${safeSvg}\`)" title="คลิกเพื่อใช้ SVG นี้">
+                            <div class="svg-preview-box">${item}</div>
+                        </div>`;
+                        }
+                        // กรณีเป็นรูปภาพปกติ (URL)
+                        else {
+                            previewHtml = `
+                        <div class="library-item" onclick="selectImageFromLibrary('${item}')" title="คลิกเพื่อใช้รูปนี้">
+                            <img src="${transformUrl(item)}" loading="lazy">
+                        </div>`;
+                        }
+                        $container.append(previewHtml);
+                    });
+                }
+            }
+            $('#imageLibraryModal').modal('show');
+        }
+    // เมื่อผู้ใช้คลิกเลือกรูปภาพจากคลัง
+    function selectImageFromLibrary(content) {
+            if (currentLibraryTarget.type === 'main') {
+                // สำหรับรูปโจทย์หลัก
+                if (existingMainImages.includes(content) || pendingMainImages.includes(content)) {
+                    Swal.fire({ icon: 'info', title: 'สื่อนี้ถูกเลือกไปแล้ว', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
+                    return;
+                }
+                existingMainImages.push(content);
+                syncMainImageGallery();
+            } else {
+                // สำหรับตัวเลือก (Choices)
+                const $row = $('#' + currentLibraryTarget.rowId);
+                const $input = $row.find('.choice-text-input');
+
+                // ใส่ข้อมูล (ไม่ว่าจะเป็น URL หรือ SVG Code) ลงใน Input
+                $input.val(content);
+
+                // สั่งให้แสดง Preview ทันที (ฟังก์ชัน renderChoicePreview จะตรวจจับ <svg เอง)
+                renderChoicePreview($input);
+                syncChoicesToHiddenInput();
+            }
+
+            $('#imageLibraryModal').modal('hide');
+            Swal.fire({ icon: 'success', title: 'นำสื่อมาใช้แล้ว', toast: true, position: 'top-end', showConfirmButton: false, timer: 1000 });
+        }
     // ====================================================================
     // [NEW] IMAGE CRUD: Upload, Delete (Recycle Bin), Restore
     // ====================================================================
