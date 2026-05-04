@@ -1010,6 +1010,15 @@
             width: 100%;
         }
 
+        #edit-gallery-svg-render svg {
+    max-width: 100%;
+    max-height: 250px; /* ปรับให้พอดีกับความสูง Gallery */
+    width: auto;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+
         .svg-render-area,
         .svg-choice-container {
             width: 100%;
@@ -1023,21 +1032,22 @@
         }
 
         .svg-choice-preview-area {
-            padding: 10px;
-            background: white;
-            border-radius: 4px;
-            margin-bottom: 5px;
-            max-height: 100px;
-            overflow: hidden;
-            display: flex;
-            justify-content: center;
-        }
+    background: #f8f9fa;
+    border: 1px solid #eee;
+    padding: 10px;
+    border-radius: 4px;
+    justify-content: center;
+    align-items: center;
+    min-height: 50px;
+}
 
         .svg-choice-preview-area svg {
-            max-height: 100px !important;
-            width: auto !important;
-            display: block;
-        }
+    max-width: 100%;
+    max-height: 100px; /* ช้อยส์ไม่ควรสูงมาก */
+    width: auto;
+    height: auto;
+    display: block;
+}
 
 
         /* บังคับขนาด SVG ให้พอดีกรอบ ไม่ให้ล้น */
@@ -1185,11 +1195,14 @@
         }
 
         .library-item.svg-item {
+    position: relative;
+    overflow: hidden; /* ป้องกันตัวหนังสือรั่ว */
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
     background: #fff;
-    padding: 10px;
+    padding: 5px;
 }
 
         .library-group-header {
@@ -1685,6 +1698,14 @@
         .view-as-card td:last-child .btn {
             width: 100%;
         }
+
+        td[data-label="Answer"] svg, 
+td[data-label="Question"] svg {
+    width: 25px !important;
+    height: 25px !important;
+    display: block;
+    margin: auto;
+}
 
         /* General small-device tweaks */
         @media (max-width: 575.98px) {
@@ -2972,23 +2993,24 @@
                             <input type="file" id="main-image-hidden-input" class="d-none" accept="image/*" multiple
                                 onchange="handleMainImagesSelection(this)">
                             <!-- Gallery Preview -->
-                            <div id="edit-image-gallery-container" class="image-gallery-container"
-                                style="display:none;">
+                            <div id="edit-image-gallery-container" class="image-gallery-container" style="display:none;">
                                 <div class="gallery-controls-top">
                                     <button type="button" class="btn btn-sm btn-danger rounded-circle shadow"
-                                        onclick="removeCurrentImageFromGallery()" title="ลบรูปนี้">
+                                        onclick="removeCurrentImageFromGallery()">
                                         <i class="fas fa-trash-alt"></i>
                                     </button>
                                 </div>
+                            
                                 <img src="" id="edit-gallery-img" class="gallery-img">
+                                <div id="edit-gallery-svg-render" class="gallery-img"
+                                    style="display:none; overflow: auto; background: white; padding: 10px;"></div>
+                            
                                 <div class="gallery-controls">
-                                    <button type="button" class="btn btn-sm btn-outline-primary rounded-circle"
-                                        id="prev-img-btn">
+                                    <button type="button" class="btn btn-sm btn-outline-primary rounded-circle" id="prev-img-btn">
                                         <i class="fas fa-chevron-left"></i>
                                     </button>
                                     <span id="image-counter" class="badge bg-secondary rounded-pill">1 / 1</span>
-                                    <button type="button" class="btn btn-sm btn-outline-primary rounded-circle"
-                                        id="next-img-btn">
+                                    <button type="button" class="btn btn-sm btn-outline-primary rounded-circle" id="next-img-btn">
                                         <i class="fas fa-chevron-right"></i>
                                     </button>
                                 </div>
@@ -3204,6 +3226,15 @@
     let regAvatarBase64 = null;
     let regAvatarMimeType = null;
     let isFetching = false;
+
+    const bgToast = Swal.mixin({
+            toast: true,
+            position: 'bottom-end',
+            showConfirmButton: false,
+            timer: 2000,
+            timerProgressBar: true
+        });
+        
     // ====================================================================
     // 2. INITIALIZATION (jQuery Ready & Core UI Bindings)
     // ====================================================================
@@ -3254,13 +3285,17 @@
             }
         });
 
+        // ---------------------------------------------------------
+        // ระบบดักจับการกด Ctrl+V (Paste) พร้อมแสดงพรีวิวทันที
+        // ---------------------------------------------------------
         $(document).on('paste', function (e) {
+            // ทำงานเฉพาะเมื่อ Modal แก้ไขเปิดอยู่เท่านั้น
             if (!$('#editQuestionModal').hasClass('show')) return;
 
             let items = (e.clipboardData || e.originalEvent.clipboardData).items;
             let imagePasted = false;
 
-            // ค้นหาว่ากล่องไหนกำลังถูก Focus (Active)
+            // ตรวจสอบว่าแอดมินกำลัง Focus อยู่ที่ Choice row ไหน (ผ่าน class active-focus)
             let $targetChoiceRow = $('.choice-item.active-focus');
 
             for (let index in items) {
@@ -3269,35 +3304,47 @@
                     imagePasted = true;
                     let blob = item.getAsFile();
 
-                    // --- กรณีที่ 1: วางลงใน Choice ที่เลือกไว้ ---
-                    if ($targetChoiceRow.length > 0) {
-                        let rowId = $targetChoiceRow.attr('id');
-                        getBase64(blob).then(async base64 => {
-                            const compressedBase64 = await compressImage(base64, 800, 800);
-                            const localBlobUrl = URL.createObjectURL(blob);
+                    // สร้าง Local URL เพื่อให้แสดงรูปภาพบนหน้าจอทันที (ไม่ต้องรอ Process base64)
+                    const localBlobUrl = URL.createObjectURL(blob);
+
+                    // เริ่มกระบวนการแปลงไฟล์และบีบอัดภาพ (ทำงานเบื้องหลัง)
+                    getBase64(blob).then(async (base64) => {
+                        const compressedBase64 = await compressImage(base64, 800, 800);
+
+                        if ($targetChoiceRow.length > 0) {
+                            // --- กรณีวางลงในตัวเลือก (Choice) ---
+                            let rowId = $targetChoiceRow.attr('id');
+
+                            // เก็บข้อมูลเข้าตัวแปรส่วนกลางสำหรับเตรียมอัปโหลดตอนกด Save
                             choiceImagesData[rowId] = {
                                 type: 'pending',
-                                data: compressedBase64,
-                                blob: localBlobUrl
+                                data: compressedBase64, // ข้อมูล base64 สำหรับส่งไป Server
+                                blob: localBlobUrl      // ข้อมูล URL สำหรับแสดงผลบนหน้าจอทันที
                             };
+
                             const $input = $targetChoiceRow.find('.choice-text-input');
-                            $input.val('[IMAGE_PENDING]');
+                            $input.val('[IMAGE_PENDING]'); // ตั้งค่าชั่วคราว
+
+                            // สั่ง Render พรีวิวในแถว Choice นั้นทันที
                             renderChoicePreview($input);
                             syncChoicesToHiddenInput();
-                        });
-                    }
-                    // --- กรณีที่ 2: วางทั่วไป (ส่งไปรูปโจทย์) ---
-                    else {
-                        getBase64(blob).then(base64 => {
-                            pendingMainImages.push(base64);
+                        } else {
+                            // --- กรณีวางทั่วไป (เพิ่มเข้าในรูปภาพโจทย์หลัก) ---
+                            // เพิ่ม base64 เข้าไปในคิวรออัปโหลด
+                            pendingMainImages.push(compressedBase64);
+
+                            // สั่งอัปเดต Gallery ภาพโจทย์หลักทันที
                             syncMainImageGallery();
-                        });
-                    }
+                        }
+                    });
                 }
             }
 
             if (imagePasted) {
+                // ป้องกันไม่ให้ Browser วางตัวอักษรขยะลงใน input
                 e.preventDefault();
+
+                // แจ้งเตือนสถานะความสำเร็จแบบรวดเร็ว
                 Swal.fire({
                     icon: 'success',
                     title: 'วางรูปภาพสำเร็จ',
@@ -4317,30 +4364,20 @@
                 },
                 {
                     data: 'answer',
-                    createdCell: (td) => $(td).attr('data-label', 'Answer'),
                     render: function (data, type, row) {
-                        const choicesRaw = String(row.choices || "");
+                        if (!data) return '-';
 
-                        // 1. ถ้ามีข้อความ require_img ให้แสดง Badge แจ้งเตือน
-                        if (choicesRaw.toLowerCase().includes('require_img')) {
-                            return `<span class="badge bg-info text-dark"><i class="fas fa-file-image"></i> รอรูปช้อยส์</span><br><small class="text-muted">${data}</small>`;
+                        // ถ้าเป็น SVG ให้วาดรูปออกมา
+                        if (typeof data === 'string' && data.trim().toLowerCase().startsWith('<svg')) {
+                            return `<div style="width:30px; height:30px; margin:auto;">${data}</div>`;
                         }
 
-                        // 2. ตรวจสอบว่า "คำตอบที่ถูกต้อง" (data) เป็นลิงก์รูปภาพหรือไม่
-                        // ถ้าเป็นลิงก์ Google Drive หรือขึ้นต้นด้วย http ให้แสดงเป็นรูป
-                        if (data && (data.includes('drive.google.com') || data.startsWith('http'))) {
-                            return `
-                                <div class="text-center">
-                                    <img src="${transformUrl(data)}" class="img-preview-mini shadow-sm border" 
-                                         onclick="window.open('${transformUrl(data)}', '_blank')" 
-                                         style="max-height: 50px; cursor: pointer;" 
-                                         title="คลิกเพื่อดูรูปใหญ่">
-                                    <div style="font-size: 0.65rem; color: #666; margin-top: 2px;">(Image Answer)</div>
-                                </div>`;
+                        // ถ้าเป็นรูปจาก Drive
+                        if (data.includes('drive.google.com') || data.startsWith('http')) {
+                            return `<div class="text-center"><img src="${transformUrl(data)}" class="img-preview-mini"></div>`;
                         }
 
-                        // 3. ถ้าไม่ใช่รูปภาพ ให้แสดงเป็นข้อความปกติ
-                        return data || '<span class="text-muted">-</span>';
+                        return data;
                     }
                 },
                 {
@@ -4684,6 +4721,9 @@
                 const snapshotPendingMain = [...pendingMainImages];
                 const snapshotExistingMain = [...existingMainImages];
 
+                const uniqueMainImages = Array.from(new Set([...snapshotExistingMain, ...snapshotPendingMain]))
+                .filter(url => url.trim() !== "");
+
                 // Snapshot ข้อมูลตัวเลือก (Choices) พร้อม ImageData ป้องกัน Error
                 const rowsSnapshot = [];
                 let pendingChoiceImagesCount = 0;
@@ -4717,12 +4757,7 @@
                     globalData.questions[qIndex].problem = problemText;
                     globalData.questions[qIndex].explain = explainText;
                     globalData.questions[qIndex].category = categories;
-
-                    if (snapshotPendingMain.length > 0) {
-                        globalData.questions[qIndex].img = snapshotPendingMain[0];
-                    } else {
-                        globalData.questions[qIndex].img = snapshotExistingMain.join('///');
-                    }
+                    globalData.questions[qIndex].img = uniqueMainImages.join('///');
 
                     // บันทึกลง IndexedDB เบื้องต้น
                     await setCacheDB('global_admin_data', globalData);
@@ -4744,7 +4779,6 @@
                 bgToast.fire({
                     icon: 'info',
                     title: totalImagesToUpload > 0 ? `เริ่มซิงค์ข้อมูล (${totalImagesToUpload} ภาพ)...` : 'กำลังบันทึกข้อมูล...',
-                    timer: 3000
                 });
 
                 // --- STEP 3: ทำงานเบื้องหลัง (Background Processing) ---
@@ -5116,36 +5150,30 @@
             const $container = $('#dynamic-choices-container');
 
             const isImageNeeded = value.toLowerCase().includes("require_img");
-            const isImageFile = (value.includes('drive.google.com') || value.startsWith('http')) && !isImageNeeded;
+            const isSvg = value.trim().startsWith('<svg');
 
-            if (isImageFile) {
-                choiceImagesData[rowId] = { type: 'existing', data: value };
-            }
-
-            // เพิ่ม class active-focus หากเป็นช้อยส์แรกที่สร้างมา (หรือตามต้องการ)
+            // สร้าง HTML แบบว่างๆ ในส่วนของ value ไว้ก่อน
             const rowHtml = `
-    <div class="choice-item ${isSuggested ? 'suggested-choice' : ''} ${isImageNeeded ? 'border-warning bg-warning-subtle' : 'bg-white'} mb-3 p-2 border rounded" id="${rowId}">
-        <div class="choice-input-group d-flex align-items-center" style="pointer-events: none;"> <!-- ป้องกันการแย่งคลิกเมนูในแถว -->
-            <input class="form-check-input choice-radio me-2" type="radio" name="correct_answer_group" ${isOriginalCorrect ? 'checked' : ''} style="pointer-events: auto;">
+    <div class="choice-item ${isSuggested ? 'suggested-choice' : ''} ${(isImageNeeded && !isSvg) ? 'border-warning bg-warning-subtle' : 'bg-white'} mb-3 p-2 border rounded" id="${rowId}">
+        <div class="choice-input-group d-flex align-items-center">
+            <input class="form-check-input choice-radio me-2" type="radio" name="correct_answer_group" ${isOriginalCorrect ? 'checked' : ''}>
             
-            <input type="text" class="form-control choice-text-input ${isImageNeeded ? 'd-none' : ''}" 
-                placeholder="พิมพ์ข้อความ หรือกด Ctrl+V เพื่อวางรูป" 
-                value="${isImageNeeded ? '' : value}"
-                style="pointer-events: auto;">
+            <input type="text" class="form-control choice-text-input ${(isImageNeeded && !isSvg) ? 'd-none' : ''}" 
+                placeholder="พิมพ์ข้อความ หรือกด Ctrl+V เพื่อวางรูป">
             
-            ${isImageNeeded ? `
+            ${(isImageNeeded && !isSvg) ? `
                 <div class="flex-grow-1 text-warning-emphasis fw-bold small py-1 prompt-text">
-                    <i class="fas fa-image me-1"></i> คลิกกล่องนี้แล้วกด Ctrl+V เพื่อวางรูป [${value}]
+                    <i class="fas fa-image me-1"></i> คลิกเลือกช่องนี้แล้วกด Ctrl+V เพื่อวางรูป ${value}
                 </div>` : ''}
 
-            <div class="d-flex" style="pointer-events: auto;">
+            <div class="d-flex">
                 <button type="button" class="btn btn-sm btn-outline-info ms-2" onclick="openImageLibraryForChoice('${rowId}')"><i class="fas fa-images"></i></button>
                 <label class="btn btn-sm btn-outline-primary ms-1 mb-0"><i class="fas fa-upload"></i><input type="file" class="d-none" accept="image/*" onchange="handleChoiceImageSelect(this, '${rowId}')"></label>
                 <i class="fas fa-trash-alt btn-remove-choice ms-2 text-danger" onclick="removeChoiceRow('${rowId}')"></i>
             </div>
         </div>
         
-        <div class="choice-preview-container mt-2 flex-column align-items-center bg-light p-2 border rounded" style="display:none; pointer-events: auto;">
+        <div class="choice-preview-container mt-2 flex-column align-items-center bg-light p-2 border rounded" style="display:none;">
             <div class="svg-choice-preview-area w-100 d-flex justify-content-center mb-2"></div>
             <img src="" class="img-thumbnail mb-2" style="max-height: 120px; object-fit: contain; display:none;">
             <button type="button" class="btn btn-sm btn-danger w-100" onclick="removeChoiceMedia('${rowId}')">ล้างสื่อ</button>
@@ -5153,17 +5181,16 @@
     </div>`;
 
             const $row = $(rowHtml);
+
+            // --- จุดที่แก้ไข: ใช้ .val() เพื่อใส่ค่า SVG ที่มีเครื่องหมาย " ได้อย่างปลอดภัย ---
+            $row.find('.choice-text-input').val(isImageNeeded ? '' : value);
+
             $container.append($row);
 
-            $row.find('.choice-text-input').on('input', function () {
-                renderChoicePreview($(this));
-                syncChoicesToHiddenInput();
-            });
-
+            // สั่ง Render พรีวิว
             renderChoicePreview($row.find('.choice-text-input'));
         }
-        
-    function openImageLibraryForChoice(rowId) {
+        function openImageLibraryForChoice(rowId) {
         currentLibraryTarget = { type: 'choice', rowId: rowId };
         openImageLibrary(); // เรียกฟังก์ชันเปิดคลังเดิม
     }
@@ -5254,70 +5281,84 @@
     }
 
     function syncChoicesToHiddenInput() {
-        const choices = [];
-        let correctAnswer = "";
+            const choices = [];
+            let correctAnswer = "";
 
-        $('#dynamic-choices-container .choice-item').each(function () {
-            const $input = $(this).find('.choice-text-input');
-            const textVal = $input.val().trim();
-            const isChecked = $(this).find('.choice-radio').is(':checked');
+            $('#dynamic-choices-container .choice-item').each(function () {
+                const $input = $(this).find('.choice-text-input');
+                const textVal = $input.val().trim();
+                const isChecked = $(this).find('.choice-radio').is(':checked');
 
-            if (textVal !== "") {
-                choices.push(textVal);
-                if (isChecked) {
-                    correctAnswer = textVal;
+                if (textVal !== "") {
+                    choices.push(textVal); // เก็บค่าเข้า Array
+                    if (isChecked) {
+                        correctAnswer = textVal;
+                    }
                 }
-            }
+                renderChoicePreview($input);
+            });
 
-            // เรียกฟังก์ชันช่วยแสดง Preview รูป
-            renderChoicePreview($input);
-        });
-
-        $('#edit-choices').val(choices.join('///'));
-        $('#edit-answer').val(correctAnswer);
-    }
-
+            // ก่อนบันทึกเข้า hidden input ให้กรองช่องว่าง (ถ้ามีคนเผลอใส่ /// ไว้ใน text)
+            $('#edit-choices').val(choices.join('///'));
+            $('#edit-answer').val(correctAnswer);
+        }
     // ฟังก์ชันช่วยแสดง Preview รูปภาพใน Choice
     function renderChoicePreview($inputEl) {
-        const text = $inputEl.val().trim();
-        const $item = $inputEl.closest('.choice-item');
-        const rowId = $item.attr('id');
-        const $previewContainer = $item.find('.choice-preview-container');
-        const $previewImg = $previewContainer.find('img');
-        const $svgArea = $previewContainer.find('.svg-choice-preview-area');
+            const text = $inputEl.val().trim();
+            const $item = $inputEl.closest('.choice-item');
+            const rowId = $item.attr('id');
+            const $previewContainer = $item.find('.choice-preview-container');
+            const $previewImg = $previewContainer.find('img');
+            const $svgArea = $previewContainer.find('.svg-choice-preview-area');
+            const $promptText = $item.find('.prompt-text');
 
-        // คืนค่าเริ่มต้น
-        $inputEl.show();
-        $previewImg.hide();
-        $svgArea.hide().empty();
-        $previewContainer.hide();
+            // รีเซ็ตสถานะเริ่มต้น (ซ่อนพรีวิวทั้งหมดก่อนตรวจสอบใหม่)
+            $previewImg.hide();
+            $svgArea.hide().empty();
+            $previewContainer.hide();
 
-        // กรองประเภท
-        const isPending = choiceImagesData[rowId] && choiceImagesData[rowId].type === 'pending';
-        const isSvg = text.startsWith('<svg');
-        const isUrl = text.includes('drive.google.com') || text.startsWith('http');
+            // 1. ตรวจสอบสถานะ "รอการอัปโหลด" (Pending Image)
+            // สำหรับรูปที่เพิ่ง Paste หรือเลือกไฟล์เข้ามาใหม่ และยังไม่ได้บันทึกลง Server
+            const isPending = choiceImagesData[rowId] && choiceImagesData[rowId].type === 'pending';
 
-        if (isPending) {
-            // กรณีรูปใหม่ (Blob)
-            $inputEl.hide(); // ไม่ต้องโชว์ลิงก์
-            $previewImg.attr('src', choiceImagesData[rowId].blob).show();
-            $previewContainer.show().css('display', 'flex');
+            if (isPending) {
+                $inputEl.hide(); // ซ่อนช่องกรอก text
+                if ($promptText) $promptText.hide();
+
+                // แสดงรูปภาพโดยใช้ blob URL (local URL ในเครื่อง) เพื่อให้เห็นภาพทันที
+                $previewImg.attr('src', choiceImagesData[rowId].blob).show();
+                $previewContainer.show().css('display', 'flex');
+
+                // ล้างสีแจ้งเตือน "รอรูปภาพ"
+                $item.removeClass('border-warning bg-warning-subtle');
+                return; // จบการทำงานสำหรับเคส pending
+            }
+
+            // กรณีไม่มีข้อความในช่อง input และไม่มีรูป pending ให้หยุดทำงาน
+            if (text === "") return;
+
+            // 2. ตรวจสอบว่าเป็น SVG หรือไม่
+            if (text.toLowerCase().startsWith('<svg')) {
+                $inputEl.show(); // แสดงช่องโค้ดไว้เผื่อแก้ไข
+                if ($promptText) $promptText.hide();
+
+                // ฉีดโค้ด SVG ลงไปเพื่อให้ Browser วาดภาพ
+                $svgArea.html(text).show();
+                $previewContainer.show().css('display', 'flex');
+                $item.removeClass('border-warning bg-warning-subtle');
+            }
+            // 3. ตรวจสอบว่าเป็น URL รูปภาพ (Google Drive หรือ Link เว็บทั่วไป)
+            else if (text.includes('drive.google.com') || text.startsWith('http')) {
+                $inputEl.hide(); // ซ่อน URL ยาวๆ ไว้
+                if ($promptText) $promptText.hide();
+
+                // แสดงรูปผ่าน URL
+                $previewImg.attr('src', transformUrl(text)).show();
+                $previewContainer.show().css('display', 'flex');
+                $item.removeClass('border-warning bg-warning-subtle');
+            }
         }
-        else if (isSvg) {
-            // กรณี SVG (แสดงทั้ง Input และ Preview)
-            $inputEl.show(); // แสดงช่องโค้ดให้แก้ไขได้
-            $svgArea.html(text).show();
-            $previewContainer.show().css('display', 'flex');
-        }
-        else if (isUrl) {
-            // กรณีลิงก์รูปภาพ
-            $inputEl.hide(); // ซ่อนลิงก์
-            $previewImg.attr('src', transformUrl(text)).show();
-            $previewContainer.show().css('display', 'flex');
-        }
-        // ถ้าเป็น Text ธรรมดา $previewContainer จะเป็น display:none ตามค่าเริ่มต้น
-    }
-    // --- Image Logic ---
+        // --- Image Logic ---
     function renderImagesUI(imgStr) {
         existingMainImages = (imgStr || "").split('///')
             .map(u => u.trim())
@@ -5360,6 +5401,7 @@
     function updateEditImageGallery() {
         const $container = $('#edit-image-gallery-container');
         const $img = $('#edit-gallery-img');
+        const $svgRender = $('#edit-gallery-svg-render');
         const $prevBtn = $('#prev-img-btn');
         const $nextBtn = $('#next-img-btn');
         const $counter = $('#image-counter');
@@ -5373,20 +5415,23 @@
 
         // เช็คว่าเป็น URL เดิม (http) หรือ Base64 ใหม่
         let currentSrc = editImageArray[editImageIndex];
-        if (currentSrc.startsWith('http')) {
-            $img.attr('src', transformUrl(currentSrc));
+        if (currentSrc.startsWith('<svg')) {
+            $img.hide();
+            $svgRender.html(currentSrc).show(); // ใส่ Code SVG เข้าไปตรงๆ
         } else {
-            $img.attr('src', currentSrc); // แสดง Base64 ได้เลย
+            $svgRender.hide().empty();
+            if (currentSrc.startsWith('http')) {
+                $img.attr('src', transformUrl(currentSrc)).show();
+            } else {
+                $img.attr('src', currentSrc).show(); // สำหรับ Base64
+            }
         }
 
         if (editImageArray.length > 1) {
-            $prevBtn.show();
-            $nextBtn.show();
+            $prevBtn.show(); $nextBtn.show();
             $counter.show().text(`${editImageIndex + 1} / ${editImageArray.length}`);
         } else {
-            $prevBtn.hide();
-            $nextBtn.hide();
-            $counter.hide();
+            $prevBtn.hide(); $nextBtn.hide(); $counter.hide();
         }
     }
 
@@ -5463,28 +5508,28 @@
     }
 
     function syncImagesToHiddenInput() {
-        // ... (โค้ด syncImagesToHiddenInput เดิม) ...
-        const imgUrls = [];
+            const imgSet = new Set(); // ใช้ Set เพื่อป้องกันค่าซ้ำ
 
-        $('#dynamic-images-container .image-url-input').each(function () {
-            const val = $(this).val().trim();
-            if (val !== "") {
-                imgUrls.push(val);
-            }
-        });
+            // เก็บจากลิสต์ที่แสดงผลบนหน้าจอ
+            editImageArray.forEach(val => {
+                const cleanVal = val.trim();
+                if (cleanVal !== "") imgSet.add(cleanVal);
+            });
 
-        $('#edit-img').val(imgUrls.join('///'));
-
-        editImageArray = imgUrls;
-        editImageIndex = 0;
-        updateEditImageGallery();
-        // ... (จบโค้ด syncImagesToHiddenInput เดิม) ...
-    }
+            const finalResult = Array.from(imgSet).join('///');
+            $('#edit-img').val(finalResult);
+        }
 
 
     // ==========================================
     // ระบบคลังรูปภาพประจำวิชา (Subject Image Library)
     // ==========================================
+    function selectImageFromLibraryEncoded(encodedContent) {
+            // ถอดรหัสกลับเป็น Code SVG ปกติ
+            const decodedContent = decodeURIComponent(encodedContent);
+            // ส่งไปทำงานต่อที่ฟังก์ชันเดิม
+            selectImageFromLibrary(decodedContent);
+        }
 
     function openImageLibrary() {
             const categoryString = $('#edit-category-hidden').val();
@@ -5541,13 +5586,15 @@
 
                         // กรณีเป็น SVG Code
                         if (item.startsWith('<svg')) {
-                            // ใช้ backticks (`) เพื่อหุ้ม string ของ SVG ที่อาจจะมีฟันหนูเยอะ
-                            const safeSvg = item.replace(/`/g, '\\`');
+                            // เข้ารหัส Code SVG ทั้งหมดเพื่อไม่ให้เครื่องหมายคำพูดไปพัง HTML
+                            const encodedSvg = encodeURIComponent(item);
+
                             previewHtml = `
-                        <div class="library-item svg-item" onclick="selectImageFromLibrary(\`${safeSvg}\`)" title="คลิกเพื่อใช้ SVG นี้">
-                            <div class="svg-preview-box">${item}</div>
-                        </div>`;
+        <div class="library-item svg-item" onclick="selectImageFromLibraryEncoded('${encodedSvg}')" title="คลิกเพื่อใช้ SVG นี้">
+            <div class="svg-preview-box">${item}</div>
+        </div>`;
                         }
+
                         // กรณีเป็นรูปภาพปกติ (URL)
                         else {
                             previewHtml = `
@@ -5563,31 +5610,37 @@
         }
     // เมื่อผู้ใช้คลิกเลือกรูปภาพจากคลัง
     function selectImageFromLibrary(content) {
+            const cleanContent = content.trim();
+
             if (currentLibraryTarget.type === 'main') {
-                // สำหรับรูปโจทย์หลัก
-                if (existingMainImages.includes(content) || pendingMainImages.includes(content)) {
-                    Swal.fire({ icon: 'info', title: 'สื่อนี้ถูกเลือกไปแล้ว', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
+                // --- สำหรับรูปโจทย์หลัก (Main Images) ---
+                // เช็คว่าใน Array มีรูปนี้หรือยัง (ป้องกัน <svg xmlns...///<svg xmlns...)
+                const isDuplicate = existingMainImages.some(item => item.trim() === cleanContent) ||
+                    pendingMainImages.some(item => item.trim() === cleanContent);
+
+                if (isDuplicate) {
+                    Swal.fire({ icon: 'info', title: 'สื่อนี้ถูกเลือกไว้แล้ว', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
                     return;
                 }
-                existingMainImages.push(content);
-                syncMainImageGallery();
+
+                existingMainImages.push(cleanContent); // เพิ่มเข้าไปในลิสต์
+                syncMainImageGallery(); // อัปเดต Gallery หน้าจอ
             } else {
-                // สำหรับตัวเลือก (Choices)
+                // --- สำหรับตัวเลือก (Choices) ---
                 const $row = $('#' + currentLibraryTarget.rowId);
                 const $input = $row.find('.choice-text-input');
 
-                // ใส่ข้อมูล (ไม่ว่าจะเป็น URL หรือ SVG Code) ลงใน Input
-                $input.val(content);
+                // สำหรับ Choice แนะนำให้ "แทนที่" ไปเลย (เพราะ 1 ช้อยส์มักมี 1 รูป/1 SVG)
+                $input.val(cleanContent);
 
-                // สั่งให้แสดง Preview ทันที (ฟังก์ชัน renderChoicePreview จะตรวจจับ <svg เอง)
                 renderChoicePreview($input);
                 syncChoicesToHiddenInput();
             }
 
             $('#imageLibraryModal').modal('hide');
-            Swal.fire({ icon: 'success', title: 'นำสื่อมาใช้แล้ว', toast: true, position: 'top-end', showConfirmButton: false, timer: 1000 });
+            Swal.fire({ icon: 'success', title: 'เลือกสื่อเรียบร้อยแล้ว', toast: true, position: 'top-end', showConfirmButton: false, timer: 1000 });
         }
-    // ====================================================================
+        // ====================================================================
     // [NEW] IMAGE CRUD: Upload, Delete (Recycle Bin), Restore
     // ====================================================================
 
