@@ -3554,7 +3554,7 @@ td[data-label="Question"] svg {
             // --- ส่วนจัดการข้อมูลก่อนส่ง (Data Processing) ---
             // 4. จัดการคำตอบที่เสนอ (Suggested Choice)
             let suggestedChoice = (selectedVal === 'newanswer') ? newVal : selectedVal;
-            if (suggestedChoice && (suggestedChoice.includes('drive.google') || suggestedChoice.startsWith('http'))) {
+            if (suggestedChoice && suggestedChoice.includes('drive.google.com')) {
                 suggestedChoice = transformUrl(suggestedChoice);
             }
 
@@ -4385,7 +4385,7 @@ td[data-label="Question"] svg {
                         }
 
                         // ถ้าเป็นรูปจาก Drive
-                        if (data.includes('drive.google.com') || data.startsWith('http')) {
+                        if (data.includes('drive.google.com')) {
                             return `<div class="text-center"><img src="${transformUrl(data)}" class="img-preview-mini"></div>`;
                         }
 
@@ -5360,7 +5360,7 @@ td[data-label="Question"] svg {
                 $item.removeClass('border-warning bg-warning-subtle');
             }
             // 3. ตรวจสอบว่าเป็น URL รูปภาพ (Google Drive หรือ Link เว็บทั่วไป)
-            else if (text.includes('drive.google.com') || text.startsWith('http')) {
+            else if (text.includes('drive.google.com')) {
                 $inputEl.hide(); // ซ่อน URL ยาวๆ ไว้
                 if ($promptText) $promptText.hide();
 
@@ -5396,7 +5396,7 @@ td[data-label="Question"] svg {
 
     function syncMainImageGallery() {
         // รวม Array รูปรอแสดงผล
-        const hasRealImage = pendingMainImages.length > 0 || existingMainImages.some(u => u.includes('http'));
+        const hasRealImage = pendingMainImages.length > 0 || existingMainImages.some(u => u.includes('drive.google.com'));
 
         if (hasRealImage) {
             existingMainImages = existingMainImages.filter(u => !u.toLowerCase().includes('require_img'));
@@ -5432,7 +5432,7 @@ td[data-label="Question"] svg {
             $svgRender.html(currentSrc).show(); // ใส่ Code SVG เข้าไปตรงๆ
         } else {
             $svgRender.hide().empty();
-            if (currentSrc.startsWith('http')) {
+            if (currentSrc.startsWith('drive.google.com')) {
                 $img.attr('src', transformUrl(currentSrc)).show();
             } else {
                 $img.attr('src', currentSrc).show(); // สำหรับ Base64
@@ -5572,7 +5572,7 @@ td[data-label="Question"] svg {
                     const parts = str.split('///').map(u => u.trim()).filter(Boolean);
                     parts.forEach(part => {
                         // ตรวจสอบว่าเป็น URL หรือเป็น SVG Code
-                        if (part.includes('drive.google.com') || part.startsWith('http') || part.startsWith('<svg')) {
+                        if (part.includes('drive.google.com') || part.startsWith('<svg')) {
                             if (!libraryMap[qCategoryName]) libraryMap[qCategoryName] = new Set();
                             libraryMap[qCategoryName].add(part);
                             totalItems++;
@@ -5973,7 +5973,7 @@ td[data-label="Question"] svg {
 
             let imgHtml = '';
             let rawImg = String(r['Image'] || "").trim();
-            if (rawImg && (rawImg.startsWith('http') || rawImg.startsWith('https'))) {
+            if (rawImg && rawImg.startsWith('drive.google.com')) {
                 let url = (rawImg.match(/"([^"]+)"/) && rawImg.match(/"([^"]+)"/)[1]) ? rawImg.match(/"([^"]+)"/)[1] : rawImg;
                 url = transformUrl(url);
 
@@ -6073,12 +6073,12 @@ td[data-label="Question"] svg {
             const isCurrentAns = (choice === q.answer);
 
             let displayContent = choice;
-            if (choice.startsWith('http')) {
+            if (choice.startsWith('drive.google.com')) {
                 displayContent = `<img src="${transformUrl(choice)}" class="report-choice-img">`;
             }
             $('#report-choices-list').append(`<p class="mb-1 border-bottom pb-1"><b>${letter}.</b> ${displayContent}</p>`);
 
-            let dropText = choice.startsWith('http') ? `[รูปภาพ] ${choice.substring(0, 20)}...` : choice;
+            let dropText = choice.startsWith('drive.google.com') ? `[รูปภาพ] ${choice.substring(0, 20)}...` : choice;
             selectOptions += `<option value="${choice}" ${isCurrentAns ? 'selected' : ''}>
                 ${letter}. ${dropText} ${isCurrentAns ? '(เฉลยปัจจุบัน)' : ''}
             </option>`;
