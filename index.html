@@ -4057,7 +4057,12 @@ td[data-label="Question"] svg {
         $('#sidebar-report-count').text(pendingCount).toggle(pendingCount > 0);
 
         $('#stat-resolved-q').text((globalData.report || []).filter(r => String(r.Done).toUpperCase() === 'TRUE').length);
-        $('#stat-require-img').text((globalData.questions || []).filter(q => q.img && q.img.toLowerCase().includes("require_img")).length);
+        const requireImgCount = (globalData.questions || []).filter(q =>
+            (q.img && q.img.toLowerCase().includes("require_img")) ||
+            (q.choices && q.choices.toLowerCase().includes("require_img"))
+        ).length;
+
+        $('#stat-require-img').text(requireImgCount);
 
         // 2. อัปเดตตาราง Recent Updates
         const recentReports = (globalData.report || [])
@@ -4366,6 +4371,13 @@ td[data-label="Question"] svg {
                     data: 'answer',
                     render: function (data, type, row) {
                         if (!data) return '-';
+
+                        if (row.choices && row.choices.toLowerCase().includes('require_img')) {
+                            return `<div class="text-center">
+                        <span class="badge bg-warning text-dark"><i class="fas fa-image"></i> รอรูปช้อยส์</span>
+                        <div class="small text-muted mt-1">${data}</div>
+                    </div>`;
+                        }
 
                         // ถ้าเป็น SVG ให้วาดรูปออกมา
                         if (typeof data === 'string' && data.trim().toLowerCase().startsWith('<svg')) {
