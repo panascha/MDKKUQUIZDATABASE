@@ -4427,26 +4427,45 @@
                 },
                 {
                     data: 'answer',
+                    createdCell: (td) => $(td).attr('data-label', 'Answer'),
                     render: function (data, type, row) {
                         if (!data) return '-';
 
+                        // 1. กรณีระบุว่า "รอรูปภาพ"
                         if (row.choices && row.choices.toLowerCase().includes('require_img')) {
                             return `<div class="text-center">
-                        <span class="badge bg-warning text-dark"><i class="fas fa-image"></i> รอรูปช้อยส์</span>
-                        <div class="small text-muted mt-1">${data}</div>
-                    </div>`;
+                                <span class="badge bg-warning text-dark"><i class="fas fa-image"></i> รอรูปช้อยส์</span>
+                                <div class="small text-muted mt-1">${data}</div>
+                            </div>`;
                         }
 
-                        // ถ้าเป็น SVG ให้วาดรูปออกมา
+                        // 2. กรณีเป็น SVG
                         if (typeof data === 'string' && data.trim().toLowerCase().startsWith('<svg')) {
                             return `<div style="width:30px; height:30px; margin:auto;">${data}</div>`;
                         }
 
-                        // ถ้าเป็นรูปจาก Drive
-                        if (data.includes('drive.google.com') || data.startsWith('http')) {
-                            return `<div class="text-center"><img src="${transformUrl(data)}" class="img-preview-mini"></div>`;
+                        // 3. กรณีเป็นลิงก์ (HTTP/Drive)
+                        if (typeof data === 'string' && (data.includes('drive.google.com') || data.startsWith('http'))) {
+
+                            // ตรวจสอบว่าเป็นรูปภาพจาก Google Drive หรือไม่ (มี ID ไฟล์)
+                            const isDriveImage = data.match(/\/d\/(.*?)\//) || data.match(/id=([^&]+)/);
+                            // ตรวจสอบนามสกุลไฟล์ภาพทั่วไป
+                            const isDirectImage = data.match(/\.(jpeg|jpg|gif|png|webp|svg)$/i);
+
+                            if (isDriveImage || isDirectImage) {
+                                // ถ้าเป็นรูปภาพ -> แสดงเป็นรูป Preview
+                                return `<div class="text-center"><img src="${transformUrl(data)}" class="img-preview-mini"></div>`;
+                            } else {
+                                // ถ้าเป็นลิงก์อื่นๆ (เช่น PDF, Web) -> แสดงเป็นลิงก์ให้คลิก
+                                return `<div class="text-center">
+                                    <a href="${data}" target="_blank" class="btn btn-sm btn-outline-primary py-0">
+                                        <i class="fas fa-external-link-alt me-1"></i>ดูลิงก์
+                                    </a>
+                                </div>`;
+                            }
                         }
 
+                        // 4. กรณีเป็นข้อความปกติ
                         return data;
                     }
                 },
