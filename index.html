@@ -4459,7 +4459,7 @@
                                 // ถ้าเป็นลิงก์อื่นๆ (เช่น PDF, Web) -> แสดงเป็นลิงก์ให้คลิก
                                 return `<div class="text-center">
                                     <a href="${data}" target="_blank" class="btn btn-sm btn-outline-primary py-0">
-                                        <i class="fas fa-external-link-alt me-1"></i>ดูลิงก์
+                                        <i class="fas fa-external-link-alt me-1"></i>${data}
                                     </a>
                                 </div>`;
                             }
@@ -5437,7 +5437,7 @@
             $item.removeClass('border-warning bg-warning-subtle');
         }
         // 3. ตรวจสอบว่าเป็น URL รูปภาพ (Google Drive หรือ Link เว็บทั่วไป)
-        else if (text.includes('drive.google.com') || text.startsWith('http')) {
+        else if (text.includes('drive.google.com')) {
             $inputEl.hide(); // ซ่อน URL ยาวๆ ไว้
             if ($promptText) $promptText.hide();
 
