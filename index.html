@@ -2459,6 +2459,25 @@
                     </div>
 
                     <div class="table-scroll border rounded bg-light p-2">
+                        <!-- แผงคัดกรองสถานะข้อมูลนำเข้าพรีวิว (Filter Bar) -->
+                        <div class="d-flex gap-2 mb-3 flex-wrap" id="converter-filter-bar"
+                            style="background: #f1f3f9; padding: 10px; border-radius: 8px; border: 1px solid #e3e6f0;">
+                            <button class="btn btn-sm btn-outline-secondary active" onclick="filterConverterTable('ALL', this)">
+                                <i class="fas fa-list"></i> แสดงทั้งหมด (<span id="count-all">0</span>)
+                            </button>
+                            <button class="btn btn-sm btn-success text-white" onclick="filterConverterTable('NEW', this)">
+                                <i class="fas fa-plus-circle"></i> ข้อมูลใหม่ (<span id="count-new">0</span>)
+                            </button>
+                            <button class="btn btn-sm btn-warning text-dark" onclick="filterConverterTable('UPDATED', this)">
+                                <i class="fas fa-edit"></i> อัปเดตข้อมูล (<span id="count-updated">0</span>)
+                            </button>
+                            <button class="btn btn-sm btn-danger text-white" onclick="filterConverterTable('DUPLICATE', this)">
+                                <i class="fas fa-clone"></i> ข้อมูลซ้ำในชุด (<span id="count-duplicate">0</span>)
+                            </button>
+                            <button class="btn btn-sm btn-secondary text-white" onclick="filterConverterTable('EXISTING', this)">
+                                <i class="fas fa-check-double"></i> ข้อมูลเดิมไม่มีการแก้ (<span id="count-existing">0</span>)
+                            </button>
+                        </div>
                         <table class="table table-sm table-bordered bg-white mb-0" id="dataTable">
                             <thead>
                                 <tr id="tableHead"></tr>
@@ -7734,192 +7753,365 @@ Explanation: ...จึงเป็นคำตอบที่ถูกต้อ�
     };
 
     function switchTab(sheet) {
-        // ... (โค้ด switchTab เดิม) ...
-        converterStorage.current = sheet;
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        document.getElementById('tab-' + sheet).classList.add('active');
-        renderPreview();
-        // ... (จบโค้ด switchTab เดิม) ...
-    }
+            converterStorage.current = sheet;
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.getElementById('tab-' + sheet).classList.add('active');
 
-    function processAll() {
-        let rawInput = document.getElementById('jsonInput').value.trim();
-        const year = document.getElementById('yearVal').value;
-        const subjectID = document.getElementById('subjID').value.trim().toUpperCase() || "SUBJ";
-        const subjectName = document.getElementById('subjName').value || "Untitled Subject";
-        const groupKeywords = document.getElementById('groupKeys').value.split(',').map(k => k.trim()).filter(k => k !== "");
-        const arrayCategoryID = document.getElementById('arrayCategoryID').value.trim() || null;
+            // รีเซ็ตปุ่มคัดกรองให้กลับมา "แสดงทั้งหมด"
+            $('#converter-filter-bar .btn').removeClass('active');
+            $('#converter-filter-bar .btn').first().addClass('active');
 
-        if (!rawInput) {
-            Swal.fire('Error', 'กรุณาวางข้อมูลก่อน', 'error');
-            return;
+            renderPreview();
         }
 
-        let structMap = new Map();
-        let categoryRows = [];
-        let quesRows = [];
+        function evaluateRowStatusInBatch(row, i, sheetKey, seenKeys) {
+                let status = 'NEW';
 
-        converterStorage.struct = [];
-        converterStorage.category = [];
-        converterStorage.ques = [];
+                if (sheetKey === 'ques') {
+                    const qId = String(row[0] || "").trim();
+                    const problem = String(row[1] || "").trim();
 
-        let initialTab = 'category';
-        let inputType = 'structure_only';
+                    // ค้นหาข้อมูลซ้ำซ้อนภายในชุดข้อมูลเดียวกันที่กำลังพาสต์ (In-batch duplicate)
+                    const batchKey = qId ? qId : problem;
+                    if (seenKeys.has(batchKey)) {
+                        status = 'DUPLICATE';
+                    } else {
+                        if (batchKey) seenKeys.add(batchKey);
 
-        try {
-            if (rawInput.startsWith('[') && rawInput.endsWith(']')) {
-                // ********************************************************************
-                // CASE 3: QUESTION ARRAY
-                // ********************************************************************
-                initialTab = 'ques';
-                inputType = 'full';
-                if (!arrayCategoryID) {
-                    Swal.fire('Error', 'กรุณาระบุ Category ID สำหรับชุดคำถามนี้ในช่องสีแดง "ใส่ชื่อหัวข้อ"', 'error');
-                    return;
-                }
+                        // เปรียบเทียบกับฐานข้อมูลหลัก
+                        let match = globalData.questions.find(q => q.questionId === qId);
+                        if (!match && problem) {
+                            match = globalData.questions.find(q => q.problem.trim() === problem);
+                        }
 
-                let questionsArray;
-                try { questionsArray = JSON.parse(rawInput); } catch (e) { questionsArray = new Function("return " + rawInput)(); }
+                        if (match) {
+                            const norm = (val) => String(val || "").trim();
+                            let mCats = match.category || [];
+                            let rCats = [];
+                            try { rCats = JSON.parse(row[6]); } catch (e) { rCats = [row[6]]; }
+                            const catsMatch = JSON.stringify(mCats.sort()) === JSON.stringify(rCats.sort());
 
-                const categoryKey = arrayCategoryID;
-                let group = "GENERAL";
-                for (let key of groupKeywords) {
-                    if (categoryKey.toUpperCase().includes(key.toUpperCase())) { group = key; break; }
-                }
-                group = subjectID + " " + group;
-                const structKey = `${subjectID}-${group}`;
-                if (!structMap.has(structKey)) { structMap.set(structKey, [year, subjectID, subjectName, group]); }
+                            const isUnchanged =
+                                norm(match.problem) === norm(row[1]) &&
+                                norm(match.img) === norm(row[2]) &&
+                                norm(match.choices) === norm(row[3]) &&
+                                norm(match.answer) === norm(row[4]) &&
+                                norm(match.explain) === norm(row[5]) &&
+                                catsMatch;
 
-                // --- Logic ใหม่สำหรับการดึงชื่อ ---
-                let extractedName = categoryKey;
-                if (categoryKey.includes("_LEC_")) {
-                    const parts = categoryKey.split('_');
-                    extractedName = parts[parts.length - 1].trim();
-                }
-
-                categoryRows.push([categoryKey, subjectID, group, extractedName]);
-
-                questionsArray.forEach((q, index) => {
-                    const qId = `${categoryKey}_${index + 1}`;
-                    quesRows.push([qId, q.problem || "", q.img || "", q.choices || "", q.answer || "", q.explain || "", JSON.stringify([categoryKey])]);
-                });
-
-            } else if (rawInput.includes('{') && rawInput.includes('}')) {
-                // ********************************************************************
-                // CASE 2: QUIZ DATA (JSON Object)
-                // ********************************************************************
-                initialTab = 'ques';
-                inputType = 'full';
-                const firstBrace = rawInput.indexOf('{');
-                const lastBrace = rawInput.lastIndexOf('}');
-                const jsonString = rawInput.substring(firstBrace, lastBrace + 1);
-                let quizObj;
-                try { quizObj = new Function("return " + jsonString)(); } catch (e) { quizObj = JSON.parse(jsonString); }
-
-                for (const [categoryKey, questions] of Object.entries(quizObj)) {
-                    let group = "GENERAL";
-                    for (let key of groupKeywords) {
-                        if (categoryKey.toUpperCase().includes(key.toUpperCase())) { group = key; break; }
-                    }
-                    group = subjectID + " " + group;
-                    const structKey = `${subjectID}-${group}`;
-                    if (!structMap.has(structKey)) { structMap.set(structKey, [year, subjectID, subjectName, group]); }
-
-                    // --- Logic ใหม่สำหรับการดึงชื่อ ---
-                    let extractedName = categoryKey;
-                    if (categoryKey.includes("_LEC_")) {
-                        const parts = categoryKey.split('_');
-                        extractedName = parts[parts.length - 1].trim();
-                    }
-
-                    categoryRows.push([categoryKey, subjectID, group, extractedName]);
-
-                    if (Array.isArray(questions)) {
-                        questions.forEach((q, index) => {
-                            const qId = `${categoryKey}_${index + 1}`;
-                            quesRows.push([qId, q.problem || "", q.img || "", q.choices || "", q.answer || "", q.explain || "", JSON.stringify([categoryKey])]);
-                        });
-                    }
-                }
-            } else {
-                // ********************************************************************
-                // CASE 1: CATEGORY LIST (Text List)
-                // ********************************************************************
-                initialTab = 'category';
-                inputType = 'structure_only';
-                const lines = rawInput.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-
-                lines.forEach(categoryKey => {
-                    const upperId = categoryKey.toUpperCase();
-                    let groupName = "";
-
-                    // 1. แยกกลุ่มตาม Keyword ใน CategoryID
-                    if (upperId.includes("_LEC_")) groupName = "LEC";
-                    else if (upperId.includes("_ANA_")) groupName = "ANATOMY";
-                    else if (upperId.includes("_PHYSIO_") || upperId.includes("_PHY_") || upperId.includes("_BIOCHEM_")) groupName = "PHYSIO and BIOCHEM";
-                    else if (upperId.includes("_PARASITO_") || upperId.includes("_MICRO_")) groupName = "PARASITO and MICRO";
-                    else if (upperId.includes("_PATHO_")) groupName = "PATHO";
-                    else if (upperId.includes("_PHARM_") || upperId.includes("_PHARMACO_")) groupName = "PHARM";
-                    else if (upperId.includes("_RADIO_") || upperId.includes("_IMAGE_") || upperId.includes("_CLINICAL_")) groupName = "RADIO and CLINICAL";
-                    else {
-                        // 2. ถ้าไม่เจอตามกลุ่มแพทย์ ให้ใช้ Group Keywords จากช่อง Input (เช่น MCQ1, FMT)
-                        groupName = "GENERAL";
-                        for (let key of groupKeywords) {
-                            if (upperId.includes(key.toUpperCase())) { groupName = key; break; }
+                            status = isUnchanged ? 'EXISTING' : 'UPDATED';
+                        } else {
+                            status = 'NEW';
                         }
                     }
-
-                    const fullGroup = `${subjectID} ${groupName}`;
-                    const structKey = `${subjectID}-${fullGroup}`;
-
-                    if (!structMap.has(structKey)) {
-                        structMap.set(structKey, [year, subjectID, subjectName, fullGroup]);
+                } else if (sheetKey === 'category') {
+                    const catId = String(row[0] || "").trim();
+                    if (seenKeys.has(catId)) {
+                        status = 'DUPLICATE';
+                    } else {
+                        if (catId) seenKeys.add(catId);
+                        const match = globalData.category.find(c => c.CategoryID === catId);
+                        if (match) {
+                            const isUnchanged =
+                                String(match.SubjectRef || "").trim() === String(row[1] || "").trim() &&
+                                String(match.AccordionGroup || "").trim() === String(row[2] || "").trim() &&
+                                String(match.CategoryName || "").trim() === String(row[3] || "").trim();
+                            status = isUnchanged ? 'EXISTING' : 'UPDATED';
+                        } else {
+                            status = 'NEW';
+                        }
                     }
+                } else if (sheetKey === 'struct') {
+                    const subjId = String(row[1] || "").trim();
+                    const group = String(row[3] || "").trim();
+                    const batchKey = subjId + "|" + group;
 
-                    // สกัดชื่อหัวข้อ (ถ้ามี _LEC_ ให้เอาคำสุดท้ายมาเป็นชื่อ)
-                    let extractedName = categoryKey;
-                    if (categoryKey.includes("_")) {
-                        const parts = categoryKey.split('_');
-                        extractedName = parts[parts.length - 1].trim();
+                    if (seenKeys.has(batchKey)) {
+                        status = 'DUPLICATE';
+                    } else {
+                        if (subjId && group) seenKeys.add(batchKey);
+                        const match = globalData.structure.find(s => s.SubjectID === subjId && s.AccordionGroup === group);
+                        if (match) {
+                            const isUnchanged =
+                                String(match.Year || "").trim() === String(row[0] || "").trim() &&
+                                String(match.SubjectName || "").trim() === String(row[2] || "").trim();
+                            status = isUnchanged ? 'EXISTING' : 'UPDATED';
+                        } else {
+                            status = 'NEW';
+                        }
                     }
+                }
+                return status;
+            }
 
-                    categoryRows.push([categoryKey, subjectID, fullGroup, extractedName]);
+            // 3. ฟังก์ชันกรองเฉพาะแถวข้อมูลที่จะนำไปอัปโหลดจริง (คัดกรองข้าม Existing และ Duplicate)
+            function getFilteredImportData(sheetKey) {
+                const rawData = converterStorage[sheetKey];
+                if (!rawData) return [];
+
+                let seenKeys = new Set();
+                return rawData.filter((row, i) => {
+                    const status = evaluateRowStatusInBatch(row, i, sheetKey, seenKeys);
+                    return status === 'NEW' || status === 'UPDATED';
                 });
             }
 
-            converterStorage.struct = Array.from(structMap.values());
-            converterStorage.category = categoryRows;
-            converterStorage.ques = quesRows;
+    function processAll() {
+            let rawInput = document.getElementById('jsonInput').value.trim();
+            const year = document.getElementById('yearVal').value;
+            const subjectID = document.getElementById('subjID').value.trim().toUpperCase() || "SUBJ";
+            const subjectName = document.getElementById('subjName').value || "Untitled Subject";
+            const groupKeywords = document.getElementById('groupKeys').value.split(',').map(k => k.trim()).filter(k => k !== "");
+            const arrayCategoryID = document.getElementById('arrayCategoryID').value.trim() || null;
 
-            Swal.fire('Success', 'ประมวลผลสำเร็จ!', 'success');
-            switchTab(initialTab);
+            if (!rawInput) {
+                Swal.fire('Error', 'กรุณาวางข้อมูลก่อน', 'error');
+                return;
+            }
 
-        } catch (e) {
-            console.error(e);
-            Swal.fire('Error', 'Format ข้อมูลผิดพลาด: ' + e.message, 'error');
+            let structMap = new Map();
+            let categoryRows = [];
+            let quesRows = [];
+
+            converterStorage.struct = [];
+            converterStorage.category = [];
+            converterStorage.ques = [];
+
+            let initialTab = 'category';
+            let inputType = 'structure_only';
+
+            // ฟังก์ชันช่วยวิเคราะห์และลงทะเบียน Category และ Structure ตาม Pattern หลักสูตรแพทย์
+            function registerCategoryAndStructure(catKey) {
+                if (!catKey) return;
+                if (categoryRows.some(row => row[0] === catKey)) return;
+
+                const parts = catKey.split('_');
+                let groupName = "";
+                let extractedName = catKey; // ค่าเริ่มต้นเป็น ID เต็ม
+
+                if (parts.length === 2) {
+                    // ----------------------------------------------------
+                    // กฎข้อที่ 1: กลุ่มข้อสอบเก่า (เช่น CVS_51MCQ1, CVS_51LAB)
+                    // ----------------------------------------------------
+                    extractedName = catKey; // ชื่อหมวดหมู่ตรงกับ CategoryID ทั้งหมด
+
+                    // ตัดตัวเลขปีด้านหน้าออก (เช่น 51MCQ1 -> MCQ1, 51LAB -> LAB) เพื่อใช้ทำ AccordionGroup
+                    groupName = parts[1].replace(/^\d+/, '');
+                } else if (parts.length >= 3) {
+                    // ----------------------------------------------------
+                    // กฎข้อที่ 2: กลุ่มหัวข้อวิชาบรรยาย (เช่น CVS_PHYSIO_Arterial & Venous systems)
+                    // ----------------------------------------------------
+                    // ดึงเฉพาะชื่อหัวข้อด้านหลังสุดมาทำ CategoryName
+                    extractedName = parts.slice(2).join('_');
+
+                    // จับคู่วิชาย่อยกับ AccordionGroup
+                    const upperSubgroup = parts[1].toUpperCase();
+                    if (upperSubgroup === "ANA") {
+                        groupName = "ANATOMY";
+                    } else if (upperSubgroup === "PHYSIO" || upperSubgroup === "PHY" || upperSubgroup === "BIOCHEM") {
+                        groupName = "PHYSIO and BIOCHEM";
+                    } else if (upperSubgroup === "PARASITO" || upperSubgroup === "MICRO") {
+                        groupName = "PARASITO and MICRO";
+                    } else if (upperSubgroup === "PATHO") {
+                        groupName = "PATHO";
+                    } else if (upperSubgroup === "PHARM" || upperSubgroup === "PHARMACO") {
+                        groupName = "PHARM";
+                    } else if (upperSubgroup === "RADIO" || upperSubgroup === "IMAGE" || upperSubgroup === "CLINICAL") {
+                        groupName = "RADIO and CLINICAL";
+                    } else {
+                        groupName = parts[1]; // ใช้ตัวเลือกค่าเดิมในส่วนที่ 2 กรณีไม่ตรงเงื่อนไขข้างต้น
+                    }
+                } else {
+                    // กรณีไม่มีตัวเชื่อมย่อย
+                    extractedName = catKey;
+                    groupName = "GENERAL";
+                }
+
+                const fullGroup = `${subjectID} ${groupName}`;
+                const structKey = `${subjectID}-${fullGroup}`;
+
+                if (!structMap.has(structKey)) {
+                    structMap.set(structKey, [year, subjectID, subjectName, fullGroup]);
+                }
+
+                categoryRows.push([catKey, subjectID, fullGroup, extractedName]);
+            }
+
+            try {
+                if (rawInput.startsWith('[') && rawInput.endsWith(']')) {
+                    // ********************************************************************
+                    // CASE 3: QUESTION ARRAY
+                    // ********************************************************************
+                    initialTab = 'ques';
+                    inputType = 'full';
+                    if (!arrayCategoryID) {
+                        Swal.fire('Error', 'กรุณาระบุ Category ID สำหรับชุดคำถามนี้ในช่องสีแดง "ใส่ชื่อหัวข้อ"', 'error');
+                        return;
+                    }
+
+                    let questionsArray;
+                    try { questionsArray = JSON.parse(rawInput); } catch (e) { questionsArray = new Function("return " + rawInput)(); }
+
+                    const categoryKey = arrayCategoryID;
+                    registerCategoryAndStructure(categoryKey);
+
+                    questionsArray.forEach((q, index) => {
+                        const qId = `${categoryKey}_${index + 1}`;
+                        let qCats = [categoryKey];
+                        if (q.category) {
+                            if (Array.isArray(q.category)) {
+                                qCats = q.category;
+                            } else {
+                                try {
+                                    let parsed = JSON.parse(q.category.replace(/'/g, '"'));
+                                    if (Array.isArray(parsed)) qCats = parsed;
+                                } catch (e) { qCats = [q.category]; }
+                            }
+                        }
+                        qCats.forEach(cat => registerCategoryAndStructure(cat));
+                        quesRows.push([qId, q.problem || "", q.img || "", q.choices || "", q.answer || "", q.explain || "", JSON.stringify(qCats)]);
+                    });
+
+                } else if (rawInput.includes('{') && rawInput.includes('}')) {
+                    // ********************************************************************
+                    // CASE 2: QUIZ DATA (JSON Object)
+                    // ********************************************************************
+                    initialTab = 'ques';
+                    inputType = 'full';
+                    const firstBrace = rawInput.indexOf('{');
+                    const lastBrace = rawInput.lastIndexOf('}');
+                    const jsonString = rawInput.substring(firstBrace, lastBrace + 1);
+                    let quizObj;
+                    try { quizObj = new Function("return " + jsonString)(); } catch (e) { quizObj = JSON.parse(jsonString); }
+
+                    for (const [categoryKey, questions] of Object.entries(quizObj)) {
+                        registerCategoryAndStructure(categoryKey);
+                        if (Array.isArray(questions)) {
+                            questions.forEach((q, index) => {
+                                const qId = `${categoryKey}_${index + 1}`;
+                                let qCats = [categoryKey];
+                                if (q.category) {
+                                    if (Array.isArray(q.category)) {
+                                        qCats = q.category;
+                                    } else {
+                                        try {
+                                            let parsed = JSON.parse(q.category.replace(/'/g, '"'));
+                                            if (Array.isArray(parsed)) qCats = parsed;
+                                        } catch (e) { qCats = [q.category]; }
+                                    }
+                                }
+                                qCats.forEach(cat => registerCategoryAndStructure(cat));
+                                quesRows.push([qId, q.problem || "", q.img || "", q.choices || "", q.answer || "", q.explain || "", JSON.stringify(qCats)]);
+                            });
+                        }
+                    }
+                } else {
+                    // ********************************************************************
+                    // CASE 1: CATEGORY LIST (Text List)
+                    // ********************************************************************
+                    initialTab = 'category';
+                    inputType = 'structure_only';
+                    const lines = rawInput.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+                    lines.forEach(categoryKey => {
+                        registerCategoryAndStructure(categoryKey);
+                    });
+                }
+
+                converterStorage.struct = Array.from(structMap.values());
+                converterStorage.category = categoryRows;
+                converterStorage.ques = quesRows;
+
+                Swal.fire('Success', 'ประมวลผลสำเร็จ!', 'success');
+                switchTab(initialTab);
+
+            } catch (e) {
+                console.error(e);
+                Swal.fire('Error', 'Format ข้อมูลผิดพลาด: ' + e.message, 'error');
+            }
         }
-    }
-    function renderPreview() {
-        // ... (โค้ด renderPreview เดิม) ...
-        const head = document.getElementById('tableHead');
-        const body = document.getElementById('tableBody');
-        const currentSheet = converterStorage.current;
-        const data = converterStorage[currentSheet];
+        function renderPreview() {
+            const head = document.getElementById('tableHead');
+            const body = document.getElementById('tableBody');
+            const currentSheet = converterStorage.current;
+            const data = converterStorage[currentSheet];
 
-        head.innerHTML = converterHeaders[currentSheet].map(h => `<th>${h}</th>`).join("");
+            head.innerHTML = converterHeaders[currentSheet].map(h => `<th>${h}</th>`).join("");
 
-        body.innerHTML = data.map((row, i) => {
-            const indexCell = `<td>${i + 1}</td>`;
-            const contentCells = row.map(cell => {
-                return `<td class="editable-cell" contenteditable="true" style="white-space: pre-wrap;">${cell}</td>`;
+            let seenKeys = new Set();
+            let counts = { ALL: 0, NEW: 0, UPDATED: 0, DUPLICATE: 0, EXISTING: 0 };
+
+            const rowsHtml = data.map((row, i) => {
+                const status = evaluateRowStatusInBatch(row, i, currentSheet, seenKeys);
+
+                counts.ALL++;
+                counts[status]++;
+
+                // เลือก Class สีและป้ายสถานะตามสถานะข้อมูล
+                let bgClass = '';
+                let badgeHtml = '';
+                if (status === 'NEW') {
+                    bgClass = 'table-success';
+                    badgeHtml = '<span class="badge bg-success small me-1">NEW</span>';
+                } else if (status === 'UPDATED') {
+                    bgClass = 'table-warning';
+                    badgeHtml = '<span class="badge bg-warning text-dark small me-1">UPDATE</span>';
+                } else if (status === 'DUPLICATE') {
+                    bgClass = 'table-danger';
+                    badgeHtml = '<span class="badge bg-danger small me-1">DUP</span>';
+                } else if (status === 'EXISTING') {
+                    bgClass = 'table-secondary opacity-75';
+                    badgeHtml = '<span class="badge bg-secondary small me-1">EXIST</span>';
+                }
+
+                const indexCell = `<td>${badgeHtml}${i + 1}</td>`;
+                const contentCells = row.map(cell => {
+                    return `<td class="editable-cell" contenteditable="true" style="white-space: pre-wrap;">${cell}</td>`;
+                }).join("");
+
+                return `<tr class="${bgClass}" data-status="${status}">${indexCell}${contentCells}</tr>`;
             }).join("");
-            return `<tr>${indexCell}${contentCells}</tr>`;
-        }).join("");
 
-        document.getElementById('previewText').innerText = `มีข้อมูลทั้งหมด ${data.length} แถว`;
-        // ... (จบโค้ด renderPreview เดิม) ...
-    }
+            body.innerHTML = rowsHtml;
 
+            // อัปเดตตัวเลขแสดงผลบนปุ่มคัดกรอง
+            $('#count-all').text(counts.ALL);
+            $('#count-new').text(counts.NEW);
+            $('#count-updated').text(counts.UPDATED);
+            $('#count-duplicate').text(counts.DUPLICATE);
+            $('#count-existing').text(counts.EXISTING);
+
+            document.getElementById('previewText').innerText = `มีข้อมูลทั้งหมด ${data.length} แถว`;
+        }
+
+        function filterConverterTable(status, btn) {
+                $('#converter-filter-bar .btn').removeClass('active');
+                $(btn).addClass('active');
+
+                const rows = document.querySelectorAll('#tableBody tr');
+                rows.forEach(tr => {
+                    const rowStatus = tr.getAttribute('data-status');
+                    if (status === 'ALL' || rowStatus === status) {
+                        tr.style.display = '';
+                    } else {
+                        tr.style.display = 'none';
+                    }
+                });
+            }
+
+            // 6. ดักจับการแก้ไขสดบนตาราง และตรวจสอบปรับเปลี่ยนสีสถานะของแถวแบบออนดีมานด์
+            $(document).on('blur', '#tableBody .editable-cell', function () {
+                const $row = $(this).closest('tr');
+                const rowIndex = $row.index();
+                const colIndex = $(this).index() - 1; // ลบ 1 ออกเนื่องจากเซลล์ลำดับที่นับอยู่ใน index แรก
+                const currentSheet = converterStorage.current;
+
+                if (converterStorage[currentSheet] && converterStorage[currentSheet][rowIndex]) {
+                    converterStorage[currentSheet][rowIndex][colIndex] = $(this).text().trim();
+                }
+
+                // ประมวลผลวาดสีสถานะใหม่ทันทีหลังเลิกโฟกัสกล่องข้อมูล
+                renderPreview();
+            });
     function copyCurrentSheet() {
         // ... (โค้ด copyCurrentSheet เดิม) ...
         const rows = document.querySelectorAll('#tableBody tr');
@@ -7938,84 +8130,84 @@ Explanation: ...จึงเป็นคำตอบที่ถูกต้อ�
     }
 
     async function importConvertedData() {
-        if (!confirmAdmin()) return;
+            if (!confirmAdmin()) return;
 
-        const sheetsToProcess = [
-            { name: 'Structure', key: 'struct' },
-            { name: 'Category', key: 'category' },
-            { name: 'Questions', key: 'ques' }
-        ];
+            const sheetsToProcess = [
+                { name: 'Structure', key: 'struct' },
+                { name: 'Category', key: 'category' },
+                { name: 'Questions', key: 'ques' }
+            ];
 
-        let totalNew = 0;
-        let totalSkipped = 0;
-        let importLog = "";
+            let totalNew = 0;
+            let totalSkipped = 0;
+            let importLog = "";
 
-        const isConfirmed = await Swal.fire({
-            title: 'ยืนยันการนำเข้าข้อมูล?',
-            text: `ระบบจะตรวจสอบและข้ามข้อมูลที่มีอยู่แล้วในฐานข้อมูลโดยอัตโนมัติ`,
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: 'ใช่, เริ่มนำเข้า'
-        });
+            const isConfirmed = await Swal.fire({
+                title: 'ยืนยันการนำเข้าข้อมูล?',
+                text: `ระบบจะกรองนำเข้าเฉพาะข้อมูลใหม่และข้อมูลที่มีการอัปเดตเท่านั้น โดยข้อมูลที่ซ้ำซ้อนหรือเหมือนเดิมจะถูกข้ามให้แบบอัตโนมัติ`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'ใช่, เริ่มนำเข้า'
+            });
 
-        if (!isConfirmed.isConfirmed) return;
+            if (!isConfirmed.isConfirmed) return;
 
-        $('#loading-overlay').fadeIn(200).css('display', 'flex');
+            $('#loading-overlay').fadeIn(200).css('display', 'flex').find('h5').text('กำลังนำเข้าข้อมูล...');
 
-        try {
-            for (const sheet of sheetsToProcess) {
-                const dataToImport = converterStorage[sheet.key];
+            try {
+                for (const sheet of sheetsToProcess) {
+                    // ดึงข้อมูลที่ผ่านการกรองคัดทิ้งแถวที่ไม่จำเป็นในเบื้องหลังเรียบร้อยแล้ว
+                    const dataToImport = getFilteredImportData(sheet.key);
 
-                if (dataToImport.length > 0) {
-                    // ส่งข้อมูลไปประมวลผลที่ละส่วน
-                    const response = await fetch(APPSCRIPT_URL, {
-                        method: 'POST',
-                        headers: { "Content-Type": "text/plain;charset=utf-8" },
-                        body: JSON.stringify({
-                            action: 'adminImport',
-                            username: currentUser.username,
-                            adminPass: adminPass,
-                            data: {
-                                sheetName: sheet.key,
-                                data: dataToImport
-                            }
-                        })
-                    });
+                    if (dataToImport.length > 0) {
+                        const response = await fetch(APPSCRIPT_URL, {
+                            method: 'POST',
+                            headers: { "Content-Type": "text/plain;charset=utf-8" },
+                            body: JSON.stringify({
+                                action: 'adminImport',
+                                username: currentUser.username,
+                                adminPass: adminPass,
+                                data: {
+                                    sheetName: sheet.key,
+                                    data: dataToImport
+                                }
+                            })
+                        });
 
-                    const resJson = await response.json();
+                        const resJson = await response.json();
 
-                    if (resJson.result === 'success') {
-                        totalNew += (resJson.count || 0);
-                        totalSkipped += (resJson.skipped || 0);
-                        importLog += `• ${sheet.name}: เพิ่มใหม่ ${resJson.count} แถว (ซ้ำ ${resJson.skipped})\n`;
-                    } else {
-                        console.error(`Error importing ${sheet.name}:`, resJson.message);
+                        if (resJson.result === 'success') {
+                            totalNew += (resJson.count || 0);
+                            totalSkipped += (resJson.skipped || 0);
+                            importLog += `• ${sheet.name}: เพิ่ม/อัปเดตใหม่ ${resJson.count} แถว (ซ้ำ ${resJson.skipped})\n`;
+                        } else {
+                            console.error(`Error importing ${sheet.name}:`, resJson.message);
+                        }
                     }
                 }
+
+                $('#loading-overlay').hide();
+
+                if (totalNew > 0 || totalSkipped > 0) {
+                    Swal.fire({
+                        title: 'นำเข้าข้อมูลเสร็จสิ้น',
+                        html: `<div class="text-start small">
+                    <p class="mb-1 text-success fw-bold">สรุปผลการดำเนินการ:</p>
+                    <pre class="bg-light p-2 border rounded">${importLog}</pre>
+                    <p class="mt-2 text-muted">รวมเพิ่มข้อมูลใหม่/อัปเดตสำเร็จทั้งหมด: ${totalNew} แถว</p>
+                  </div>`,
+                        icon: 'success'
+                    });
+                    fetchData(true); // โหลดข้อมูลใหม่เพื่ออัปเดต UI
+                } else {
+                    Swal.fire('ไม่มีข้อมูลใหม่', 'ข้อมูลทั้งหมดที่คุณต้องการนำเข้า มีอยู่ในระบบเรียบร้อยแล้ว', 'info');
+                }
+
+            } catch (err) {
+                $('#loading-overlay').hide();
+                Swal.fire('Error', 'การ Import ขัดข้อง: ' + err.message, 'error');
             }
-
-            $('#loading-overlay').hide();
-
-            if (totalNew > 0 || totalSkipped > 0) {
-                Swal.fire({
-                    title: 'นำเข้าข้อมูลเสร็จสิ้น',
-                    html: `<div class="text-start small">
-                        <p class="mb-1 text-success fw-bold">สรุปผลการดำเนินการ:</p>
-                        <pre class="bg-light p-2 border rounded">${importLog}</pre>
-                        <p class="mt-2 text-muted">รวมเพิ่มข้อมูลใหม่ทั้งหมด: ${totalNew} แถว</p>
-                      </div>`,
-                    icon: 'success'
-                });
-                fetchData(true); // โหลดข้อมูลใหม่เพื่ออัปเดต UI
-            } else {
-                Swal.fire('ไม่มีข้อมูลใหม่', 'ข้อมูลทั้งหมดที่คุณต้องการนำเข้า มีอยู่ในระบบเรียบร้อยแล้ว', 'info');
-            }
-
-        } catch (err) {
-            $('#loading-overlay').hide();
-            Swal.fire('Error', 'การ Import ขัดข้อง: ' + err.message, 'error');
         }
-    }
 </script>
 </body>
 
