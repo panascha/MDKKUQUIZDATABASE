@@ -1,0 +1,390 @@
+        /* -------------------------------------------------------------------- */
+        /* 4.7 Component Styles (Cards, Gallery, Diff, Badges, Choices) */
+        /* -------------------------------------------------------------------- */
+
+        /* Card */
+        .card-dashboard {
+            border: none;
+            border-radius: 0.75rem;
+            box-shadow: 0 .15rem 1.75rem 0 rgba(58, 59, 69, .15);
+            margin-bottom: 1.5rem;
+            transition: transform 0.2s;
+        }
+
+        .card-dashboard:hover {
+            transform: translateY(-3px);
+        }
+
+        .card-header-custom {
+            background-color: white;
+            border-bottom: 1px solid #e3e6f0;
+            padding: 1rem 1.25rem;
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            border-top-left-radius: 0.75rem !important;
+            border-top-right-radius: 0.75rem !important;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+        .dash-card {
+            border: none;
+            border-radius: 15px;
+            transition: all 0.3s ease;
+            background: #fff;
+        }
+
+        .dash-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1) !important;
+        }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        /* สีเฉพาะสำหรับสถิติ */
+        .bg-gradient-primary {
+            background: linear-gradient(135deg, #4e73df 0%, #224abe 100%);
+            color: white;
+        }
+
+        .bg-gradient-danger {
+            background: linear-gradient(135deg, #e74a3b 0%, #be2617 100%);
+            color: white;
+        }
+
+        .bg-gradient-success {
+            background: linear-gradient(135deg, #1cc88a 0%, #13855c 100%);
+            color: white;
+        }
+
+        .bg-gradient-warning {
+            background: linear-gradient(135deg, #f6c23e 0%, #dda20a 100%);
+            color: white;
+        }
+
+        @media (max-width: 767.98px) {
+            #dashboardRecentTable {
+                display: block;
+            }
+
+            #dashboardRecentTable thead {
+                display: none;
+            }
+
+            #dashboardRecentTable tbody tr {
+                display: block;
+                margin-bottom: 1rem;
+                border: 1px solid #e3e6f0;
+                border-radius: 10px;
+                background: #fff;
+                padding: 10px;
+            }
+
+            #dashboardRecentTable td {
+                display: flex;
+                justify-content: space-between;
+                padding: 8px 5px;
+                border: none;
+                border-bottom: 1px dashed #eee;
+            }
+
+            #dashboardRecentTable td:last-child {
+                border-bottom: none;
+            }
+
+            #dashboardRecentTable td::before {
+                content: attr(data-label);
+                font-weight: bold;
+                color: #4e73df;
+                margin-right: 10px;
+            }
+        }
+
+        @media (max-width: 575.98px) {
+            .card-header-custom {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
+        }
+
+        .diff-label {
+            font-size: 0.85rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #666;
+        }
+
+
+        /* Choices */
+        .choice-item {
+            transition: all 0.2s;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            padding: 4px;
+            cursor: pointer;
+        }
+
+        .choice-item:hover {
+            background-color: #f8faff;
+            border-color: #e3e6f0;
+        }
+
+        .choice-item.active-focus {
+            border: 2px solid var(--primary-color) !important;
+            box-shadow: 0 0 8px rgba(78, 115, 223, 0.25);
+            background-color: #f0f4ff !important;
+        }
+
+        .choice-item .choice-text-input[style*="display: none"] {
+            display: none !important;
+        }
+
+        /* สไตล์สำหรับคำตอบที่ถูกเสนอ (สีเขียว) */
+        .choice-item.suggested-choice {
+            border: 2px solid #1cc88a !important;
+            /* เส้นขอบเขียวเข้ม */
+            background-color: #eafff5 !important;
+            /* พื้นหลังเขียวอ่อน */
+            box-shadow: 0 0 10px rgba(28, 200, 138, 0.2);
+        }
+
+        /* สไตล์สำหรับคำตอบเดิมใน Database (ถ้าไม่ตรงกับที่เสนอ) */
+        .choice-item.original-choice {
+            border: 2px solid #858796;
+            /* สีเทา */
+            background-color: #f8f9fa;
+        }
+
+        /* สไตล์เมื่อคำตอบเดิม กับ คำตอบที่เสนอ ตรงกัน */
+        .choice-item.suggested-choice.original-choice {
+            border-style: double !important;
+            border-width: 4px !important;
+        }
+
+        .choice-input-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            width: 100%;
+        }
+
+        #edit-gallery-svg-render svg {
+            max-width: 100%;
+            max-height: 250px;
+            /* ปรับให้พอดีกับความสูง Gallery */
+            width: auto;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .svg-render-area,
+        .svg-choice-container {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 8px;
+            background-color: #ffffff;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .svg-choice-preview-area {
+            background: #f8f9fa;
+            border: 1px solid #eee;
+            padding: 10px;
+            border-radius: 4px;
+            justify-content: center;
+            align-items: center;
+            min-height: 50px;
+        }
+
+        .svg-choice-preview-area svg {
+            max-width: 100%;
+            max-height: 100px;
+            /* ช้อยส์ไม่ควรสูงมาก */
+            width: auto;
+            height: auto;
+            display: block;
+        }
+
+
+        /* บังคับขนาด SVG ให้พอดีกรอบ ไม่ให้ล้น */
+        .svg-render-area svg,
+        .svg-choice-container svg {
+            max-width: 100% !important;
+            max-height: 150px !important;
+            /* ปรับเพิ่ม/ลดได้ตามความเหมาะสม */
+            width: auto !important;
+            height: auto !important;
+            display: block;
+        }
+
+        .btn-remove-choice {
+            color: #dc3545;
+            cursor: pointer;
+            padding: 5px 10px;
+        }
+
+        .btn-remove-choice:hover {
+            background-color: #ffeef0;
+            border-radius: 4px;
+        }
+
+        /* Gallery Styles */
+        .image-gallery-container {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            position: relative;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .gallery-img {
+            max-height: 250px;
+            max-width: 100%;
+            object-fit: contain;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .gallery-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        /* Custom Image Upload Zone */
+        .upload-dropzone {
+            border: 2px dashed var(--primary-color);
+            border-radius: 10px;
+            background-color: #f8faff;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .upload-dropzone:hover,
+        .upload-dropzone.dragover {
+            background-color: #e8f0fe;
+            border-color: #224abe;
+        }
+
+        .gallery-controls-top {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 10;
+        }
+
+        /* ซ่อนช่องกรอกข้อความเมื่อ Choice นั้นเป็นรูปภาพ */
+        .choice-has-image .choice-text-input {
+            display: none !important;
+        }
+
+        .choice-has-image .choice-preview-container {
+            display: flex !important;
+        }
+
+        .choice-preview-container .img-thumbnail {
+            background-color: #fff;
+            border: 1px solid #dee2e6;
+            padding: 5px;
+        }
+
+        /* Image Library Styles */
+        .image-library-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 15px;
+            max-height: 500px;
+            overflow-y: auto;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .library-item {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: #fff;
+            position: relative;
+            height: 120px;
+        }
+
+        .svg-preview-box {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            pointer-events: none;
+            /* ป้องกันการคลิกโดนองค์ประกอบภายใน SVG */
+        }
+
+        .svg-preview-box svg {
+            max-width: 100%;
+            max-height: 80px;
+            /* จำกัดความสูงในหน้า Library */
+            width: auto;
+            height: auto;
+        }
+
+        .library-item:hover {
+            border-color: var(--primary-color);
+            transform: scale(1.05);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .library-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #fff;
+        }
+
+        .library-item.svg-item {
+            position: relative;
+            overflow: hidden;
+            /* ป้องกันตัวหนังสือรั่ว */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: #fff;
+            padding: 5px;
+        }
+
+        .library-group-header {
+            grid-column: 1 / -1;
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            border-bottom: 2px solid #eaecf4;
+            padding-bottom: 5px;
+            margin-top: 10px;
+        }

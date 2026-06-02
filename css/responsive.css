@@ -1,0 +1,185 @@
+        /* -------------------------------------------------------------------- */
+        /* 4.11 Responsive Tweaks (DataTables & General) */
+        /* -------------------------------------------------------------------- */
+
+        #loading-overlay {
+            display: none;
+            /* เริ่มต้นซ่อนไว้ */
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(255, 255, 255, 0.85);
+            /* พื้นหลังขาวจางๆ */
+            z-index: 10000;
+            /* ให้อยู่เหนือทุกอย่างรวมถึง Modal */
+
+            /* บังคับให้เนื้อหาอยู่กึ่งกลางตลอดเวลา */
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        /* --- Mobile Responsive Table (Card View) --- */
+        /* --- โหมดการ์ด (Card View Mode) --- */
+        /* ทำงานเมื่อตารางมีคลาส .view-as-card หรือเมื่ออยู่ในมือถืออัตโนมัติ */
+        @media (max-width: 767.98px) {
+            .table-responsive table {
+                display: block !important;
+            }
+        }
+
+        .view-as-card thead {
+            display: none !important;
+        }
+
+        .view-as-card tbody {
+            display: flex !important;
+            flex-wrap: wrap;
+            gap: 20px;
+            padding: 10px 0;
+            background: transparent !important;
+        }
+
+        .view-as-card tr {
+            display: block !important;
+            background-color: #fff !important;
+            border-radius: 15px !important;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08) !important;
+            border: 1px solid #e3e6f0 !important;
+            overflow: hidden;
+            width: 100% !important;
+            /* ค่าเริ่มต้น 1 ใบต่อแถว */
+            transition: transform 0.2s;
+        }
+
+        .view-as-card td {
+            display: flex !important;
+            padding: 12px 15px !important;
+            border: none !important;
+            border-bottom: 1px solid #f1f3f9 !important;
+            width: 100% !important;
+            font-size: 0.9rem;
+            align-items: flex-start;
+        }
+
+        .view-as-card td::before {
+            content: attr(data-label);
+            font-weight: 700;
+            color: var(--primary-color);
+            width: 100px;
+            min-width: 100px;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+        }
+
+        /* โจทย์ (Question) */
+        .view-as-card td:nth-child(3) {
+            display: block !important;
+            background-color: #f8faff;
+            border-left: 5px solid var(--primary-color) !important;
+        }
+
+        .view-as-card td:nth-child(3)::before {
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        /* รูปภาพ */
+        .view-as-card .img-preview-mini {
+            max-height: 120px !important;
+            border-radius: 8px;
+        }
+
+        /* ปุ่ม Action */
+        .view-as-card td:last-child {
+            background-color: #f1f3f9;
+            justify-content: center;
+            border-bottom: none !important;
+        }
+
+        .view-as-card td:last-child::before {
+            display: none;
+        }
+
+        .view-as-card td:last-child .btn {
+            width: 100%;
+        }
+
+        td[data-label="Answer"] svg,
+        td[data-label="Question"] svg {
+            width: 25px !important;
+            height: 25px !important;
+            display: block;
+            margin: auto;
+        }
+
+        /* General small-device tweaks */
+        @media (max-width: 575.98px) {
+
+            .table-responsive table thead th,
+            .table-responsive table tbody td {
+                font-size: 0.85rem;
+                white-space: nowrap;
+            }
+
+            .img-preview-mini {
+                max-height: 30px;
+            }
+        }
+
+        /* Specific improvements for very narrow devices (<= 430px) */
+        @media (max-width: 430px) {
+
+            /* Allow cells to wrap instead of forcing horizontal scroll,
+           but keep horizontal scroll available if content cannot wrap */
+            .table-responsive table {
+                min-width: 0;
+                table-layout: fixed;
+                /* distribute available width */
+                word-break: break-word;
+            }
+
+            .table-responsive table thead th,
+            .table-responsive table tbody td {
+                white-space: normal;
+                /* allow wrapping of long text */
+                font-size: 0.78rem;
+                padding: 6px 8px;
+                line-height: 1.15;
+            }
+
+            /* Reduce header emphasis to save space */
+            .table-responsive table thead th {
+                font-size: 0.75rem;
+                font-weight: 600;
+            }
+
+            /* Make small preview images compact */
+            .img-preview-mini {
+                max-height: 24px;
+                width: auto;
+            }
+
+            /* Reduce button padding inside tables */
+            .table-responsive .btn {
+                padding: 4px 6px;
+                font-size: 0.78rem;
+            }
+
+            /* Allow long words/URLs to break */
+            .table-responsive td,
+            .table-responsive th {
+                overflow-wrap: anywhere;
+            }
+
+            /* Optional: make action column narrow and center its content */
+            .table-responsive td:last-child,
+            .table-responsive th:last-child {
+                width: 1%;
+                white-space: nowrap;
+                text-align: center;
+            }
+        }

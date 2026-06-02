@@ -1,0 +1,258 @@
+        /* -------------------------------------------------------------------- */
+        /* 4.2 Sidebar Styles */
+        /* -------------------------------------------------------------------- */
+        #sidebar-wrapper {
+            min-height: 100vh;
+            width: var(--sidebar-width);
+            position: fixed;
+            z-index: 1050;
+            margin-left: calc(-1 * var(--sidebar-width));
+            transition: all var(--transition-speed) cubic-bezier(0.4, 0, 0.2, 1);
+            background: var(--sidebar-bg);
+            box-shadow: 4px 0 15px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Mobile: Sidebar เปิดเมื่อมี class 'toggled' (เดิมถูกซ่อน) */
+        #wrapper.toggled #sidebar-wrapper {
+            margin-left: 0;
+        }
+
+        /* Overlay/Backdrop เมื่อ Sidebar เปิดบนมือถือ */
+        @media (max-width: 767.98px) {
+            #wrapper.toggled:before {
+                content: '';
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 1040;
+                pointer-events: auto;
+            }
+        }
+
+        #sidebar-wrapper .sidebar-heading {
+            padding: 0.8rem 0.5rem;
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: #fff;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Style สำหรับปุ่มปิด Sidebar บนมือถือ */
+        #sidebar-close-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        #sidebar-close-btn:hover {
+            opacity: 1;
+        }
+
+        @media (min-width: 768px) {
+
+            /* ซ่อนปุ่มปิดบนหน้าจอ Desktop */
+            #sidebar-close-btn {
+                display: none !important;
+            }
+        }
+
+        #sidebar-wrapper .list-group {
+            width: var(--sidebar-width);
+        }
+
+        #sidebar-wrapper .list-group-item {
+            background-color: transparent;
+            color: rgba(255, 255, 255, 0.8);
+            border: none;
+            padding: 1rem 1.5rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            border-radius: var(--item-radius);
+            display: flex;
+            align-items: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+
+        }
+
+        #sidebar-wrapper .list-group-item:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: white;
+            padding-left: 2rem;
+        }
+
+        #sidebar-wrapper .list-group-item.active {
+            color: white;
+            font-weight: bold;
+            background-color: rgba(255, 255, 255, 0.2);
+            border-left: 4px solid white;
+        }
+
+        #sidebar-wrapper .list-group-item i {
+            margin-right: 10px;
+            width: 20px;
+            text-align: center;
+        }
+
+        /* -------------------------------------------------------------------- */
+        /* 4.3 Page Content & Topbar Styles */
+        /* -------------------------------------------------------------------- */
+        #page-content-wrapper {
+            min-width: 100vw;
+            transition: margin .25s ease-out;
+            padding-left: 0;
+            margin-left: 0;
+        }
+
+        /* เมื่อถูก toggle บน Mobile (Sidebar เปิด) เนื้อหาไม่ต้องขยับ */
+        #wrapper.toggled #page-content-wrapper {
+            min-width: 100vw;
+            margin-left: 0;
+        }
+
+        @media (min-width: 768px) {
+
+            /* Desktop/Tablet: สถานะเริ่มต้นคือแสดง Sidebar */
+            #sidebar-wrapper {
+                margin-left: 0;
+            }
+
+            #page-content-wrapper {
+                min-width: 0;
+                width: 100%;
+                margin-left: var(--sidebar-width);
+            }
+
+            /* Desktop/Tablet: สถานะ Toggled คือซ่อน Sidebar */
+            #wrapper.toggled #sidebar-wrapper {
+                margin-left: var(--sidebar-hidden-margin) !important;
+            }
+
+            #wrapper.toggled #page-content-wrapper {
+                margin-left: 0 !important;
+            }
+        }
+
+        /* --- Topbar --- */
+        .topbar {
+            height: 4.375rem;
+            box-shadow: 0 .15rem 1.75rem 0 rgba(58, 59, 69, .15);
+            background-color: white;
+            display: flex;
+            align-items: center;
+            padding: 0 1rem;
+            justify-content: space-between;
+        }
+
+        /* ปรับแต่งหัวข้อใน Topbar สำหรับมือถือ */
+        #page-title {
+            font-size: 1.1rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 180px;
+        }
+
+        /* เพิ่มในส่วน 4.3 Page Content & Topbar Styles */
+        #topbar-avatar {
+            object-fit: cover;
+            cursor: pointer;
+            border: 2px solid #eee;
+            transition: transform 0.2s;
+        }
+
+        #topbar-avatar:hover {
+            transform: scale(1.1);
+            border-color: var(--primary-color);
+        }
+
+        /* เพิ่มในส่วน 4.8 Data Tables & Responsive Table Styles */
+
+
+        @media (min-width: 576px) {
+            #page-title {
+                font-size: 1.5rem;
+                max-width: none;
+            }
+
+            .topbar {
+                padding: 0 1.5rem;
+            }
+        }
+
+
+
+        .avatar-upload-box {
+            width: 120px;
+            height: 120px;
+            border: 2px dashed #ced4da;
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: border-color 0.3s, background-color 0.3s;
+            overflow: hidden;
+        }
+
+        .avatar-upload-box:hover {
+            border-color: var(--primary-color);
+            background-color: #f8f9fa;
+        }
+
+        .avatar-upload-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .avatar-upload-box i {
+            font-size: 2.5rem;
+            color: #6c757d;
+        }
+
+        .hidden-file-input {
+            display: none;
+        }
+
+        /* Auth Buttons in Topbar */
+        .auth-buttons-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .modal-header-auth {
+            background: linear-gradient(135deg, #4e73df 0%, #224abe 100%);
+            color: white;
+            border-top-left-radius: 10px;
+            border-top-right-radius: 10px;
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .modal-auth-content {
+            border: none;
+            border-radius: 10px;
+            overflow: hidden;
+        }

@@ -1,0 +1,11 @@
+/* css/main.css — สั่ง import ทุกไฟล์ตามลำดับ cascade */
+@import url('variables.css');   /* ต้องมาก่อนสุด: ประกาศ :root variables */
+@import url('layout.css');      /* พึ่งพา variables */
+@import url('modals.css');      /* พึ่งพา variables */
+@import url('modal-report.css');
+@import url('modal-vote.css');  /* พึ่งพา variables */
+@import url('components.css');  /* พึ่งพา variables */
+@import url('tables.css');      /* พึ่งพา variables */
+@import url('converter.css');   /* พึ่งพา variables */
+@import url('structure.css');   /* พึ่งพา variables */
+@import url('responsive.css');  /* ต้องมาหลังสุด: override styles */

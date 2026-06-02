@@ -1,0 +1,41 @@
+        /* -------------------------------------------------------------------- */
+        /* 4.1 Root Variables & Base Styles */
+        /* -------------------------------------------------------------------- */
+        :root {
+            --primary-color: #4e73df;
+            --secondary-color: #858796;
+            --success-color: #1cc88a;
+            --info-color: #36b9cc;
+            --warning-color: #f6c23e;
+            --danger-color: #e74a3b;
+            --light-bg: #f8f9fc;
+            --sidebar-width: 270px;
+            --sidebar-hidden-margin: calc(-1 * var(--sidebar-width));
+            /* สำหรับ Vote Modal */
+            --color-dark: #5a5c69;
+            --sidebar-bg: linear-gradient(180deg, #1a2a6c 0%, #2a4858 100%);
+            --transition-speed: 0.3s;
+            --item-radius: 12px;
+        }
+
+        body {
+            font-family: 'Sarabun', sans-serif;
+            background-color: var(--light-bg);
+            color: var(--color-dark);
+            overflow-x: hidden;
+            width: 100%;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .admin-only {
+            display: none;
+        }
+
+
+        /* DEV Role Check Styling */
+        .developer-only {
+            display: none;
+        }

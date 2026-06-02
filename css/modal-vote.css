@@ -1,0 +1,315 @@
+        /* -------------------------------------------------------------------- */
+        /* 4.6 Vote Modal Specific Styles */
+        /* -------------------------------------------------------------------- */
+        /* 1. ปรับขนาด Text และ Layout หลัก */
+        #vote-category-modal .modal-body {
+            padding: 1.5rem !important;
+        }
+
+        #vote-category-modal .modal-title {
+            font-size: 1.5rem !important;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        #vote-category-modal p.small-text {
+            font-size: 1rem;
+            color: #6c757d;
+            margin-bottom: 1rem;
+        }
+
+        /* 2. กล่อง Preview โจทย์ */
+        #vote-question-preview {
+            font-size: 1rem !important;
+            line-height: 1.5;
+            color: #2c3e50;
+            background: #f8f9fa;
+            border: none !important;
+            border-left: 6px solid var(--primary-color) !important;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            padding: 15px !important;
+            transition: transform 0.3s ease;
+        }
+
+        @media (min-width: 768px) {
+            #vote-category-modal .modal-body {
+                padding: 2rem !important;
+            }
+
+            #vote-category-modal .modal-title {
+                font-size: 2rem !important;
+            }
+
+            #vote-category-modal p.small-text {
+                font-size: 1.2rem;
+            }
+
+            #vote-question-preview {
+                font-size: 1.25rem !important;
+                padding: 20px !important;
+            }
+        }
+
+        #vote-question-preview:hover {
+            transform: scale(1.01);
+        }
+
+        /* 3. Container ของ Badge */
+        .category-badge-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            /* Increased gap for better spacing */
+            min-height: 50px;
+            /* Increased height for better visibility */
+            align-items: center;
+        }
+
+        /* 4. ตัว Badge (Category) - หัวใจหลัก */
+        .category-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 20px;
+            /* Increased padding for a more comfortable touch area */
+            border-radius: 25px;
+            /* Slightly adjusted border radius for a softer look */
+            font-size: 1rem;
+            /* Increased font size for better readability */
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            /* Increased letter spacing for clarity */
+            transition: all 0.3s ease;
+            /* Smoother transition effect */
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+            /* Softer shadow for a subtle effect */
+            background-color: #f8f9fa;
+            /* Light background for better contrast */
+            color: #333;
+            /* Darker text color for improved readability */
+        }
+
+        @media (min-width: 768px) {
+            .category-badge {
+                font-size: 1.15rem;
+                padding: 10px 20px;
+            }
+
+            .category-badge-container {
+                gap: 12px;
+            }
+        }
+
+        /* 4.1 สไตล์ Approved (สีเขียว) */
+        .category-badge.approved {
+            background: linear-gradient(135deg, #d4fc79 0%, #96e6a1 100%);
+            color: #155724;
+            border: none;
+            box-shadow: 0 4px 6px rgba(150, 230, 161, 0.4);
+        }
+
+        .category-badge.approved i {
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            padding: 4px;
+            font-size: 0.8rem;
+            margin-left: 8px;
+        }
+
+        /* 4.2 สไตล์ Suggested (สีส้ม/เหลือง) - แบบ Interactive */
+        .category-badge.suggested {
+            background-color: #fff;
+            color: #d35400;
+            border: 2px solid #ffcc80;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Effect ตอนเอาเมาส์ชี้ (Hover) */
+        .category-badge.suggested:hover {
+            background-color: #ffe0b2;
+            border-color: #ffb74d;
+            color: #e65100;
+            transform: translateY(-4px) scale(1.05);
+            box-shadow: 0 8px 15px rgba(255, 167, 38, 0.3);
+        }
+
+        /* Effect ตอนกด (Active) */
+        .category-badge.suggested:active {
+            transform: translateY(-1px) scale(0.98);
+            box-shadow: 0 2px 5px rgba(255, 167, 38, 0.3);
+        }
+
+        /* Badge บอกจำนวนคนโหวต */
+        .vote-count-badge {
+            background-color: #e65100;
+            color: white;
+            border-radius: 20px;
+            padding: 2px 8px;
+            font-size: 0.8rem;
+            margin-left: 8px;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        /* 5. ส่วนเพิ่มหัวข้อใหม่ (Dropdowns) */
+        .vote-row {
+            display: grid;
+            grid-template-columns: 35px 1fr;
+            /* ปรับ Grid สำหรับมือถือ */
+            grid-gap: 10px;
+            align-items: center;
+            background: #fff;
+            border: 1px dashed #ced4da;
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            transition: border-color 0.3s;
+        }
+
+        /* บน Desktop ให้แสดงแถวเดียว */
+        @media (min-width: 576px) {
+            .vote-row {
+                grid-template-columns: 35px 1fr 1fr 1fr;
+                padding: 15px;
+            }
+        }
+
+        .vote-row:hover {
+            border-color: var(--primary-color);
+            background: #f8faff;
+        }
+
+        .vote-select {
+            height: 45px;
+            font-size: 1rem;
+            border-radius: 8px;
+            border: 1px solid #dfe1e5;
+            background-color: #fff;
+            padding: 0 10px;
+            cursor: pointer;
+            width: 100%;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        @media (max-width: 575.98px) {
+            .vote-select {
+                grid-column: span 2;
+            }
+
+            .btn-remove-row {
+                grid-column: 1;
+                grid-row: 1;
+            }
+        }
+
+        .vote-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 4px rgba(78, 115, 223, 0.1);
+            outline: none;
+        }
+
+        .btn-remove-row {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-remove-row:hover {
+            background-color: #c82333;
+            transform: translateY(-2px);
+        }
+
+        /* 6. ปุ่มเพิ่มแถว (Add Row Button) */
+        #btn-add-vote-row {
+            padding: 8px 15px;
+            font-size: 1rem;
+            border-radius: 50px;
+            background-color: #e9f5ff;
+            color: var(--primary-color);
+            border: 2px solid var(--primary-color);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            margin: 0 auto;
+        }
+
+        @media (min-width: 768px) {
+            #btn-add-vote-row {
+                padding: 10px 20px;
+                font-size: 1.2rem;
+            }
+        }
+
+        #btn-add-vote-row:hover {
+            background-color: rgba(78, 115, 223, 0.05);
+            border-style: solid;
+            transform: translateY(-2px);
+        }
+
+        /* 7. ปุ่ม Submit / Close */
+        .controls-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        @media (min-width: 576px) {
+            .controls-container {
+                justify-content: flex-end;
+            }
+        }
+
+        .quiz-button {
+            padding: 10px 20px;
+            font-size: 1.1rem;
+            border-radius: 50px;
+            letter-spacing: 0.5px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            flex: 1;
+            max-width: 200px;
+        }
+
+        @media (min-width: 768px) {
+            .quiz-button {
+                padding: 12px 30px;
+                font-size: 1.3rem;
+            }
+        }
+
+        .btn-light {
+            background-color: #f8f9fa;
+            color: #6c757d;
+        }
+
+        .btn-dark {
+            background: linear-gradient(45deg, #4e73df, #224abe);
+            color: white;
+            box-shadow: 0 4px 10px rgba(78, 115, 223, 0.4);
+        }
+
+        .btn-dark:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(78, 115, 223, 0.6);
+        }
+
+        /* 8. ข้อความ Empty State */
+        .empty-state-text {
+            font-size: 1rem;
+            color: #adb5bd;
+            font-weight: 400;
+            padding: 10px 0;
+        }
