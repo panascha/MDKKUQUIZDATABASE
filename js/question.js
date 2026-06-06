@@ -1226,154 +1226,161 @@ async function handleImageTrash(url) {
     }
 
 async function askAIExpert() {
-        // 1. ดึงข้อมูลจากฟอร์มปัจจุบัน
-        const problem = $('#edit-problem').val().trim();
-        const explanationField = $('#edit-explanation');
-        const statusText = $('#ai-status-text');
-        const quotaBadge = $('#ai-quota-badge');
-        const btn = $('#btn-ask-ai');
+    // 1. ดึงข้อมูลจากฟอร์มปัจจุบัน
+    const problem = $('#edit-problem').val().trim();
+    const explanationField = $('#edit-explanation');
+    const statusText = $('#ai-status-text');
+    const quotaBadge = $('#ai-quota-badge');
+    const btn = $('#btn-ask-ai');
 
-        // 2. รวบรวมตัวเลือก (Choices) ทั้งหมดที่พิมพ์ไว้
-        let choices = [];
-        $('#dynamic-choices-container .choice-item').each(function () {
-            // ดึงเฉพาะ Text (ข้ามรูปภาพถ้ามี)
-            const text = $(this).find('.choice-text-input').val();
-            if (text && text.trim() !== "") {
-                choices.push(text.trim());
-            }
-        });
-
-        // 3. ดึงคำตอบที่ติ๊กเลือกไว้ (Correct Answer)
-        const answer = $('#dynamic-choices-container .choice-item:has(.choice-radio:checked) .choice-text-input').val();
-
-        // 4. ตรวจสอบความพร้อมของข้อมูล
-        if (!problem) {
-            Swal.fire('ข้อมูลไม่ครบ', 'กรุณากรอกโจทย์ก่อนใช้ AI', 'warning');
-            return;
+    // 2. รวบรวมตัวเลือก (Choices) ทั้งหมดที่พิมพ์ไว้
+    let choices = [];
+    $('#dynamic-choices-container .choice-item').each(function () {
+        // ดึงเฉพาะ Text (ข้ามรูปภาพถ้ามี)
+        const text = $(this).find('.choice-text-input').val();
+        if (text && text.trim() !== "") {
+            choices.push(text.trim());
         }
-        if (choices.length === 0 || !answer) {
-            Swal.fire('ข้อมูลไม่ครบ', 'กรุณาระบุตัวเลือกและเลือกคำตอบที่ถูกต้องก่อนใช้ AI เพื่อให้ตรวจสอบได้แม่นยำ', 'warning');
-            return;
-        }
+    });
 
-        // 5. เตรียม UI ขณะรอ
-        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i> AI Processing...');
-        statusText.fadeIn();
-        explanationField.css('opacity', '0.5');
+    // 3. ดึงคำตอบที่ติ๊กเลือกไว้ (Correct Answer)
+    const answer = $('#dynamic-choices-container .choice-item:has(.choice-radio:checked) .choice-text-input').val();
 
-        // 6. สร้างชุดคำสั่ง (Prompt) สำหรับส่งให้ AI
-        const prompt = `คุณคือผู้เชี่ยวชาญด้านการศึกษาวิชาแพทยศาสตร์ (Medical Database Content Creator)
+    // 4. ตรวจสอบความพร้อมของข้อมูล
+    if (!problem) {
+        Swal.fire('ข้อมูลไม่ครบ', 'กรุณากรอกโจทย์ก่อนใช้ AI', 'warning');
+        return;
+    }
+    if (choices.length === 0 || !answer) {
+        Swal.fire('ข้อมูลไม่ครบ', 'กรุณาระบุตัวเลือกและเลือกคำตอบที่ถูกต้องก่อนใช้ AI เพื่อให้ตรวจสอบได้แม่นยำ', 'warning');
+        return;
+    }
+
+    // 5. ดึงรูปภาพทั้งหมดของโจทย์ที่พร้อมใช้งาน (กรองค่าว่างและคำว่า require_img ออก)
+    let imageUrls = [];
+    if (editImageArray && editImageArray.length > 0) {
+        imageUrls = editImageArray.filter(url => url && !url.toLowerCase().includes('require_img'));
+    }
+
+    // 6. เตรียม UI ขณะรอ
+    btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i> AI Processing...');
+    statusText.fadeIn();
+    explanationField.css('opacity', '0.5');
+
+    // 7. สร้างชุดคำสั่ง (Prompt) ที่มอบภารกิจให้ AI ตรวจสอบ Guideline ปัจจุบันผ่าน Google Search
+    const prompt = `คุณคืออาจารย์แพทย์ผู้เชี่ยวชาญด้านแพทยศาสตรศึกษา (Medical Education Expert) ที่มีทักษะการสอนที่ยอดเยี่ยม
 [TASK]
-1. ตรวจสอบว่าโจทย์และตัวเลือกมีความสมเหตุสมผลตามหลักการแพทย์หรือไม่
-2. ตรวจสอบว่า "คำตอบที่เลือก" (${answer}) ตรงกับหนึ่งใน "ตัวเลือกทั้งหมด" ที่ให้มาหรือไม่
-3. เขียนคำอธิบายเฉลย (Explanation) เป็นภาษาไทยที่กระชับ เข้าใจง่าย และถูกต้องตามหลักวิชาการ
+1. ตรวจสอบว่าโจทย์ ตัวเลือก และภาพประกอบที่แนบส่งมาด้วย (ถ้ามี) มีความสัมพันธ์และสมเหตุสมผลตามหลักวิชาการแพทย์ในปัจจุบันมากน้อยเพียงใด
+2. เขียนคำอธิบายเฉลย (Explanation) เป็นภาษาไทย prose ลื่นไหลเป็นธรรมชาติ ผสมภาษาอังกฤษ (Medical Terminology) ตามระดับทักษะที่แพทย์และนิสิตแพทย์ใช้กันจริงในชีวิตประจำวัน
+3. ห้ามทำเป็นหัวข้อหรือขึ้นบรรทัดใหม่ ให้เขียนอธิบายรวมกันเป็น 1 ย่อหน้าต่อเนื่อง (Single continuous paragraph)
+4. หากประเด็นในโจทย์เกี่ยวข้องกับเกณฑ์การประเมิน เกณฑ์การตรวจวัด หรือแนวทางปฏิบัติการรักษาที่เป็นมาตรฐานสากล (เช่น แนวทางของ AHA/ACC, KDIGO, GINA, GOLD, IDSA, GINA หรือเกณฑ์อ้างอิงทางคลินิกอื่นๆ) ให้ค้นหาข้อมูลผ่านระบบ Google Search เพื่อเปรียบเทียบและอ้างอิงกับแนวปฏิบัติการรักษาล่าสุด (Updated Guidelines) ที่เป็นปัจจุบันที่สุดเสมอก่อนให้คำตอบ
 
 [DATA]
 - โจทย์: "${problem}"
-- ตัวเลือก: ${choices.map((c, i) => `${String.fromCharCode(65 + i)}. ${c}`).join(', ')}
-- คำตอบที่เลือกไว้: "${answer}"
+- ตัวเลือกทั้งหมด: ${choices.map((c, i) => `${String.fromCharCode(65 + i)}. ${c}`).join(', ')}
+- คำตอบที่ถูกต้องที่ระบุไว้: "${answer}"
 
-[INSTRUCTION]
-- อธิบายกลไก (Mechanism/Pathophysiology) ว่าทำไมข้อนี้ถึงถูก
-- อธิบายสั้นๆ ว่าทำไมตัวเลือกอื่นถึงไม่ใช่ (ถ้าจำเป็น)
-- ตอบเป็นภาษาไทย ผสม medical terminology ได้ แต่ต้องมีคำอธิบายภาษาไทยที่เข้าใจง่ายประกอบเสมอ
+[INSTRUCTION & WRITING STYLE]
+- ภาษา: ใช้โทนเป็นกันเอง อธิบายอย่างมีเหตุมีผลคล้ายคุณหมอรุ่นพี่หรืออาจารย์แพทย์ที่ใจดีกำลังสอนบอร์ด อธิบายอย่างชัดเจน มีความลื่นไหลเป็นเนื้อเดียวกัน
+- การวิเคราะห์รูปภาพ: หากภาพแนบประกอบที่ส่งมาด้วย (เช่น ฟิล์ม X-ray, คลื่นไฟฟ้าหัวใจ ECG, หรือภาพถ่ายทางพยาธิวิทยา) มีข้อมูลพยาธิสภาพ ให้ดึงมาใช้ร่วมในการอธิบายกลไกของโจทย์ด้วย
+- ความยาว: 4 - 6 ประโยคเท่านั้น ห้ามเกินนี้เด็ดขาด
+- รูปแบบ: ย่อหน้าเดียวต่อเนื่อง มีการเชื่อมประโยคอย่างลื่นไหล ไม่มีพอยต์ย่อย ไม่มีขึ้นบรรทัดใหม่สำหรับตัวเลือก โดยใช้ประโยคเชื่อมโยงธรรมชาติ เช่น "ส่วนข้อ B ผิดเพราะ... (due to...)", "ข้อ C ผิดเพราะ..."
+- ลำดับการอธิบาย:
+  1. เริ่มต้นวิเคราะห์ทันทีด้วยการเฉลยว่าทำไมคำตอบที่ถูกต้องจึงเป็น "${answer}" อธิบายกลไกทางพยาธิสรีรวิทยา (Pathophysiology) หรือโครงสร้างทางกายวิภาคที่เกี่ยวข้องและสัมพันธ์กับคำถาม โดยอิงหลักฐานหรือคำแนะนำจากแนวทางการรักษาสากลล่าสุดที่เกี่ยวข้อง
+  2. เปรียบเทียบและชี้แจงเหตุผลของตัวเลือกอื่นๆ ที่เหลือทีละข้อให้ชัดเจนว่าเป็นพยาธิสภาพของอะไร หรือทำไมจึงยังไม่ถูกต้องในบริบทของโจทย์ข้อนี้ โดยใช้รูปประโยคเชื่อมโยงธรรมชาติ เช่น "ส่วนข้อ B ผิดเพราะ... (due to...)", "ข้อ C ผิดเพราะ..."
 
-[STRICT INSTRUCTIONS]
-0. Your response MUST follow this exact pattern: 
-   "Explanation: [Medical explanation in Thai mixed with medical terms, concluding with a period.]"
-1. Start the response IMMEDIATELY with the ไทย ผสม medical terminology explanation.
-2. DO NOT include any introductory remarks, English analysis, or "My Assessment".
-3. NO introductory phrases like "Okay", "This question is", or "Let's look at".
-4. NO English analysis at the beginning or end.
-5. Content: Explain the pathophysiology in Thai mixed with medical terms. Briefly differentiate from other common wrong choices (like Choice C in this context) within the same paragraph.
-6. DO NOT use quotation marks around the sentences.
-7. DO NOT use bold marks (**) for the sentences.
-8. If the correct answer is not found in choices, start the first line with "⚠️ คำเตือน: คำตอบที่เลือกไม่ตรงกับตัวเลือก!".
-9. สรุปรวมใน 1 paragraph เหมือนอาจารย์อธิบายให้ฟังสั้นๆ
+[STRICT RULES]
+- เริ่มต้นเขียนคำอธิบายขึ้นต้นทันที ห้ามมีคำพูดเกริ่นนำใดๆ ทั้งสิ้น เช่น "คำอธิบายคือ:", "เฉลยข้อนี้:", "แน่นอน" หรือเขียนสรุปข้อความ "My Assessment"
+- ตอบเฉพาะย่อหน้าคำอธิบายเป็นภาษาไทยผสมคำศัพท์ภาษาอังกฤษทางการแพทย์
+- ห้ามใช้สัญลักษณ์ตัวหนา (**) หรือเครื่องหมายคำพูดครอบประโยคในผลลัพธ์
+- เขียนเนื้อหาทั้งหมดเสร็จสิ้นภายใต้ 1 ย่อหน้ายาวต่อเนื่อง ห้ามใช้การขึ้นบรรทัดใหม่ (\\n) หรือระบบ Bullet lists เด็ดขาด
+- ห้ามเริ่มด้วย: "คำอธิบายคือ:", "เฉลยข้อนี้:", "แน่นอน", "ข้อนี้...", หรือประโยคสรุปใดๆ
+- ห้ามเกิน 6 ประโยค — ถ้าเขียนเกินให้ตัดตั้งแต่ตอนเขียน ไม่ใช่ตอนสรุป
+- ห้ามใช้ ** (bold), bullet, หรือ \\n ทุกกรณี
+- ห้ามอธิบายตัวเลือกผิดแต่ละข้อแยกประโยค — รวมในประโยคเดียวหรือสองประโยคได้
 
-[FORMAT EXAMPLE]
-Explanation: ...จึงเป็นคำตอบที่ถูกต้อง.
+[EXAMPLE STYLE]
+"Ligament of Treitz (suspensory muscle of the duodenum) เป็น landmark สำคัญที่ใช้กำหนด duodenojejunal flexure ซึ่งเป็นจุดเริ่มต้นของ jejunum ใน clinical surgery ใช้บ่งชี้ upper vs lower GI bleeding (proximal to ligament = upper GI) ส่วนข้อ B ผิดเพราะ transverse colon ถูก suspend โดย transverse mesocolon ข้อ C ผิดเพราะ hepatoduodenal ligament ประกอบด้วย portal triad (portal vein, hepatic artery, bile duct) ข้อ D ผิดเพราะ descending colon ยึดกับ posterior abdominal wall โดย peritoneal attachment โดยตรง ข้อ E ผิดเพราะ gastrosplenic ligament เป็นโครงสร้างที่เชื่อมกระเพาะกับม้าม"
 `;
 
+    try {
+        // 8. ส่งข้อมูลไปยัง Backend (Apps Script) พร้อมส่งรูปภาพประกอบในรูป payload ไปวิเคราะห์
+        const res = await sendWithRetry({
+            action: 'askAIExpert',
+            prompt: prompt,
+            provider: 'Gemini',
+            images: imageUrls,
+            username: currentUser.username, // ส่งเพื่อเช็คสิทธิ์แอดมิน
+            adminPass: adminPass
+        }, 1); // ลองใหม่ได้สูงสุด 1 ครั้งถ้าพัง
 
-        try {
-            // 7. ส่งข้อมูลไปยัง Backend (Apps Script)
-            // หมายเหตุ: ใช้ sendWithRetry ที่คุณมีอยู่แล้ว
-            const res = await sendWithRetry({
-                action: 'askAIExpert',
-                prompt: prompt,
-                provider: 'Gemini',
-                username: currentUser.username, // ส่งเพื่อเช็คสิทธิ์แอดมิน
-                adminPass: adminPass
-            }, 1); // ลองใหม่ได้สูงสุด 1 ครั้งถ้าพัง
+        if (res.result === 'success') {
+            let text = res.answer;
 
-            if (res.result === 'success') {
-                let text = res.answer;
+            // --- Logic การสกัดคำอธิบายตามเงื่อนไข ---
 
-                // --- Logic การสกัดคำอธิบายตามเงื่อนไข ---
+            // 1. หาตำแหน่งของเครื่องหมาย : ตัวแรก
+            const colonIndex = text.indexOf(':');
 
-                // 1. หาตำแหน่งของเครื่องหมาย : ตัวแรก
-                const colonIndex = text.indexOf(':');
+            if (colonIndex !== -1) {
+                // ตัดข้อความตั้งแต่หลัง : เป็นต้นไป
+                let subText = text.substring(colonIndex + 1).trim();
 
-                if (colonIndex !== -1) {
-                    // ตัดข้อความตั้งแต่หลัง : เป็นต้นไป
-                    let subText = text.substring(colonIndex + 1).trim();
+                // 2. ใช้ Regex ค้นหา: 
+                // เริ่มจากตัวอักษรไทยตัวแรก [\u0E00-\u0E7F]
+                // ไปจนถึงภาษาไทยตัวสุดท้ายตามด้วยจุด [\u0E00-\u0E7F]\.
+                const thaiPattern = /([\u0E00-\u0E7F].*[\u0E00-\u0E7F]\.)/s;
+                const match = subText.match(thaiPattern);
 
-                    // 2. ใช้ Regex ค้นหา: 
-                    // เริ่มจากตัวอักษรไทยตัวแรก [\u0E00-\u0E7F]
-                    // ไปจนถึงภาษาไทยตัวสุดท้ายตามด้วยจุด [\u0E00-\u0E7F]\.
-                    const thaiPattern = /([\u0E00-\u0E7F].*[\u0E00-\u0E7F]\.)/s;
-                    const match = subText.match(thaiPattern);
-
-                    if (match && match[0]) {
-                        // ได้ข้อความที่ต้องการแล้ว
-                        let finalThai = match[0].trim();
-                        explanationField.val(finalThai);
-                    } else {
-                        // Fallback: หากหาตาม Pattern ไม่เจอ (กรณี AI ไม่ใส่จุด) 
-                        // ให้ดึงส่วนที่เป็นภาษาไทยทั้งหมดมาแทน
-                        const onlyThaiMatch = /([\u0E00-\u0E7F].*)/s.exec(subText);
-                        explanationField.val(onlyThaiMatch ? onlyThaiMatch[0].trim() : subText);
-                    }
+                if (match && match[0]) {
+                    // ได้ข้อความที่ต้องการแล้ว
+                    let finalThai = match[0].trim();
+                    explanationField.val(finalThai);
                 } else {
-                    // กรณีไม่มี : เลย (AI ตอบมาแค่เนื้อหา)
-                    explanationField.val(text.trim());
-                }
-
-                // 9. อัปเดตป้ายโควต้า
-                quotaBadge.html(`<i class="fas fa-bolt text-warning"></i> AI Quota: ${res.quota}`).fadeIn();
-
-                // 10. แจ้งเตือนถ้า AI ตรวจพบความผิดปกติ (เช่น ติ๊กคำตอบผิดข้อ)
-                if (res.answer.includes("⚠️")) {
-                    Swal.fire({
-                        title: 'AI พบความผิดปกติ!',
-                        text: 'AI ตรวจพบว่าคำตอบที่ติ๊กไว้ไม่ตรงกับตัวเลือก กรุณาตรวจสอบอีกครั้ง',
-                        icon: 'warning',
-                        confirmButtonColor: '#f6c23e'
-                    });
-                } else {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'AI ช่วยเขียนสำเร็จ',
-                        toast: true,
-                        position: 'top-end',
-                        showConfirmButton: false,
-                        timer: 2000
-                    });
+                    // Fallback: หากหาตาม Pattern ไม่เจอ (กรณี AI ไม่ใส่จุด) 
+                    // ให้ดึงส่วนที่เป็นภาษาไทยทั้งหมดมาแทน
+                    const onlyThaiMatch = /([\u0E00-\u0E7F].*)/s.exec(subText);
+                    explanationField.val(onlyThaiMatch ? onlyThaiMatch[0].trim() : subText);
                 }
             } else {
-                Swal.fire('AI Error', res.message || 'AI ไม่สามารถประมวลผลได้ในขณะนี้', 'error');
+                // กรณีไม่มี : เลย (AI ตอบมาแค่เนื้อหา)
+                explanationField.val(text.trim());
             }
-        } catch (e) {
-            console.error("AI Error:", e);
-            Swal.fire('Connection Error', 'ไม่สามารถติดต่อ AI Expert ได้: ' + e.message, 'error');
-        } finally {
-            // 11. คืนค่า UI กลับเป็นปกติ
-            btn.prop('disabled', false).html('<i class="fas fa-robot me-1"></i> ใช้ AI ช่วยเขียน & ตรวจโจทย์');
-            statusText.hide();
-            explanationField.css('opacity', '1');
+
+            // 9. อัปเดตป้ายโควต้า
+            quotaBadge.html(`<i class="fas fa-bolt text-warning"></i> AI Quota: ${res.quota}`).fadeIn();
+
+            // 10. แจ้งเตือนถ้า AI ตรวจพบความผิดปกติ (เช่น ติ๊กคำตอบผิดข้อ)
+            if (res.answer.includes("⚠️")) {
+                Swal.fire({
+                    title: 'AI พบความผิดปกติ!',
+                    text: 'AI ตรวจพบว่าคำตอบที่ติ๊กไว้ไม่ตรงกับตัวเลือก กรุณาตรวจสอบอีกครั้ง',
+                    icon: 'warning',
+                    confirmButtonColor: '#f6c23e'
+                });
+            } else {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'AI ช่วยเขียนสำเร็จ',
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 2000
+                });
+            }
+        } else {
+            Swal.fire('AI Error', res.message || 'AI ไม่สามารถประมวลผลได้ในขณะนี้', 'error');
         }
+    } catch (e) {
+        console.error("AI Error:", e);
+        Swal.fire('Connection Error', 'ไม่สามารถติดต่อ AI Expert ได้: ' + e.message, 'error');
+    } finally {
+        // 11. คืนค่า UI กลับเป็นปกติ
+        btn.prop('disabled', false).html('<i class="fas fa-robot me-1"></i> ใช้ AI ช่วยเขียน & ตรวจโจทย์');
+        statusText.hide();
+        explanationField.css('opacity', '1');
     }
+}
 
 function isMediaMatch(str1, str2) {
         if (!str1 || !str2) return false;
