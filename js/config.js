@@ -2,7 +2,7 @@
 // JS/CONFIG.JS
 // ─────────────────────────────────────────────────────
 
-window.APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxiIiugOKXPIFPRq5RocyEfNWLAfGBrePOEfJkZCy5IP6BYM0MbW1JieI1trz4aoBlJ/exec';
+window.APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx9vhSJd0ls3BZVwOVjbvmyiMFnXEWEKEfihdalqE34jvkN4GnjDdrLvDS2atrQ2how/exec';
 
 window.globalData = {
         questions: [],
@@ -30,6 +30,14 @@ window.activeUploadsCount = 0;
 window.existingMainImages = [];
 
 window.pendingMainImages = [];
+
+window.existingExplainMedia = [];
+
+window.pendingExplainMedia = [];
+
+window.explainImageIndex = 0;
+
+window.explainImageArray = [];
 
 window.choiceImagesData = {};
 
@@ -80,16 +88,39 @@ window.converterHeaders = {
         ques: ["#", "QuestionID", "Problem", "Image", "Choices", "Answer", "Explanation", "Category"]
     };
 
+// REPLACEMENT
 window.transformUrl = (url) => {
-        // ... (โค้ด transformUrl เดิม) ...
-        if (!url) return "";
-        if (url.startsWith('blob:') || url.startsWith('data:')) return url;
-        const match = url.match(/\/d\/(.*?)\//) || url.match(/id=([^&]+)/);
-        return (match && match[1]) ? `https://lh3.googleusercontent.com/d/${match[1]}?authuser=1=w1000-h1000` : url;
-        // ... (จบโค้ด transformUrl เดิม) ...
-    };
+    if (!url) return "";
+    if (url.startsWith('blob:') || url.startsWith('data:')) return url;
+    if (url.includes('/preview') || url.toLowerCase().includes('.pdf')) return url;
+    const match = url.match(/\/d\/(.*?)\//) || url.match(/id=([^&]+)/);
+    return (match && match[1]) ? `https://lh3.googleusercontent.com/d/${match[1]}?authuser=1=w1000-h1000` : url;
+};
 
-window.compressImage = async function(base64Str, maxWidth = 400, maxHeight = 400) {
+window.parseExplain = function (explainRaw) {
+    if (!explainRaw) return { text: "", media: [] };
+    const parts = explainRaw.split('///').map(s => s.trim());
+    return {
+        text: parts[0] || "",
+        media: parts.slice(1).filter(Boolean)
+    };
+};
+
+window.serializeExplain = function (text, mediaArray) {
+    const cleanText = (text || "").trim();
+    const cleanMedia = (mediaArray || []).filter(s => s && s.trim() !== "");
+    if (cleanMedia.length === 0) return cleanText;
+    return [cleanText, ...cleanMedia].join('///');
+};
+
+window.getMediaType = function (url) {
+    if (!url) return 'unknown';
+    if (url.includes('/preview') || url.toLowerCase().includes('.pdf')) return 'pdf';
+    if (url.startsWith('<svg')) return 'svg';
+    return 'image';
+};
+
+window.compressImage = async function (base64Str, maxWidth = 400, maxHeight = 400) {
         return new Promise((resolve) => {
             const img = new Image();
             img.src = base64Str;
@@ -118,7 +149,7 @@ window.compressImage = async function(base64Str, maxWidth = 400, maxHeight = 400
         });
     }
 
-window.formatDate = function(dateString) {
+window.formatDate = function (dateString) {
         // ... (โค้ด formatDate เดิม) ...
         if (!dateString) return '';
         const d = new Date(dateString);

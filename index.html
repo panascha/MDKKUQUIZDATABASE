@@ -1290,13 +1290,65 @@
 
                             <textarea class="form-control" id="edit-explanation" rows="6"
                                 placeholder="พิมพ์คำอธิบาย หรือกดปุ่ม AI ด้านบนเพื่อช่วยเขียน..."></textarea>
-
+                            
                             <!-- ข้อความสถานะขณะ AI กำลังทำงาน -->
                             <div id="ai-status-text" class="small text-primary mt-2 fw-bold" style="display:none;">
-                                <i class="fas fa-spinner fa-spin"></i> AI Expert
+                                <i class="fas fa-spinner fa-spin"></i> AI
                                 กำลังวิเคราะห์โจทย์และตรวจสอบความถูกต้อง...
                             </div>
-                        </div>
+                            </div>
+                            
+                            <!-- Explanation Media Section -->
+                            <div class="col-12 mt-2">
+                                <label class="form-label fw-bold">Explanation Media (รูปภาพ หรือ PDF ประกอบเฉลย)</label>
+                                <input type="hidden" id="edit-explain-media">
+                            
+                                <div class="d-flex gap-2 mb-3">
+                                    <div id="explain-media-upload-zone" class="upload-dropzone flex-grow-1"
+                                        onclick="$('#explain-media-hidden-input').click()">
+                                        <i class="fas fa-cloud-upload-alt fa-2x text-primary mb-2"></i>
+                                        <p class="mb-0">คลิก หรือลากไฟล์รูปภาพ/PDF มาวางที่นี่</p>
+                                    </div>
+                                    <button type="button" class="btn btn-outline-info"
+                                        onclick="currentLibraryTarget = { type: 'explain', rowId: null }; openImageLibrary();">
+                                        <i class="fas fa-images fa-2x mb-2"></i>
+                                        <span class="small fw-bold">เลือกจาก<br>คลังวิชานี้</span>
+                                    </button>
+                                </div>
+                                <input type="file" id="explain-media-hidden-input" class="d-none" accept="image/*,application/pdf" multiple
+                                    onchange="handleExplainMediaSelection(this)">
+                            
+                                <!-- Explain Media Gallery Preview -->
+                                <div id="explain-media-gallery-container" class="image-gallery-container" style="display:none;">
+                                    <div class="gallery-controls-top">
+                                        <button type="button" class="btn btn-sm btn-danger rounded-circle shadow"
+                                            onclick="removeCurrentExplainMediaFromGallery()">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </div>
+                            
+                                    <img src="" id="explain-gallery-img" class="gallery-img">
+                                    <div id="explain-gallery-svg-render" class="gallery-img"
+                                        style="display:none; overflow: auto; background: white; padding: 10px;"></div>
+                                    <div id="explain-gallery-pdf-render" class="gallery-img"
+                                        style="display:none; padding: 10px; text-align: center; justify-content: center; align-items: center; flex-direction: column;">
+                                        <i class="fas fa-file-pdf fa-4x text-danger mb-2"></i>
+                                        <h6 class="fw-bold">ไฟล์ประกอบคำอธิบาย PDF</h6>
+                                        <a href="#" id="explain-pdf-preview-link" target="_blank"
+                                            class="btn btn-sm btn-outline-primary mt-2">เปิดพรีวิวในหน้าต่างใหม่</a>
+                                    </div>
+                            
+                                    <div class="gallery-controls">
+                                        <button type="button" class="btn btn-sm btn-outline-primary rounded-circle" id="prev-explain-media-btn">
+                                            <i class="fas fa-chevron-left"></i>
+                                        </button>
+                                        <span id="explain-media-counter" class="badge bg-secondary rounded-pill">1 / 1</span>
+                                        <button type="button" class="btn btn-sm btn-outline-primary rounded-circle" id="next-explain-media-btn">
+                                            <i class="fas fa-chevron-right"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                     </div>
                 </form>
             </div>

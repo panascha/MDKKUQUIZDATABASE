@@ -44,199 +44,234 @@ function showQuestionDetail(id) {
     }
 
 function openEditModal(id, suggestedAnswer = null) {
-        // ... (โค้ด openEditModal เดิม) ...
-        const q = globalData.questions.find(x => x.questionId == id);
-        if (!q) return;
+    const q = globalData.questions.find(x => x.questionId == id);
+    if (!q) return;
 
-        $('#edit-q-id').val(q.questionId);
+    $('#edit-q-id').val(q.questionId);
 
-        let currentCategories = Array.isArray(q.category) ? q.category : [q.category];
-        renderCategoriesUI(currentCategories);
+    let currentCategories = Array.isArray(q.category) ? q.category : [q.category];
+    renderCategoriesUI(currentCategories);
 
-        $('#edit-problem').val(q.problem);
-        $('#edit-explanation').val(q.explain);
+    $('#edit-problem').val(q.problem);
 
-        renderImagesUI(q.img);
-        renderChoicesUI(q.choices, q.answer, suggestedAnswer);
+    const parsedExp = parseExplain(q.explain);
+    $('#edit-explanation').val(parsedExp.text);
+    renderExplainMediaUI(parsedExp.media);
 
-        $('#editQuestionModal').modal('show');
-        // ... (จบโค้ด openEditModal เดิม) ...
-    }
+    renderImagesUI(q.img);
+    renderChoicesUI(q.choices, q.answer, suggestedAnswer);
+
+    $('#editQuestionModal').modal('show');
+}
 
 async function saveQuestionChanges() {
-        if (!confirmAdmin()) return;
+    if (!confirmAdmin()) return;
 
-        // --- STEP 1: ดึงข้อมูลและสร้าง Snapshot (Capture ทุกอย่างก่อนปิด Modal) ---
-        const qId = $('#edit-q-id').val();
-        const problemText = $('#edit-problem').val().trim();
-        const explainText = $('#edit-explanation').val().trim();
-        const categories = JSON.parse($('#edit-category-hidden').val() || "[]");
+    // --- STEP 1: ดึงข้อมูลและสร้าง Snapshot (Capture ทุกอย่างก่อนปิด Modal) ---
+    const qId = $('#edit-q-id').val();
+    const problemText = $('#edit-problem').val().trim();
+    const explainText = $('#edit-explanation').val().trim();
+    const categories = JSON.parse($('#edit-category-hidden').val() || "[]");
 
-        // Snapshot ข้อมูลภาพโจทย์ (Main)
-        const snapshotPendingMain = [...pendingMainImages];
-        const snapshotExistingMain = [...existingMainImages];
+    // Snapshot ข้อมูลภาพโจทย์ (Main)
+    const snapshotPendingMain = [...pendingMainImages];
+    const snapshotExistingMain = [...existingMainImages];
 
-        const uniqueMainImages = Array.from(new Set([...snapshotExistingMain, ...snapshotPendingMain]))
+    const uniqueMainImages = Array.from(new Set([...snapshotExistingMain, ...snapshotPendingMain]))
+        .filter(url => url.trim() !== "");
+
+    // Snapshot ข้อมูลสื่อประกอบคำอธิบาย (Explain Media)
+    const snapshotPendingExplain = [...pendingExplainMedia];
+    const snapshotExistingExplain = [...existingExplainMedia];
+
+    // Snapshot ข้อมูลตัวเลือก (Choices) พร้อม ImageData ป้องกัน Error
+    const rowsSnapshot = [];
+    let pendingChoiceImagesCount = 0;
+
+    $('#dynamic-choices-container .choice-item').each(function () {
+        const rowId = $(this).attr('id');
+        const imgEntry = choiceImagesData[rowId];
+        const textValInInput = $(this).find('.choice-text-input').val().trim();
+        const isCorrect = $(this).find('.choice-radio').is(':checked');
+
+        const isPending = !!(imgEntry && imgEntry.type === 'pending');
+        if (isPending) pendingChoiceImagesCount++;
+
+        rowsSnapshot.push({
+            id: rowId,
+            isPending: isPending,
+            imageData: imgEntry ? imgEntry.data : null, // เก็บ Base64 ไว้ที่นี่เลย
+            isExisting: !!(imgEntry && imgEntry.type === 'existing'),
+            text: textValInInput,
+            isCorrect: isCorrect,
+            wasRequireImg: $(this).hasClass('border-warning') // ตรวจสอบสถานะเดิม
+        });
+    });
+
+    const totalImagesToUpload = snapshotPendingMain.length + pendingChoiceImagesCount + snapshotPendingExplain.length;
+
+    // --- STEP 2: Optimistic UI Update (แก้หน้าจอทันที) ---
+    const qIndex = globalData.questions.findIndex(q => q.questionId === qId);
+    if (qIndex !== -1) {
+        // อัปเดตข้อมูลจำลองในเครื่องก่อน เพื่อให้ User เห็นความเปลี่ยนแปลงทันที
+        globalData.questions[qIndex].problem = problemText;
+
+        const tempExplainUrls = Array.from(new Set([...snapshotExistingExplain, ...snapshotPendingExplain]))
             .filter(url => url.trim() !== "");
+        globalData.questions[qIndex].explain = serializeExplain(explainText, tempExplainUrls);
+        globalData.questions[qIndex].category = categories;
+        globalData.questions[qIndex].img = uniqueMainImages.join('///');
 
-        // Snapshot ข้อมูลตัวเลือก (Choices) พร้อม ImageData ป้องกัน Error
-        const rowsSnapshot = [];
-        let pendingChoiceImagesCount = 0;
+        // บันทึกลง IndexedDB เบื้องต้น
+        await setCacheDB('global_admin_data', globalData);
+        refreshTables(true); // รีเฟรชตารางทันทีด้วยข้อมูลใหม่
+        updateDashboard();
+    }
 
-        $('#dynamic-choices-container .choice-item').each(function () {
-            const rowId = $(this).attr('id');
-            const imgEntry = choiceImagesData[rowId];
-            const textValInInput = $(this).find('.choice-text-input').val().trim();
-            const isCorrect = $(this).find('.choice-radio').is(':checked');
+    // ปิดหน้าต่างแก้ไขทันที เพื่อให้แอดมินทำงานข้ออื่นต่อได้
+    $('#editQuestionModal').modal('hide');
 
-            const isPending = !!(imgEntry && imgEntry.type === 'pending');
-            if (isPending) pendingChoiceImagesCount++;
+    // สร้าง Toast แจ้งเตือนสถานะเบื้องหลัง
+    const bgToast = Swal.mixin({
+        toast: true,
+        position: 'bottom-end',
+        showConfirmButton: false,
+        timerProgressBar: true
+    });
 
-            rowsSnapshot.push({
-                id: rowId,
-                isPending: isPending,
-                imageData: imgEntry ? imgEntry.data : null, // เก็บ Base64 ไว้ที่นี่เลย
-                isExisting: !!(imgEntry && imgEntry.type === 'existing'),
-                text: textValInInput,
-                isCorrect: isCorrect,
-                wasRequireImg: $(this).hasClass('border-warning') // ตรวจสอบสถานะเดิม
-            });
-        });
+    bgToast.fire({
+        icon: 'info',
+        title: totalImagesToUpload > 0 ? `เริ่มซิงค์ข้อมูล (${totalImagesToUpload} ภาพ)...` : 'กำลังบันทึกข้อมูล...',
+    });
 
-        const totalImagesToUpload = snapshotPendingMain.length + pendingChoiceImagesCount;
+    // --- STEP 3: ทำงานเบื้องหลัง (Background Processing) ---
+    (async () => {
+        try {
+            activeUploadsCount++;
+            const delay = ms => new Promise(res => setTimeout(res, ms));
+            let currentImageCount = 0;
 
-        // --- STEP 2: Optimistic UI Update (แก้หน้าจอทันที) ---
-        const qIndex = globalData.questions.findIndex(q => q.questionId === qId);
-        if (qIndex !== -1) {
-            // อัปเดตข้อมูลจำลองในเครื่องก่อน เพื่อให้ User เห็นความเปลี่ยนแปลงทันที
-            globalData.questions[qIndex].problem = problemText;
-            globalData.questions[qIndex].explain = explainText;
-            globalData.questions[qIndex].category = categories;
-            globalData.questions[qIndex].img = uniqueMainImages.join('///');
+            // 3.1 อัปโหลดรูปโจทย์ (Main Images)
+            let serverMainUrls = [...snapshotExistingMain];
+            if (snapshotPendingMain.length > 0) {
+                // กรองคำว่า require_img ออกถ้ากำลังจะมีรูปจริงมาแทน
+                serverMainUrls = serverMainUrls.filter(u => !u.toLowerCase().includes('require_img'));
 
-            // บันทึกลง IndexedDB เบื้องต้น
-            await setCacheDB('global_admin_data', globalData);
-            refreshTables(true); // รีเฟรชตารางทันทีด้วยข้อมูลใหม่
-            updateDashboard();
-        }
+                for (const base64 of snapshotPendingMain) {
+                    currentImageCount++;
+                    bgToast.fire({
+                        icon: 'info',
+                        title: `กำลังอัปโหลดรูปที่ ${currentImageCount}/${totalImagesToUpload}`,
+                        text: 'ส่วนของ: รูปภาพโจทย์',
+                        timer: 60000
+                    });
 
-        // ปิดหน้าต่างแก้ไขทันที เพื่อให้แอดมินทำงานข้ออื่นต่อได้
-        $('#editQuestionModal').modal('hide');
+                    const res = await sendWithRetry({
+                        action: 'uploadImage',
+                        username: currentUser.username, adminPass: adminPass,
+                        data: { base64: base64, questionId: qId, type: 'Main' }
+                    });
 
-        // สร้าง Toast แจ้งเตือนสถานะเบื้องหลัง
-        const bgToast = Swal.mixin({
-            toast: true,
-            position: 'bottom-end',
-            showConfirmButton: false,
-            timerProgressBar: true
-        });
-
-        bgToast.fire({
-            icon: 'info',
-            title: totalImagesToUpload > 0 ? `เริ่มซิงค์ข้อมูล (${totalImagesToUpload} ภาพ)...` : 'กำลังบันทึกข้อมูล...',
-        });
-
-        // --- STEP 3: ทำงานเบื้องหลัง (Background Processing) ---
-        (async () => {
-            try {
-                activeUploadsCount++;
-                const delay = ms => new Promise(res => setTimeout(res, ms));
-                let currentImageCount = 0;
-
-                // 3.1 อัปโหลดรูปโจทย์ (Main Images)
-                let serverMainUrls = [...snapshotExistingMain];
-                if (snapshotPendingMain.length > 0) {
-                    // กรองคำว่า require_img ออกถ้ากำลังจะมีรูปจริงมาแทน
-                    serverMainUrls = serverMainUrls.filter(u => !u.toLowerCase().includes('require_img'));
-
-                    for (const base64 of snapshotPendingMain) {
-                        currentImageCount++;
-                        bgToast.fire({
-                            icon: 'info',
-                            title: `กำลังอัปโหลดรูปที่ ${currentImageCount}/${totalImagesToUpload}`,
-                            text: 'ส่วนของ: รูปภาพโจทย์',
-                            timer: 60000
-                        });
-
-                        const res = await sendWithRetry({
-                            action: 'uploadImage',
-                            username: currentUser.username, adminPass: adminPass,
-                            data: { base64: base64, questionId: qId, type: 'Main' }
-                        });
-
-                        if (res.result === 'success') {
-                            serverMainUrls.push(res.url);
-                            await delay(400); // หน่วงเวลาสั้นลง (400ms) เพื่อความเร็ว
-                        } else {
-                            throw new Error(`รูปโจทย์ภาพที่ ${currentImageCount} ล้มเหลว`);
-                        }
-                    }
-                }
-
-                // 3.2 อัปโหลดรูปตัวเลือก (Choice Images)
-                const serverChoicesArray = [];
-                let finalAnswerServer = "";
-
-                for (const row of rowsSnapshot) {
-                    let finalVal = "";
-
-                    if (row.isPending) {
-                        currentImageCount++;
-                        bgToast.fire({
-                            icon: 'info',
-                            title: `กำลังอัปโหลดรูปที่ ${currentImageCount}/${totalImagesToUpload}`,
-                            text: 'ส่วนของ: ตัวเลือก',
-                            timer: 60000
-                        });
-
-                        const res = await sendWithRetry({
-                            action: 'uploadImage',
-                            username: currentUser.username, adminPass: adminPass,
-                            data: { base64: row.imageData, questionId: qId, type: 'Choice' }
-                        });
-
-                        if (res.result === 'success') {
-                            finalVal = res.url;
-                            await delay(400);
-                        } else {
-                            throw new Error(`รูปตัวเลือกที่ ${currentImageCount} ล้มเหลว`);
-                        }
-                    } else if (row.isExisting) {
-                        finalVal = row.imageData; // URL เดิม
+                    if (res.result === 'success') {
+                        serverMainUrls.push(res.url);
+                        await delay(400); // หน่วงเวลาสั้นลง (400ms) เพื่อความเร็ว
                     } else {
-                        finalVal = row.text; // ข้อความปกติ
-                    }
-
-                    // จัดการกรณี require_img (ถ้าช่องว่างแต่เดิมระบุว่าต้องมีรูป ให้คงไว้)
-                    if (finalVal === "" && row.text === "" && row.isPending === false && row.wasRequireImg) {
-                        finalVal = "require_img";
-                    }
-
-                    if (finalVal !== "") {
-                        serverChoicesArray.push(finalVal);
-                        if (row.isCorrect) finalAnswerServer = finalVal;
+                        throw new Error(`รูปโจทย์ภาพที่ ${currentImageCount} ล้มเหลว`);
                     }
                 }
+            }
 
-                // 3.3 ส่งข้อมูลสรุปเข้า Google Sheets
-                bgToast.fire({ icon: 'info', title: 'กำลังบันทึกลงฐานข้อมูล...', timer: 30000 });
+            // 3.1.2 อัปโหลดสื่อประกอบคำอธิบาย (Explain Media)
+            let serverExplainUrls = [...snapshotExistingExplain];
+            if (snapshotPendingExplain.length > 0) {
+                for (const base64 of snapshotPendingExplain) {
+                    currentImageCount++;
+                    bgToast.fire({
+                        icon: 'info',
+                        title: `กำลังอัปโหลดรูปที่ ${currentImageCount}/${totalImagesToUpload}`,
+                        text: 'ส่วนของ: สื่อประกอบคำอธิบาย',
+                        timer: 60000
+                    });
 
-                const savePayload = {
-                    id: qId,
-                    problem: problemText,
-                    explain: explainText,
-                    category: categories,
-                    img: serverMainUrls.join('///'),
-                    choices: serverChoicesArray.join('///'),
-                    answer: finalAnswerServer
-                };
+                    const res = await sendWithRetry({
+                        action: 'uploadImage',
+                        username: currentUser.username, adminPass: adminPass,
+                        data: { base64: base64, questionId: qId, type: 'Explain' }
+                    });
 
-                // 🔥 แก้ไขจุดนี้: เพิ่ม const finalRes = เพื่อรับค่าจากฟังก์ชัน
-                const finalRes = await sendWithRetry({
-                    action: 'editQuestion',
-                    username: currentUser.username, adminPass: adminPass,
-                    data: savePayload
-                });
+                    if (res.result === 'success') {
+                        serverExplainUrls.push(res.url);
+                        await delay(400);
+                    } else {
+                        throw new Error(`สื่อประกอบคำอธิบายไฟล์ที่ ${currentImageCount} ล้มเหลว`);
+                    }
+                }
+            }
+
+            // 3.2 อัปโหลดรูปตัวเลือก (Choice Images)
+            const serverChoicesArray = [];
+            let finalAnswerServer = "";
+
+            for (const row of rowsSnapshot) {
+                let finalVal = "";
+
+                if (row.isPending) {
+                    currentImageCount++;
+                    bgToast.fire({
+                        icon: 'info',
+                        title: `กำลังอัปโหลดรูปที่ ${currentImageCount}/${totalImagesToUpload}`,
+                        text: 'ส่วนของ: ตัวเลือก',
+                        timer: 60000
+                    });
+
+                    const res = await sendWithRetry({
+                        action: 'uploadImage',
+                        username: currentUser.username, adminPass: adminPass,
+                        data: { base64: row.imageData, questionId: qId, type: 'Choice' }
+                    });
+
+                    if (res.result === 'success') {
+                        finalVal = res.url;
+                        await delay(400);
+                    } else {
+                        throw new Error(`รูปตัวเลือกที่ ${currentImageCount} ล้มเหลว`);
+                    }
+                } else if (row.isExisting) {
+                    finalVal = row.imageData; // URL เดิม
+                } else {
+                    finalVal = row.text; // ข้อความปกติ
+                }
+
+                // จัดการกรณี require_img (ถ้าช่องว่างแต่เดิมระบุว่าต้องมีรูป ให้คงไว้)
+                if (finalVal === "" && row.text === "" && row.isPending === false && row.wasRequireImg) {
+                    finalVal = "require_img";
+                }
+
+                if (finalVal !== "") {
+                    serverChoicesArray.push(finalVal);
+                    if (row.isCorrect) finalAnswerServer = finalVal;
+                }
+            }
+
+            // 3.3 ส่งข้อมูลสรุปเข้า Google Sheets
+            bgToast.fire({ icon: 'info', title: 'กำลังบันทึกลงฐานข้อมูล...', timer: 30000 });
+
+            const savePayload = {
+                id: qId,
+                problem: problemText,
+                explain: serializeExplain(explainText, serverExplainUrls),
+                category: categories,
+                img: serverMainUrls.join('///'),
+                choices: serverChoicesArray.join('///'),
+                answer: finalAnswerServer
+            };
+
+            // 🔥 แก้ไขจุดนี้: เพิ่ม const finalRes = เพื่อรับค่าจากฟังก์ชัน
+            const finalRes = await sendWithRetry({
+                action: 'editQuestion',
+                username: currentUser.username, adminPass: adminPass,
+                data: savePayload
+            });
 
                 // 3.4 จัดการ Report (ถ้ามี)
                 const reportData = $('#editQuestionModal').data('reportData');
@@ -958,36 +993,48 @@ function openImageLibrary() {
     }
 
 function selectImageFromLibrary(content) {
-        const cleanContent = content.trim();
+    const cleanContent = content.trim();
 
-        if (currentLibraryTarget.type === 'main') {
-            // --- สำหรับรูปโจทย์หลัก (Main Images) ---
-            // เช็คว่าใน Array มีรูปนี้หรือยัง (ป้องกัน <svg xmlns...///<svg xmlns...)
-            const isDuplicate = existingMainImages.some(item => item.trim() === cleanContent) ||
-                pendingMainImages.some(item => item.trim() === cleanContent);
+    if (currentLibraryTarget.type === 'main') {
+        // --- สำหรับรูปโจทย์หลัก (Main Images) ---
+        // เช็คว่าใน Array มีรูปนี้หรือยัง (ป้องกัน <svg xmlns...///<svg xmlns...)
+        const isDuplicate = existingMainImages.some(item => item.trim() === cleanContent) ||
+            pendingMainImages.some(item => item.trim() === cleanContent);
 
-            if (isDuplicate) {
-                Swal.fire({ icon: 'info', title: 'สื่อนี้ถูกเลือกไว้แล้ว', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
-                return;
-            }
-
-            existingMainImages.push(cleanContent); // เพิ่มเข้าไปในลิสต์
-            syncMainImageGallery(); // อัปเดต Gallery หน้าจอ
-        } else {
-            // --- สำหรับตัวเลือก (Choices) ---
-            const $row = $('#' + currentLibraryTarget.rowId);
-            const $input = $row.find('.choice-text-input');
-
-            // สำหรับ Choice แนะนำให้ "แทนที่" ไปเลย (เพราะ 1 ช้อยส์มักมี 1 รูป/1 SVG)
-            $input.val(cleanContent);
-
-            renderChoicePreview($input);
-            syncChoicesToHiddenInput();
+        if (isDuplicate) {
+            Swal.fire({ icon: 'info', title: 'สื่อนี้ถูกเลือกไว้แล้ว', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
+            return;
         }
 
-        $('#imageLibraryModal').modal('hide');
-        Swal.fire({ icon: 'success', title: 'เลือกสื่อเรียบร้อยแล้ว', toast: true, position: 'top-end', showConfirmButton: false, timer: 1000 });
+        existingMainImages.push(cleanContent); // เพิ่มเข้าไปในลิสต์
+        syncMainImageGallery(); // อัปเดต Gallery หน้าจอ
+    } else if (currentLibraryTarget.type === 'explain') {
+        const isDuplicate = existingExplainMedia.some(item => item.trim() === cleanContent) ||
+            pendingExplainMedia.some(item => item.trim() === cleanContent);
+
+        if (isDuplicate) {
+            Swal.fire({ icon: 'info', title: 'สื่อนี้ถูกเลือกไว้แล้ว', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
+            return;
+        }
+
+        existingExplainMedia.push(cleanContent);
+        syncExplainMediaGallery();
+    } else {
+        // --- สำหรับตัวเลือก (Choices) ---
+        const $row = $('#' + currentLibraryTarget.rowId);
+        const $input = $row.find('.choice-text-input');
+
+        // สำหรับ Choice แนะนำให้ "แทนที่" ไปเลย (เพราะ 1 ช้อยส์มักมี 1 รูป/1 SVG)
+        $input.val(cleanContent);
+
+        renderChoicePreview($input);
+        syncChoicesToHiddenInput();
     }
+
+    $('#imageLibraryModal').modal('hide');
+    Swal.fire({ icon: 'success', title: 'เลือกสื่อเรียบร้อยแล้ว', toast: true, position: 'top-end', showConfirmButton: false, timer: 1000 });
+}
+
 
 function getBase64(file) {
         return new Promise((resolve, reject) => {
@@ -1383,16 +1430,144 @@ async function askAIExpert() {
 }
 
 function isMediaMatch(str1, str2) {
-        if (!str1 || !str2) return false;
+    if (!str1 || !str2) return false;
 
-        // ฟังก์ชันช่วยทำความสะอาดข้อความ
-        const clean = (s) => {
-            return s.toString()
-                .replace(/\s+/g, '')        // ลบช่องว่างทั้งหมด
-                .replace(/['"]/g, '')       // ลบเครื่องหมายคำพูดทั้ง ' และ "
-                .replace(/^[a-z]\.\s*/i, '') // ลบ prefix เช่น A. หรือ a. ออก
-                .toLowerCase();             // ทำเป็นตัวพิมพ์เล็ก
-        };
+    // ฟังก์ชันช่วยทำความสะอาดข้อความ
+    const clean = (s) => {
+        return s.toString()
+            .replace(/\s+/g, '')        // ลบช่องว่างทั้งหมด
+            .replace(/['"]/g, '')       // ลบเครื่องหมายคำพูดทั้ง ' และ "
+            .replace(/^[a-z]\.\s*/i, '') // ลบ prefix เช่น A. หรือ a. ออก
+            .toLowerCase();             // ทำเป็นตัวพิมพ์เล็ก
+    };
 
-        return clean(str1) === clean(str2);
+    return clean(str1) === clean(str2);
+}
+
+function renderExplainMediaUI(mediaArray) {
+    existingExplainMedia = (mediaArray || [])
+        .map(u => u.trim())
+        .filter(u => u !== "");
+
+    pendingExplainMedia = [];
+    syncExplainMediaGallery();
+}
+
+async function handleExplainMediaSelection(input) {
+    if (!input.files || input.files.length === 0) return;
+    const compressedResults = [];
+    for (let i = 0; i < input.files.length; i++) {
+        const file = input.files[i];
+        const base64 = await getBase64(file);
+        if (file.type.includes('image/')) {
+            const comp = await compressImage(base64, 800, 800);
+            compressedResults.push(comp);
+        } else if (file.type === 'application/pdf') {
+            if (file.size > 10 * 1024 * 1024) { // จำกัดขนาด PDF ที่ 10MB
+                Swal.fire('ข้อผิดพลาด', 'ขนาดเอกสาร PDF ต้องไม่เกิน 10MB', 'error');
+                continue;
+            }
+            compressedResults.push(base64);
+        }
     }
+    pendingExplainMedia = pendingExplainMedia.concat(compressedResults);
+    syncExplainMediaGallery();
+    input.value = '';
+}
+
+function syncExplainMediaGallery() {
+    explainImageArray = [...existingExplainMedia, ...pendingExplainMedia];
+
+    if (explainImageIndex >= explainImageArray.length) {
+        explainImageIndex = Math.max(0, explainImageArray.length - 1);
+    }
+    updateExplainMediaGallery();
+    syncExplainMediaToHiddenInput();
+}
+
+function updateExplainMediaGallery() {
+    const $container = $('#explain-media-gallery-container');
+    const $img = $('#explain-gallery-img');
+    const $svgRender = $('#explain-gallery-svg-render');
+    const $pdfRender = $('#explain-gallery-pdf-render');
+    const $prevBtn = $('#prev-explain-media-btn');
+    const $nextBtn = $('#next-explain-media-btn');
+    const $counter = $('#explain-media-counter');
+
+    if (explainImageArray.length === 0) {
+        $container.hide();
+        return;
+    }
+
+    $container.show();
+
+    let currentSrc = explainImageArray[explainImageIndex];
+    const type = getMediaType(currentSrc);
+
+    $img.hide();
+    $svgRender.hide().empty();
+    $pdfRender.hide();
+
+    if (type === 'pdf') {
+        $('#explain-pdf-preview-link').attr('href', window.transformUrl(currentSrc));
+        $pdfRender.show().css('display', 'flex');
+    } else if (type === 'svg') {
+        $svgRender.html(currentSrc).show();
+    } else {
+        if (currentSrc.startsWith('http')) {
+            $img.attr('src', transformUrl(currentSrc)).show();
+        } else {
+            $img.attr('src', currentSrc).show(); // สำหรับ Base64
+        }
+    }
+
+    if (explainImageArray.length > 1) {
+        $prevBtn.show(); $nextBtn.show();
+        $counter.show().text(`${explainImageIndex + 1} / ${explainImageArray.length}`);
+    } else {
+        $prevBtn.hide(); $nextBtn.hide(); $counter.hide();
+    }
+}
+
+function removeCurrentExplainMediaFromGallery() {
+    let isExisting = explainImageIndex < existingExplainMedia.length;
+    let qId = $('#edit-q-id').val();
+
+    if (isExisting) {
+        let urlToRemove = existingExplainMedia[explainImageIndex];
+        Swal.fire({
+            title: 'ลบสื่อประกอบคำอธิบาย?',
+            text: "ไฟล์จะถูกย้ายลงถังขยะและลิงก์จะถูกนำออกจากคำอธิบายทันที",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'ลบภาพและลิงก์'
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                sendWithRetry({
+                    action: 'deleteImage',
+                    username: currentUser.username,
+                    adminPass: adminPass,
+                    data: { url: urlToRemove, currentQid: qId }
+                });
+
+                existingExplainMedia.splice(explainImageIndex, 1);
+                syncExplainMediaGallery();
+                bgToast.fire({ icon: 'success', title: 'นำรูปภาพและลิงก์ออกแล้ว (อย่าลืมกด Save Changes)', timer: 2000 });
+            }
+        });
+    } else {
+        let pendingIndex = explainImageIndex - existingExplainMedia.length;
+        pendingExplainMedia.splice(pendingIndex, 1);
+        syncExplainMediaGallery();
+    }
+}
+
+function syncExplainMediaToHiddenInput() {
+    const mediaSet = new Set();
+    explainImageArray.forEach(val => {
+        const cleanVal = val.trim();
+        if (cleanVal !== "") mediaSet.add(cleanVal);
+    });
+    const finalResult = Array.from(mediaSet).join('///');
+    $('#edit-explain-media').val(finalResult);
+}

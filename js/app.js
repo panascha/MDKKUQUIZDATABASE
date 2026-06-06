@@ -122,73 +122,142 @@ $(document).ready(function () {
                 });
             }
         });
-        // ---------------------------------------------------------
-        // 2. ระบบลากแล้ววาง (Drag & Drop) สำหรับกล่องอัพโหลด
-        // ---------------------------------------------------------
-        const $dropzone = $('#main-image-upload-zone');
+    // ---------------------------------------------------------
+    // 2. ระบบลากแล้ววาง (Drag & Drop) สำหรับกล่องอัพโหลด
+    // ---------------------------------------------------------
+    const $dropzone = $('#main-image-upload-zone');
 
-        $dropzone.on('dragover', function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            $(this).addClass('dragover'); // เปลี่ยนสีกล่องเมื่อลากไฟล์มาจ่อ
-        });
+    $dropzone.on('dragover', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        $(this).addClass('dragover'); // เปลี่ยนสีกล่องเมื่อลากไฟล์มาจ่อ
+    });
 
-        $dropzone.on('dragleave', function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            $(this).removeClass('dragover'); // คืนสีเดิมเมื่อลากไฟล์ออก
-        });
+    $dropzone.on('dragleave', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        $(this).removeClass('dragover'); // คืนสีเดิมเมื่อลากไฟล์ออก
+    });
 
-        $dropzone.on('drop', function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            $(this).removeClass('dragover');
+    $dropzone.on('drop', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        $(this).removeClass('dragover');
 
-            // รับไฟล์ที่ถูก Drop ลงมา
-            let files = e.originalEvent.dataTransfer.files;
-            if (files.length === 0) return;
+        // รับไฟล์ที่ถูก Drop ลงมา
+        let files = e.originalEvent.dataTransfer.files;
+        if (files.length === 0) return;
 
-            let promises = [];
+        let promises = [];
+        for (let i = 0; i < files.length; i++) {
+            if (files[i].type.includes('image/')) {
+                promises.push(getBase64(files[i]));
+            }
+        }
+
+        if (promises.length > 0) {
+            Promise.all(promises).then(base64Array => {
+                pendingMainImages = pendingMainImages.concat(base64Array);
+                syncMainImageGallery();
+                Swal.fire({
+                    icon: 'success', title: 'เพิ่มรูปภาพสำเร็จ', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500
+                });
+            });
+        } else {
+            Swal.fire('ข้อผิดพลาด', 'กรุณาลากเฉพาะไฟล์รูปภาพเท่านั้น', 'warning');
+        }
+    });
+
+    const $explainDropzone = $('#explain-media-upload-zone');
+
+    $explainDropzone.on('dragover', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        $(this).addClass('dragover');
+    });
+
+    $explainDropzone.on('dragleave', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        $(this).removeClass('dragover');
+    });
+
+    $explainDropzone.on('drop', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        $(this).removeClass('dragover');
+
+        let files = e.originalEvent.dataTransfer.files;
+        if (files.length === 0) return;
+
+        (async () => {
+            const compressedResults = [];
             for (let i = 0; i < files.length; i++) {
-                if (files[i].type.includes('image/')) {
-                    promises.push(getBase64(files[i]));
+                const file = files[i];
+                if (file.type.includes('image/') || file.type === 'application/pdf') {
+                    const base64 = await getBase64(file);
+                    if (file.type.includes('image/')) {
+                        const comp = await compressImage(base64, 800, 800);
+                        compressedResults.push(comp);
+                    } else {
+                        if (file.size > 10 * 1024 * 1024) {
+                            Swal.fire('ข้อผิดพลาด', 'ขนาดเอกสาร PDF ต้องไม่เกิน 10MB', 'error');
+                            continue;
+                        }
+                        compressedResults.push(base64);
+                    }
                 }
             }
 
-            if (promises.length > 0) {
-                Promise.all(promises).then(base64Array => {
-                    pendingMainImages = pendingMainImages.concat(base64Array);
-                    syncMainImageGallery();
-                    Swal.fire({
-                        icon: 'success', title: 'เพิ่มรูปภาพสำเร็จ', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500
-                    });
+            if (compressedResults.length > 0) {
+                pendingExplainMedia = pendingExplainMedia.concat(compressedResults);
+                syncExplainMediaGallery();
+                Swal.fire({
+                    icon: 'success', title: 'เพิ่มและย่อขนาดสื่อสำเร็จ', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500
                 });
             } else {
-                Swal.fire('ข้อผิดพลาด', 'กรุณาลากเฉพาะไฟล์รูปภาพเท่านั้น', 'warning');
+                Swal.fire('ข้อผิดพลาด', 'กรุณาลากเฉพาะไฟล์รูปภาพหรือ PDF เท่านั้น', 'warning');
             }
-        });
-        // ล้างค่าเมื่อปิด Modal (Cancel)
-        $('#editQuestionModal').on('hidden.bs.modal', function () {
-            existingMainImages = [];
-            pendingMainImages = [];
-            choiceImagesData = {};
-            $('#main-image-hidden-input').val('');
-            syncMainImageGallery();
-        });
+        })();
+    });
+    // ล้างค่าเมื่อปิด Modal (Cancel)
+    $('#editQuestionModal').on('hidden.bs.modal', function () {
+        existingMainImages = [];
+        pendingMainImages = [];
+        existingExplainMedia = [];
+        pendingExplainMedia = [];
+        choiceImagesData = {};
+        $('#main-image-hidden-input').val('');
+        $('#explain-media-hidden-input').val('');
+        syncMainImageGallery();
+        syncExplainMediaGallery();
+    });
 
-        // --- 2.1 Image Gallery Controls Binding (Edit Modal) ---
-        $('#prev-img-btn').click(() => {
-            if (editImageArray.length > 0) {
-                editImageIndex = (editImageIndex - 1 + editImageArray.length) % editImageArray.length;
-                updateEditImageGallery();
-            }
-        });
-        $('#next-img-btn').click(() => {
-            if (editImageArray.length > 0) {
-                editImageIndex = (editImageIndex + 1) % editImageArray.length;
-                updateEditImageGallery();
-            }
-        });
+    // --- 2.1 Image Gallery Controls Binding (Edit Modal) ---
+    $('#prev-img-btn').click(() => {
+        if (editImageArray.length > 0) {
+            editImageIndex = (editImageIndex - 1 + editImageArray.length) % editImageArray.length;
+            updateEditImageGallery();
+        }
+    });
+    $('#next-img-btn').click(() => {
+        if (editImageArray.length > 0) {
+            editImageIndex = (editImageIndex + 1) % editImageArray.length;
+            updateEditImageGallery();
+        }
+    });
+    $('#prev-explain-media-btn').click(() => {
+        if (explainImageArray.length > 0) {
+            explainImageIndex = (explainImageIndex - 1 + explainImageArray.length) % explainImageArray.length;
+            updateExplainMediaGallery();
+        }
+    });
+    $('#next-explain-media-btn').click(() => {
+        if (explainImageArray.length > 0) {
+            explainImageIndex = (explainImageIndex + 1) % explainImageArray.length;
+            updateExplainMediaGallery();
+        }
+    });
 
         // --- 2.2 Responsive Sidebar Toggle Bindings ---
         $("#menu-toggle").on('click', function (e) {
