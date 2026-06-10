@@ -615,16 +615,79 @@ function finalizeDataLoading() {
         }
     }
 
-function startVersionPolling() {
-        if (versionCheckInterval) clearInterval(versionCheckInterval);
+window.versionCheckInterval = null;
+window._idleTimeout = null;
+window._currentPollingMode = 'ACTIVE';
+window._isUserIdle = false;
 
-        // เช็คเวอร์ชันทุกๆ 600 วินาที
-        versionCheckInterval = setInterval(() => {
-            // เรียก fetchData แบบไม่ Force Refresh (มันจะเช็คเวอร์ชันก่อน ถ้าตรงกันก็ไม่โหลดอะไรเพิ่ม)
+function startVersionPolling() {
+    if (versionCheckInterval) clearInterval(versionCheckInterval);
+    if (window._idleTimeout) clearTimeout(window._idleTimeout);
+
+    var INTERVALS = {
+        ACTIVE: 60000,   // 1 minute (Standard refresh window)
+        IDLE: 300000,    // 5 minutes (Inactivity mode)
+        HIDDEN: 900000   // 15 minutes (Background minimized window)
+    };
+
+    function getOptimalMode() {
+        if (document.hidden) {
+            return 'HIDDEN';
+        }
+        if (window._isUserIdle) {
+            return 'IDLE';
+        }
+        return 'ACTIVE';
+    }
+
+    function reschedulePolling() {
+        var targetMode = getOptimalMode();
+        if (window._currentPollingMode === targetMode && versionCheckInterval) {
+            return;
+        }
+
+        console.log('[Polling] Switching admin check interval to ' + targetMode + ' (' + INTERVALS[targetMode] + 'ms)');
+        window._currentPollingMode = targetMode;
+
+        if (versionCheckInterval) clearInterval(versionCheckInterval);
+        versionCheckInterval = setInterval(function () {
             console.log("Auto-checking for data updates...");
             fetchData(false, true);
-        }, 60000);
+        }, INTERVALS[targetMode]);
     }
+
+    function resetIdleTimer() {
+        if (window._isUserIdle) {
+            window._isUserIdle = false;
+            reschedulePolling();
+        }
+
+        if (window._idleTimeout) clearTimeout(window._idleTimeout);
+        window._idleTimeout = setTimeout(function () {
+            window._isUserIdle = true;
+            reschedulePolling();
+        }, 300000); // Trigger idle threshold after 5 minutes of inactivity
+    }
+
+    // Monitor Admin activity
+    document.addEventListener('mousemove', resetIdleTimer);
+    document.addEventListener('keydown', resetIdleTimer);
+
+    // Track tab focus state
+    document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) {
+            // Force instant version check when window comes back in focus
+            fetchData(false, true);
+            resetIdleTimer();
+        }
+        reschedulePolling();
+    });
+
+    // Initialize timers
+    resetIdleTimer();
+    reschedulePolling();
+    console.log('[Polling] Adaptive admin version polling system active');
+}
 
 function refreshTables(keepState = false) {
         // 1. ตาราง Public Search
