@@ -48,3 +48,338 @@
             color: var(--primary-color);
             border-bottom: 3px solid var(--primary-color);
         }
+
+        /* -------------------------------------------------------------------- */
+        /* PDF Converter additions                                                */
+        /* -------------------------------------------------------------------- */
+
+        /* Drop zone */
+        .pdf-drop-zone {
+            border: 2px dashed #adb5bd;
+            border-radius: 8px;
+            padding: 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .pdf-drop-zone:hover, .pdf-drop-zone.dragover {
+            border-color: var(--primary-color);
+            background: #f0f4ff;
+        }
+
+        /* Image tray grid */
+        .image-tray-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            max-height: 280px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+        }
+        .tray-item {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            border-radius: 6px;
+            overflow: hidden;
+            transition: border-color 0.15s;
+        }
+        .tray-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .tray-item.selected {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(13,110,253,0.25);
+        }
+        .tray-badges {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2px;
+            padding: 2px;
+            background: rgba(0,0,0,0.45);
+        }
+
+        /* Source badges */
+        .source-badge {
+            font-size: 9px;
+            padding: 1px 4px;
+            border-radius: 3px;
+            color: #fff;
+            font-weight: 600;
+        }
+        .source-object { background: #0d6efd; }
+        .source-render { background: #6c757d; }
+
+        /* Assigned row badge */
+        .assigned-badge {
+            font-size: 9px;
+            padding: 1px 4px;
+            border-radius: 3px;
+            background: #198754;
+            color: #fff;
+            font-weight: 600;
+        }
+
+        /* Upload status pill */
+        .upload-status-pill {
+            font-size: 9px;
+            padding: 1px 4px;
+            border-radius: 3px;
+            color: #fff;
+            font-weight: 600;
+        }
+        .status-waiting  { background: #ffc107; color: #000; }
+        .status-uploading { background: #0dcaf0; color: #000; }
+        .status-ready    { background: #198754; }
+        .status-failed   { background: #dc3545; }
+
+        /* require_img badge in preview table */
+        .require-img-badge {
+            background: #fd7e14;
+            color: #fff;
+            font-size: 10px;
+            padding: 1px 5px;
+            border-radius: 4px;
+        }
+        .require-img-badge-assigned {
+            background: #198754;
+            color: #fff;
+            font-size: 10px;
+            padding: 1px 5px;
+            border-radius: 4px;
+        }
+        .btn-xs {
+            font-size: 10px;
+            padding: 0 4px;
+            line-height: 1.4;
+        }
+
+        /* -------------------------------------------------------------------- */
+        /* Mode tab toggle (AI / Manual)                                          */
+        /* -------------------------------------------------------------------- */
+        .converter-mode-tabs {
+            display: flex;
+            gap: 8px;
+            border-bottom: 2px solid #dee2e6;
+            padding-bottom: 0;
+        }
+        .mode-tab {
+            padding: 8px 20px;
+            border: none;
+            background: none;
+            border-radius: 6px 6px 0 0;
+            font-weight: 600;
+            color: #6c757d;
+            cursor: pointer;
+            font-size: 0.9rem;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            transition: color 0.15s, border-color 0.15s;
+        }
+        .mode-tab:hover {
+            color: var(--primary-color);
+        }
+        .mode-tab.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+            background: rgba(13,110,253,0.05);
+        }
+
+        /* Extra prompt area in AI panel */
+        .extra-prompt-area textarea {
+            font-size: 0.85rem;
+            resize: vertical;
+        }
+
+        /* -------------------------------------------------------------------- */
+        /* Question Cards (AI preview)                                            */
+        /* -------------------------------------------------------------------- */
+        .card[data-row-index],
+        .conv-card {
+            transition: box-shadow 0.15s;
+        }
+        .card[data-row-index]:focus,
+        .conv-card:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(13,110,253,0.25);
+        }
+        .image-assign-area {
+            border-top: 1px solid #dee2e6;
+            padding-top: 8px;
+        }
+        .converter-cards-container {
+            max-height: 520px;
+            overflow-y: auto;
+        }
+
+        /* -------------------------------------------------------------------- */
+        /* Split layout (PDF viewer + question cards)                             */
+        /* -------------------------------------------------------------------- */
+        .converter-split {
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+            margin-top: 16px;
+        }
+
+        .pdf-viewer-panel {
+            flex: 0 0 45%;
+            max-width: 45%;
+            position: sticky;
+            top: 70px;
+            max-height: calc(100vh - 90px);
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            background: #f8f9fa;
+        }
+
+        .pdf-viewer-header {
+            padding: 8px 12px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            background: #e9ecef;
+            border-bottom: 1px solid #dee2e6;
+            border-radius: 8px 8px 0 0;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
+        .pdf-pages-container {
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .pdf-page-canvas {
+            width: 100%;
+            height: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            display: block;
+        }
+
+        .converter-right-pane {
+            flex: 1 1 0;
+            min-width: 0;
+        }
+
+        .converter-split .converter-cards-container {
+            max-height: 60vh;
+        }
+
+        @media (max-width: 991px) {
+            .converter-split {
+                flex-direction: column;
+            }
+            .pdf-viewer-panel {
+                flex: none;
+                max-width: 100%;
+                max-height: 40vh;
+                position: static;
+            }
+            .converter-split .converter-cards-container {
+                max-height: 50vh;
+            }
+        }
+
+        /* -------------------------------------------------------------------- */
+        /* Image Picker Modal (fullscreen overlay)                                */
+        /* -------------------------------------------------------------------- */
+        .img-picker-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 15, 15, 0.93);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .img-picker-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 20px;
+            background: #212529;
+            color: #fff;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .img-picker-grid {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 20px;
+            align-content: flex-start;
+        }
+
+        .img-picker-item {
+            position: relative;
+            width: 160px;
+            height: 160px;
+            cursor: pointer;
+            border: 3px solid transparent;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #333;
+            transition: border-color 0.15s, transform 0.1s;
+        }
+
+        .img-picker-item:hover {
+            border-color: #0d6efd;
+            transform: scale(1.04);
+        }
+
+        .img-picker-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .picker-badges {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2px;
+            padding: 4px;
+            background: rgba(0, 0, 0, 0.55);
+        }
+
+        .picker-page-badge {
+            font-size: 9px;
+            padding: 1px 5px;
+            border-radius: 3px;
+            background: #495057;
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .picker-assigned-badge {
+            font-size: 9px;
+            padding: 1px 5px;
+            border-radius: 3px;
+            background: #198754;
+            color: #fff;
+            font-weight: 600;
+        }

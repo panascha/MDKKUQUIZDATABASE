@@ -38,9 +38,20 @@ function resetConverter() {
                 converterStorage.struct = [];
                 converterStorage.category = [];
                 converterStorage.ques = [];
+                pageHintMap.clear();
+                currentPdfDoc = null;
+                extractedImages = [];
+                imgAssignments.clear();
 
-                // รีเซ็ตตาราง Preview
+                // ซ่อน split layout และล้าง PDF viewer
+                const splitEl = document.getElementById('converter-split');
+                if (splitEl) splitEl.classList.add('d-none');
+                const pdfContainer = document.getElementById('pdf-pages-container');
+                if (pdfContainer) pdfContainer.innerHTML = '<p class="text-muted small text-center p-4">ยังไม่ได้โหลด PDF</p>';
+
+                // รีเซ็ตตาราง Preview และ Cards
                 renderPreview();
+                renderPreviewCards();
 
                 Swal.fire('ล้างข้อมูลแล้ว', '', 'success');
             }
@@ -285,6 +296,7 @@ function processAll() {
             converterStorage.struct = [];
             converterStorage.category = [];
             converterStorage.ques = [];
+            pageHintMap.clear();
 
             let initialTab = 'category';
             let inputType = 'structure_only';
@@ -431,6 +443,7 @@ function processAll() {
                 converterStorage.ques = quesRows;
 
                 Swal.fire('Success', 'ประมวลผลสำเร็จ!', 'success');
+                document.getElementById('converter-split').classList.remove('d-none');
                 switchTab(initialTab);
 
             } catch (e) {
@@ -440,93 +453,175 @@ function processAll() {
         }
 
 function renderPreview() {
-            const head = document.getElementById('tableHead');
-            const body = document.getElementById('tableBody');
-            const currentSheet = converterStorage.current;
-            const data = converterStorage[currentSheet];
+    const body = document.getElementById('cardsBody');
+    if (!body) return;
+    const currentSheet = converterStorage.current;
+    const data = converterStorage[currentSheet] || [];
 
-            head.innerHTML = converterHeaders[currentSheet].map(h => `<th>${h}</th>`).join("");
+    const colorMap  = { NEW: 'success', UPDATED: 'warning', DUPLICATE: 'danger', EXISTING: 'secondary' };
+    const textMap   = { NEW: 'NEW', UPDATED: 'UPDATE', DUPLICATE: 'DUP', EXISTING: 'EXIST' };
+    const borderMap = { NEW: ' border-success', UPDATED: ' border-warning', DUPLICATE: ' border-danger', EXISTING: '' };
 
-            let seenKeys = new Set();
-            let counts = { ALL: 0, NEW: 0, UPDATED: 0, DUPLICATE: 0, EXISTING: 0 };
+    let seenKeys = new Set();
+    let counts = { ALL: 0, NEW: 0, UPDATED: 0, DUPLICATE: 0, EXISTING: 0 };
 
-            const rowsHtml = data.map((row, i) => {
-                const status = evaluateRowStatusInBatch(row, i, currentSheet, seenKeys);
+    const cardsHtml = data.map((row, i) => {
+        const status = evaluateRowStatusInBatch(row, i, currentSheet, seenKeys);
+        counts.ALL++;
+        counts[status] = (counts[status] || 0) + 1;
 
-                counts.ALL++;
-                counts[status]++;
+        const color  = colorMap[status] || 'secondary';
+        const border = borderMap[status] || '';
 
-                // เลือก Class สีและป้ายสถานะตามสถานะข้อมูล
-                let bgClass = '';
-                let badgeHtml = '';
-                if (status === 'NEW') {
-                    bgClass = 'table-success';
-                    badgeHtml = '<span class="badge bg-success small me-1">NEW</span>';
-                } else if (status === 'UPDATED') {
-                    bgClass = 'table-warning';
-                    badgeHtml = '<span class="badge bg-warning text-dark small me-1">UPDATE</span>';
-                } else if (status === 'DUPLICATE') {
-                    bgClass = 'table-danger';
-                    badgeHtml = '<span class="badge bg-danger small me-1">DUP</span>';
-                } else if (status === 'EXISTING') {
-                    bgClass = 'table-secondary opacity-75';
-                    badgeHtml = '<span class="badge bg-secondary small me-1">EXIST</span>';
-                }
+        // Apply require_img filter (ques tab only)
+        const requireImg = currentSheet === 'ques' && String(row[2]).trim() === 'require_img';
+        const hidden = _filterRequireImg && currentSheet === 'ques' && !requireImg;
 
-                const indexCell = `<td>${badgeHtml}${i + 1}</td>`;
-                const contentCells = row.map(cell => {
-                    return `<td class="editable-cell" contenteditable="true" style="white-space: pre-wrap;">${cell}</td>`;
-                }).join("");
+        let cardInner = '';
 
-                return `<tr class="${bgClass}" data-status="${status}">${indexCell}${contentCells}</tr>`;
-            }).join("");
+        if (currentSheet === 'struct') {
+            // row: [Year, SubjectID, SubjectName, AccordionGroup]
+            cardInner = `<div class="d-flex align-items-center gap-2">
+              <span class="badge bg-${color} flex-shrink-0">${textMap[status]}</span>
+              <span class="badge bg-secondary flex-shrink-0">#${i + 1}</span>
+              <div>
+                <div class="fw-semibold small">${row[1]} — ${row[2]}</div>
+                <div class="text-muted" style="font-size:0.78rem">${row[0]} · ${row[3]}</div>
+              </div>
+            </div>`;
+        } else if (currentSheet === 'category') {
+            // row: [CategoryID, SubjectRef, AccordionGroup, CategoryName]
+            cardInner = `<div class="d-flex align-items-center gap-2">
+              <span class="badge bg-${color} flex-shrink-0">${textMap[status]}</span>
+              <span class="badge bg-secondary flex-shrink-0">#${i + 1}</span>
+              <div>
+                <div class="fw-semibold small">${row[3] || row[0]}</div>
+                <div class="text-muted" style="font-size:0.78rem">${row[0]} · ${row[1]} · ${row[2]}</div>
+              </div>
+            </div>`;
+        } else {
+            // ques row: [QuestionID, Problem, Image, Choices, Answer, Explanation, Category]
+            const assignments = imgAssignments.get(i) || [];
+            let cats = [];
+            try { cats = JSON.parse(row[6]); } catch (e) { if (row[6]) cats = [row[6]]; }
+            const catBadges = cats.map(c =>
+                `<span class="badge bg-info text-dark me-1" style="font-size:0.68rem">${c}</span>`).join('');
+            const choices = String(row[3] || '').split('///').map((c, ci) =>
+                `<div class="text-muted" style="font-size:0.78rem">${String.fromCharCode(65 + ci)}. ${c}</div>`
+            ).join('');
 
-            body.innerHTML = rowsHtml;
+            let imgArea = '';
+            if (requireImg) {
+                const assignedHtml = assignments.map((a, ai) =>
+                    `<div class="d-flex align-items-center gap-2 mt-1 flex-wrap">
+                       <img src="${a.base64 || ''}" style="max-height:50px;border-radius:4px;cursor:pointer" onclick="viewFullImage(this.src)">
+                       <span class="badge bg-${a.status === 'Ready' ? 'success' : a.status === 'Failed' ? 'danger' : 'secondary'}">${a.status}</span>
+                       <button class="btn btn-xs btn-outline-danger" onclick="removeAssignment(${i}, ${ai})">✕</button>
+                     </div>`
+                ).join('');
+                imgArea = `<div class="image-assign-area mt-1">
+                  <div class="d-flex gap-2 flex-wrap">
+                    <button class="btn btn-sm btn-outline-warning py-0" onclick="openTrayPicker(${i})">
+                      <i class="fas fa-images me-1"></i>เลือกจากคลัง${assignments.length > 0 ? ` (${assignments.length})` : ''}
+                    </button>
+                    <label class="btn btn-sm btn-outline-secondary py-0 mb-0">
+                      <i class="fas fa-upload me-1"></i>อัปโหลดรูป
+                      <input type="file" accept="image/*" class="d-none" onchange="uploadImageForCard(${i}, this)">
+                    </label>
+                  </div>
+                  ${assignedHtml}
+                </div>`;
+            }
 
-            // อัปเดตตัวเลขแสดงผลบนปุ่มคัดกรอง
-            $('#count-all').text(counts.ALL);
-            $('#count-new').text(counts.NEW);
-            $('#count-updated').text(counts.UPDATED);
-            $('#count-duplicate').text(counts.DUPLICATE);
-            $('#count-existing').text(counts.EXISTING);
-
-            document.getElementById('previewText').innerText = `มีข้อมูลทั้งหมด ${data.length} แถว`;
+            cardInner = `<div class="d-flex gap-2">
+              <div class="flex-shrink-0 text-center" style="min-width:44px">
+                <span class="badge bg-${color}">${textMap[status]}</span><br>
+                <span class="badge bg-secondary">#${i + 1}</span>
+                ${requireImg ? '<br><span class="badge bg-warning text-dark mt-1" style="font-size:0.6em">รูปภาพ</span>' : ''}
+              </div>
+              <div class="flex-grow-1 min-w-0">
+                <p class="mb-1" style="font-size:0.82rem">${String(row[1] || '').substring(0, 300)}</p>
+                <div class="mb-1">${choices}</div>
+                <div class="mb-1 small text-success fw-semibold">✓ ${row[4] || ''}</div>
+                <div>${catBadges}</div>
+                ${imgArea}
+              </div>
+            </div>`;
         }
 
-function filterConverterTable(status, btn) {
-                $('#converter-filter-bar .btn').removeClass('active');
-                $(btn).addClass('active');
+        return `<div class="card mb-2 conv-card${border}"
+                     data-status="${status}"
+                     data-require-img="${requireImg}"
+                     tabindex="${currentSheet === 'ques' ? '0' : '-1'}"
+                     ${currentSheet === 'ques' ? `onfocus="focusedRowIndex=${i}"` : ''}
+                     ${hidden ? 'style="display:none"' : ''}>
+          <div class="card-body py-2 px-3">${cardInner}</div>
+        </div>`;
+    }).join('');
 
-                const rows = document.querySelectorAll('#tableBody tr');
-                rows.forEach(tr => {
-                    const rowStatus = tr.getAttribute('data-status');
-                    if (status === 'ALL' || rowStatus === status) {
-                        tr.style.display = '';
-                    } else {
-                        tr.style.display = 'none';
-                    }
-                });
-            }
+    body.innerHTML = cardsHtml || '<p class="text-muted small text-center p-3 mb-0">ยังไม่มีข้อมูล</p>';
+
+    $('#count-all').text(counts.ALL);
+    $('#count-new').text(counts.NEW);
+    $('#count-updated').text(counts.UPDATED);
+    $('#count-duplicate').text(counts.DUPLICATE);
+    $('#count-existing').text(counts.EXISTING);
+
+    document.getElementById('previewText').innerText = `มีข้อมูลทั้งหมด ${data.length} แถว`;
+}
+
+function filterConverterTable(status, btn) {
+    $('#converter-filter-bar .btn').removeClass('active');
+    $(btn).addClass('active');
+    document.querySelectorAll('#cardsBody .conv-card').forEach(card => {
+        const s = card.getAttribute('data-status');
+        card.style.display = (status === 'ALL' || s === status) ? '' : 'none';
+    });
+}
 
 function copyCurrentSheet() {
-        // ... (โค้ด copyCurrentSheet เดิม) ...
-        const rows = document.querySelectorAll('#tableBody tr');
-        let text = "";
-        rows.forEach(tr => {
-            let rowData = [];
-            const cells = tr.querySelectorAll('td');
-            for (let j = 1; j < cells.length; j++) {
-                rowData.push(cells[j].innerText);
-            }
-            text += rowData.join("\t") + "\n";
-        });
-        navigator.clipboard.writeText(text);
-        Swal.fire('Copied', 'คัดลอกข้อมูล (TSV) เรียบร้อยแล้ว', 'success');
-        // ... (จบโค้ด copyCurrentSheet เดิม) ...
-    }
+    const data = converterStorage[converterStorage.current] || [];
+    const text = data.map(row => row.join('\t')).join('\n');
+    navigator.clipboard.writeText(text);
+    Swal.fire('Copied', 'คัดลอกข้อมูล (TSV) เรียบร้อยแล้ว', 'success');
+}
 
 async function importConvertedData() {
             if (!confirmAdmin()) return;
+
+            // ถ้ามีรูปที่ assign ไว้ ให้อัปโหลดก่อน
+            const pendingUploads = [];
+            imgAssignments.forEach((entries, rowIndex) => {
+                if (entries.some(e => e.status !== 'Ready')) pendingUploads.push(rowIndex);
+            });
+            if (pendingUploads.length > 0) {
+                $('#loading-overlay').fadeIn(200).css('display', 'flex').find('h5').text('กำลังอัปโหลดรูปภาพ…');
+                await startUploadQueue();
+                // ตรวจว่ายังมีที่ล้มเหลวอยู่ไหม
+                let failedCount = 0;
+                imgAssignments.forEach(entries => { entries.forEach(e => { if (e.status === 'Failed') failedCount++; }); });
+                if (failedCount > 0) {
+                    $('#loading-overlay').hide();
+                    const cont = await Swal.fire({
+                        icon: 'warning',
+                        title: `อัปโหลดรูปล้มเหลว ${failedCount} รูป`,
+                        text: 'ต้องการบันทึกข้อมูลที่ไม่มีรูปต่อไปหรือไม่?',
+                        showCancelButton: true,
+                        confirmButtonText: 'บันทึกต่อ',
+                        cancelButtonText: 'ยกเลิก'
+                    });
+                    if (!cont.isConfirmed) return;
+                }
+            }
+
+            // Patch img field ใน converterStorage.ques ด้วย Drive URL ก่อน import
+            imgAssignments.forEach((entries, rowIndex) => {
+                if (converterStorage.ques[rowIndex]) {
+                    const urls = entries.filter(e => e.status === 'Ready' && e.url).map(e => e.url);
+                    if (urls.length > 0) converterStorage.ques[rowIndex][2] = urls.join('///');
+                else converterStorage.ques[rowIndex][2] = '';
+                }
+            });
 
             const sheetsToProcess = [
                 { name: 'Structure', key: 'struct' },
@@ -552,7 +647,6 @@ async function importConvertedData() {
 
             try {
                 for (const sheet of sheetsToProcess) {
-                    // ดึงข้อมูลที่ผ่านการกรองคัดทิ้งแถวที่ไม่จำเป็นในเบื้องหลังเรียบร้อยแล้ว
                     const dataToImport = getFilteredImportData(sheet.key);
 
                     if (dataToImport.length > 0) {
@@ -567,7 +661,8 @@ async function importConvertedData() {
                                     sheetName: sheet.key,
                                     data: dataToImport
                                 }
-                            })
+                            }),
+                            redirect: 'follow'
                         });
 
                         const resJson = await response.json();
@@ -575,7 +670,10 @@ async function importConvertedData() {
                         if (resJson.result === 'success') {
                             totalNew += (resJson.count || 0);
                             totalSkipped += (resJson.skipped || 0);
-                            importLog += `• ${sheet.name}: เพิ่ม/อัปเดตใหม่ ${resJson.count} แถว (ซ้ำ ${resJson.skipped})\n`;
+                            const addedLine = resJson.added != null
+                                ? `เพิ่ม ${resJson.added}, อัปเดต ${resJson.updated}`
+                                : `เพิ่ม/อัปเดต ${resJson.count} แถว (ซ้ำ ${resJson.skipped || 0})`;
+                            importLog += `• ${sheet.name}: ${addedLine}\n`;
                         } else {
                             console.error(`Error importing ${sheet.name}:`, resJson.message);
                         }
@@ -583,24 +681,482 @@ async function importConvertedData() {
                 }
 
                 $('#loading-overlay').hide();
-
-                if (totalNew > 0 || totalSkipped > 0) {
-                    Swal.fire({
-                        title: 'นำเข้าข้อมูลเสร็จสิ้น',
-                        html: `<div class="text-start small">
-                    <p class="mb-1 text-success fw-bold">สรุปผลการดำเนินการ:</p>
-                    <pre class="bg-light p-2 border rounded">${importLog}</pre>
-                    <p class="mt-2 text-muted">รวมเพิ่มข้อมูลใหม่/อัปเดตสำเร็จทั้งหมด: ${totalNew} แถว</p>
-                  </div>`,
-                        icon: 'success'
-                    });
-                    fetchData(true); // โหลดข้อมูลใหม่เพื่ออัปเดต UI
-                } else {
-                    Swal.fire('ไม่มีข้อมูลใหม่', 'ข้อมูลทั้งหมดที่คุณต้องการนำเข้า มีอยู่ในระบบเรียบร้อยแล้ว', 'info');
-                }
+                handleSaveResult({ result: 'success', count: totalNew, importLog });
 
             } catch (err) {
                 $('#loading-overlay').hide();
                 Swal.fire('Error', 'การ Import ขัดข้อง: ' + err.message, 'error');
             }
         }
+
+// ─── PDF Converter additions ───────────────────────────────────────────────
+
+// Side-maps (module-level, shared with extractor.js / queue.js / gemini.js)
+let imgAssignments = new Map(); // key: rowIndex (number), value: {base64, fileId, url, status, page}
+let extractedImages = [];       // [{base64, width, height, page, source, assignedTo}]
+let selectedTrayIndex = null;   // currently highlighted image (keyboard shortcut path)
+let focusedRowIndex = null;     // currently focused preview row (for keyboard shortcut)
+let currentPdfDoc = null;       // loaded pdfjsLib document
+let pageHintMap = new Map();    // key: rowIndex, value: pageHint from Gemini (avoids polluting row array)
+let _filterRequireImg = false;  // filter state for card view
+let _pickerTargetRow = null;    // which question the image picker modal is targeting
+
+// ─── PDF drop/file handling ────────────────────────────────────────────────
+
+function handlePDFDrop(event) {
+    event.preventDefault();
+    const file = event.dataTransfer.files[0];
+    if (file && file.type === 'application/pdf') handlePDFFile(file);
+}
+
+async function handlePDFFile(file) {
+    if (!file) return;
+    const btn = document.getElementById('btn-convert-pdf');
+    btn.disabled = true;
+    document.getElementById('pdf-status').textContent = `โหลด PDF: ${file.name}…`;
+
+    const arrayBuffer = await file.arrayBuffer();
+    currentPdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    window._pdfFile = file; // preserve raw File for inline-PDF Gemini call
+
+    document.getElementById('pdf-status').textContent =
+        `PDF โหลดแล้ว — ${currentPdfDoc.numPages} หน้า — กำลังเตรียมภาพ…`;
+    btn.dataset.filename = file.name;
+
+    // Show split layout and render PDF in left pane
+    document.getElementById('converter-split').classList.remove('d-none');
+    await renderPDFViewer();
+
+    // Await extraction too — button enables only after images are ready for autoMatch.
+    // Must be sequential: concurrent page.render() + getOperatorList() on the same
+    // pdf.js page object transfers/detaches shared ImageBitmap resources.
+    await extractImagesFromPDF(currentPdfDoc);
+    btn.disabled = false;
+}
+
+async function renderPDFViewer() {
+    const container = document.getElementById('pdf-pages-container');
+    if (!container || !currentPdfDoc) return;
+    container.innerHTML = '';
+    const dpr = window.devicePixelRatio || 1;
+    const panelWidth = Math.max((container.clientWidth || container.offsetWidth) - 16, 100);
+    const numPages = currentPdfDoc.numPages;
+    const progressEl = document.getElementById('pdf-progress');
+
+    // Pre-create canvases in order so DOM order is always correct
+    const entries = Array.from({ length: numPages }, (_, i) => {
+        const canvas = document.createElement('canvas');
+        canvas.className = 'pdf-page-canvas';
+        canvas.style.cursor = 'zoom-in';
+        canvas.title = `หน้า ${i + 1} — คลิกเพื่อดูแบบเต็มจอ`;
+        container.appendChild(canvas);
+        return { canvas, pageNum: i + 1 };
+    });
+
+    if (progressEl) { progressEl.classList.remove('d-none'); progressEl.max = numPages; progressEl.value = 0; }
+
+    let done = 0;
+    const BATCH = 4;
+    for (let i = 0; i < entries.length; i += BATCH) {
+        await Promise.all(entries.slice(i, i + BATCH).map(async ({ canvas, pageNum }) => {
+            try {
+                const page = await currentPdfDoc.getPage(pageNum);
+                const baseViewport = page.getViewport({ scale: 1 });
+                const scale = (panelWidth / baseViewport.width) * dpr;
+                const viewport = page.getViewport({ scale });
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                canvas.style.width = panelWidth + 'px';
+                canvas.style.height = Math.round(viewport.height / dpr) + 'px';
+                await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+                canvas.onclick = () => viewFullImage(canvas.toDataURL());
+            } catch (e) {
+                console.warn(`renderPDFViewer: page ${pageNum} failed`, e);
+            }
+            if (progressEl) progressEl.value = ++done;
+        }));
+    }
+
+    if (progressEl) progressEl.classList.add('d-none');
+}
+
+async function askAddTopicsFirst() {
+    const subjectName = document.getElementById('subjName')?.value ||
+                        document.getElementById('subjID')?.value || 'วิชานี้';
+    const result = await Swal.fire({
+        title: 'เพิ่มหัวข้อบรรยายก่อนหรือไม่?',
+        html: `วิชา <strong>${subjectName}</strong><br>
+               หากยังไม่มีหัวข้อย่อย (บรรยาย/หัวข้อ) ควรเพิ่มก่อน<br>
+               เพื่อให้ Gemini จัดหมวดหมู่ได้ถูกต้อง`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: '<i class="fas fa-sitemap me-1"></i> ไปเพิ่มหัวข้อก่อน',
+        cancelButtonText: '<i class="fas fa-robot me-1"></i> แปลงเลย',
+        confirmButtonColor: '#0d6efd',
+        cancelButtonColor: '#6c757d'
+    });
+    if (result.isConfirmed) {
+        showSection('structure');
+        return false;
+    }
+    return true;
+}
+
+async function startPDFConversion() {
+    if (!currentPdfDoc) { Swal.fire('error', 'กรุณาเลือก PDF ก่อน', 'error'); return; }
+    const key = getGeminiKey();
+    if (!key) { Swal.fire('แจ้งเตือน', 'กรุณากรอก Gemini API Key', 'warning'); return; }
+
+    const proceed = await askAddTopicsFirst();
+    if (!proceed) return;
+
+    const filename = document.getElementById('btn-convert-pdf').dataset.filename || 'quiz.pdf';
+    document.getElementById('btn-convert-pdf').disabled = true;
+    try {
+        await runGeminiConversion(window._pdfFile, filename);
+        autoMatchByPage();
+        saveCheckpoint();
+    } catch (e) {
+        Swal.fire('Gemini Error', e.message, 'error');
+    } finally {
+        document.getElementById('btn-convert-pdf').disabled = false;
+    }
+}
+
+// ─── Image Tray ───────────────────────────────────────────────────────────
+
+function renderImageTray() {
+    const container = document.getElementById('image-tray-container');
+    if (!container) return;
+    document.getElementById('tray-count').textContent = extractedImages.length;
+
+    container.innerHTML = extractedImages.map((img, i) => {
+        const isSelected = selectedTrayIndex === i;
+        const assignedRow = img.assignedTo != null ? img.assignedTo : null;
+        const rowEntries = assignedRow != null ? (imgAssignments.get(assignedRow) || []) : [];
+        const entry = rowEntries.find(e => e.base64 === img.base64) || null;
+        const statusBadge = entry ? `<span class="upload-status-pill status-${entry.status.toLowerCase()}">${entry.status}</span>` : '';
+        const sourceBadge = `<span class="source-badge source-${img.source}">${img.source === 'object' ? 'Object' : 'Render'}</span>`;
+        const assignedBadge = assignedRow != null ? `<span class="assigned-badge">Q${assignedRow + 1}${rowEntries.length > 1 ? `×${rowEntries.length}` : ''}</span>` : '';
+        return `<div class="tray-item${isSelected ? ' selected' : ''}" onclick="selectTrayImage(${i})" title="หน้า ${img.page}">
+            <img src="${img.base64}" alt="img ${i}">
+            <div class="tray-badges">${sourceBadge}${assignedBadge}${statusBadge}</div>
+        </div>`;
+    }).join('');
+}
+
+function selectTrayImage(index) {
+    selectedTrayIndex = index;
+    renderImageTray();
+}
+
+// ─── Card view (AI mode) ───────────────────────────────────────────────────
+
+function toggleRequireImgFilter(checked) {
+    _filterRequireImg = checked;
+    if (checked) switchTab('ques');
+    renderPreview();
+}
+
+function renderPreviewCards() {
+    const section = document.getElementById('ai-cards-section');
+    if (!section) return;
+    const hasQuestions = (converterStorage.ques || []).length > 0;
+    if (!hasQuestions) { section.classList.add('d-none'); return; }
+    section.classList.remove('d-none');
+    const el = document.getElementById('card-count-text');
+    if (el) el.textContent = `รูปภาพที่แยกออกมาได้ ${extractedImages.length} รูป`;
+}
+
+function openTrayPicker(rowIndex) {
+    focusedRowIndex = rowIndex;
+    openImgPickerModal(rowIndex);
+}
+
+function openImgPickerModal(rowIndex) {
+    _pickerTargetRow = rowIndex;
+    renderImgPickerGrid();
+    document.getElementById('img-picker-modal').classList.remove('d-none');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeImgPickerModal() {
+    document.getElementById('img-picker-modal').classList.add('d-none');
+    document.body.style.overflow = '';
+    _pickerTargetRow = null;
+}
+
+function renderImgPickerGrid() {
+    const grid = document.getElementById('img-picker-grid');
+    if (!grid) return;
+    const countEl = document.getElementById('tray-count');
+    if (countEl) countEl.textContent = extractedImages.length;
+    if (extractedImages.length === 0) {
+        grid.innerHTML = '<p class="text-muted text-center p-5 w-100">ยังไม่มีรูปภาพที่แยกได้จาก PDF</p>';
+        return;
+    }
+    grid.innerHTML = extractedImages.map((img, i) => {
+        const assignedRow = img.assignedTo != null ? img.assignedTo : null;
+        const pickerRowEntries = assignedRow != null ? (imgAssignments.get(assignedRow) || []) : [];
+        const assignedBadge = assignedRow != null
+            ? `<span class="picker-assigned-badge">Q${assignedRow + 1}${pickerRowEntries.length > 1 ? `×${pickerRowEntries.length}` : ''}</span>` : '';
+        const pickerEntry = pickerRowEntries.find(e => e.base64 === img.base64) || null;
+        const statusBadge = pickerEntry
+            ? `<span class="upload-status-pill status-${pickerEntry.status.toLowerCase()}">${pickerEntry.status}</span>` : '';
+        return `<div class="img-picker-item" onclick="pickImageFromModal(${i})">
+            <img src="${img.base64}" alt="หน้า ${img.page}" loading="lazy">
+            <div class="picker-badges">
+                <span class="picker-page-badge">หน้า ${img.page}</span>
+                ${assignedBadge}${statusBadge}
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function pickImageFromModal(trayIndex) {
+    selectedTrayIndex = trayIndex;
+    if (_pickerTargetRow != null) {
+        assignImageToQuestion(_pickerTargetRow);
+        closeImgPickerModal();
+    }
+}
+
+function viewFullImage(src) {
+    Swal.fire({ imageUrl: src, imageAlt: 'รูปภาพ', width: '90vw', showConfirmButton: false, showCloseButton: true });
+}
+
+async function uploadImageForCard(rowIndex, input) {
+    const file = input.files[0];
+    if (!file) return;
+    const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+    const arr = imgAssignments.get(rowIndex) || [];
+    arr.push({ base64, fileId: null, url: null, status: 'Waiting', page: null });
+    imgAssignments.set(rowIndex, arr);
+    saveCheckpoint();
+    renderPreviewWithBadges();
+    updateSaveButtonState();
+}
+
+// ─── Image assignment ──────────────────────────────────────────────────────
+
+function assignImageToQuestion(rowIndex) {
+    if (selectedTrayIndex == null) {
+        Swal.fire({ toast: true, icon: 'warning', title: 'เลือกรูปในถาดก่อน', timer: 2000, showConfirmButton: false });
+        return;
+    }
+    const img = extractedImages[selectedTrayIndex];
+    if (!img) return;
+
+    const current = imgAssignments.get(rowIndex) || [];
+    if (current.some(e => e.base64 === img.base64)) {
+        Swal.fire({ toast: true, icon: 'info', title: 'รูปนี้ถูก assign ในข้อนี้แล้ว', timer: 2000, showConfirmButton: false });
+        return;
+    }
+
+    // If image was assigned to a different question, remove it from there
+    if (img.assignedTo != null && img.assignedTo !== rowIndex) {
+        const prevArr = imgAssignments.get(img.assignedTo) || [];
+        const firstIdx = prevArr.findIndex(e => e.base64 === img.base64);
+        if (firstIdx >= 0) prevArr.splice(firstIdx, 1);
+        if (prevArr.length > 0) imgAssignments.set(img.assignedTo, prevArr);
+        else imgAssignments.delete(img.assignedTo);
+    }
+
+    img.assignedTo = rowIndex;
+    current.push({ base64: img.base64, fileId: null, url: null, status: 'Waiting', page: img.page });
+    imgAssignments.set(rowIndex, current);
+    saveCheckpoint();
+    renderImageTray();
+    renderPreviewWithBadges();
+    updateSaveButtonState();
+}
+
+function removeAssignment(rowIndex, imgIndex) {
+    const arr = imgAssignments.get(rowIndex);
+    if (!arr) return;
+    const removed = arr.splice(imgIndex, 1)[0];
+    if (removed) {
+        const src = extractedImages.find(img => img.assignedTo === rowIndex && img.base64 === removed.base64);
+        if (src) src.assignedTo = null;
+    }
+    if (arr.length === 0) imgAssignments.delete(rowIndex);
+    saveCheckpoint();
+    renderImageTray();
+    renderPreviewWithBadges();
+    updateSaveButtonState();
+}
+
+// ─── Page-proximity auto-match ─────────────────────────────────────────────
+
+function autoMatchByPage() {
+    const requireImgRows = converterStorage.ques
+        .map((row, i) => ({ rowIndex: i, pageHint: pageHintMap.get(i) || null }))
+        .filter(q => {
+            const row = converterStorage.ques[q.rowIndex];
+            return row && String(row[2]).trim() === 'require_img';
+        });
+
+    if (requireImgRows.length === 0 || extractedImages.length === 0) return;
+
+    requireImgRows.forEach(q => {
+        if (imgAssignments.has(q.rowIndex)) return; // already assigned
+        const unassigned = extractedImages.filter(img => img.assignedTo == null);
+        if (unassigned.length === 0) return;
+
+        let match = unassigned.find(img => img.page === q.pageHint);
+        if (!match && q.pageHint != null) {
+            match = unassigned.sort((a, b) =>
+                Math.abs(a.page - q.pageHint) - Math.abs(b.page - q.pageHint)
+            )[0];
+        }
+        if (!match) match = unassigned[0];
+
+        if (match) {
+            match.assignedTo = q.rowIndex;
+            const arr = imgAssignments.get(q.rowIndex) || [];
+            arr.push({ base64: match.base64, fileId: null, url: null, status: 'Waiting', page: match.page });
+            imgAssignments.set(q.rowIndex, arr);
+        }
+    });
+
+    renderImageTray();
+    renderPreviewWithBadges();
+    updateSaveButtonState();
+}
+
+// ─── renderPreview with require_img badges ────────────────────────────────
+
+// Update both table (struct/category tabs) and card view (ques AI)
+function renderPreviewWithBadges() {
+    renderPreview();
+    renderPreviewCards();
+}
+
+// Keyboard shortcut: 'a' assigns selected tray image to focused row or card
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'a' && !e.ctrlKey && !e.metaKey &&
+        document.activeElement.closest('.conv-card, .card[data-row-index]') &&
+        focusedRowIndex != null) {
+        assignImageToQuestion(focusedRowIndex);
+    }
+});
+
+// ─── localStorage checkpoint ───────────────────────────────────────────────
+
+function saveCheckpoint() {
+    const data = {
+        questions: converterStorage.ques,
+        imageAssignments: [...imgAssignments.entries()],
+        // base64 images are NOT stored (too large); user will see "need re-upload" notice
+        extractedImagesMeta: extractedImages.map(img => ({
+            page: img.page, source: img.source, assignedTo: img.assignedTo,
+            width: img.width, height: img.height
+        }))
+    };
+    try { localStorage.setItem('mdkku_pdf_checkpoint', JSON.stringify(data)); } catch (e) {}
+}
+
+function restoreCheckpoint() {
+    const raw = localStorage.getItem('mdkku_pdf_checkpoint');
+    if (!raw) return;
+    try {
+        const data = JSON.parse(raw);
+        converterStorage.ques = data.questions || [];
+        imgAssignments = new Map(data.imageAssignments || []);
+        // base64 images lost — notify user
+        Swal.fire({
+            toast: true, icon: 'info', position: 'top-end',
+            title: 'กู้คืน session ก่อนหน้า — รูปภาพต้องอัปโหลดใหม่',
+            timer: 4000, showConfirmButton: false
+        });
+        document.getElementById('converter-split')?.classList.remove('d-none');
+        renderPreviewWithBadges();
+        updateSaveButtonState();
+    } catch (e) {
+        localStorage.removeItem('mdkku_pdf_checkpoint');
+    }
+}
+
+// ─── Post-import result handler ────────────────────────────────────────────
+
+function handleSaveResult(resJson) {
+    if (resJson.result === 'success') {
+        converterStorage.ques = [];
+        converterStorage.struct = [];
+        converterStorage.category = [];
+        extractedImages = [];
+        imgAssignments.clear();
+        pageHintMap.clear();
+        currentPdfDoc = null;
+        localStorage.removeItem('mdkku_pdf_checkpoint');
+        const splitEl = document.getElementById('converter-split');
+        if (splitEl) splitEl.classList.add('d-none');
+        const pdfContainer = document.getElementById('pdf-pages-container');
+        if (pdfContainer) pdfContainer.innerHTML = '<p class="text-muted small text-center p-4">ยังไม่ได้โหลด PDF</p>';
+        renderPreview();
+        renderPreviewCards();
+        Swal.fire({
+            title: 'นำเข้าข้อมูลเสร็จสิ้น',
+            html: `<div class="text-start small">
+                <p class="mb-1 text-success fw-bold">สรุปผลการดำเนินการ:</p>
+                <pre class="bg-light p-2 border rounded">${resJson.importLog || ''}</pre>
+                <p class="mt-2 text-muted">รวมเพิ่มข้อมูลใหม่/อัปเดตสำเร็จทั้งหมด: ${resJson.count} แถว</p>
+            </div>`,
+            icon: 'success'
+        });
+        fetchData(true);
+
+    } else if (resJson.result === 'partial' || resJson.result === 'error') {
+        const failedIds = new Set((resJson.failedList || []).map(f => f.questionId));
+        // Track original indices before filtering so imgAssignments keys stay correct
+        const surviving = converterStorage.ques
+            .map((row, origIdx) => ({ row, origIdx }))
+            .filter(({ row }) => failedIds.has(row[0]));
+        converterStorage.ques = surviving.map(({ row }) => row);
+        const newMap = new Map();
+        surviving.forEach(({ origIdx }, newIdx) => {
+            if (imgAssignments.has(origIdx)) newMap.set(newIdx, imgAssignments.get(origIdx));
+        });
+        imgAssignments = newMap;
+        renderPreviewWithBadges();
+        Swal.fire({
+            icon: 'warning',
+            title: `บันทึกสำเร็จ ${resJson.savedCount || 0} ข้อ / ล้มเหลว ${(resJson.failedList || []).length} ข้อ`,
+            html: `<pre class="text-start small bg-light p-2">${(resJson.failedList || []).map(f => `• ${f.questionId}: ${f.reason}`).join('\n')}</pre>`
+        });
+    }
+}
+
+// ─── Fix recompressBase64 (async img.onload) ─────────────────────────────
+
+async function recompressBase64(base64, quality) {
+    const img = new Image();
+    await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = base64;
+    });
+    const c = document.createElement('canvas');
+    c.width = img.width; c.height = img.height;
+    c.getContext('2d').drawImage(img, 0, 0);
+    return c.toDataURL('image/jpeg', quality || 0.8);
+}
+
+// Switch between AI and Manual converter modes
+function switchConverterMode(mode) {
+    document.getElementById('converter-ai-panel').classList.toggle('d-none', mode !== 'ai');
+    document.getElementById('converter-manual-panel').classList.toggle('d-none', mode !== 'manual');
+    document.getElementById('btn-mode-ai').classList.toggle('active', mode === 'ai');
+    document.getElementById('btn-mode-manual').classList.toggle('active', mode === 'manual');
+}
+
+// Try to restore checkpoint on page load (called from initApp or DOMContentLoaded)
+function initPDFConverter() {
+    restoreCheckpoint();
+    updateSaveButtonState();
+}

@@ -35,6 +35,7 @@
     <link rel="stylesheet" href="css/components.css">
     <link rel="stylesheet" href="css/tables.css">
     <link rel="stylesheet" href="css/converter.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <link rel="stylesheet" href="css/structure.css">
     <link rel="stylesheet" href="css/responsive.css">
 </head>
@@ -437,263 +438,288 @@
                     <p class="text-muted small">เครื่องมือช่วยแปลง Code หรือรายชื่อหัวข้อ ให้เป็น Format
                         ที่พร้อมนำไปวางใน Google Sheets (Admin Only)</p>
 
-                    <!-- NEW: Instructions Section (ไม่ได้เปลี่ยนแปลง) -->
-                    <div class="card card-dashboard mb-4">
-                        <div class="card-header-custom">
-                            <span><i class="fas fa-info-circle me-2"></i> คู่มือการใช้งานและตัวอย่าง Format</span>
-                            <a class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse"
-                                href="#converterInstructions" role="button" aria-expanded="true"
-                                aria-controls="converterInstructions">
-                                Show/Hide
-                            </a>
+                    <!-- MODE TABS -->
+                    <div class="converter-mode-tabs mb-3">
+                        <button id="btn-mode-ai" class="mode-tab active" onclick="switchConverterMode('ai')">
+                            <i class="fas fa-robot me-1"></i> AI แปลงด้วย Gemini
+                        </button>
+                        <button id="btn-mode-manual" class="mode-tab" onclick="switchConverterMode('manual')">
+                            <i class="fas fa-code me-1"></i> Manual JSON
+                        </button>
+                    </div>
+
+                    <!-- SHARED: Subject/Year fields (used by processAll in both modes) -->
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-3">
+                            <label class="small">ชั้นปี (Year)</label>
+                            <input type="number" id="yearVal" class="form-control form-control-sm" placeholder="1,2,3">
                         </div>
-                        <div class="collapse show" id="converterInstructions">
+                        <div class="col-md-3">
+                            <label class="small">รหัสวิชา (Subject ID)</label>
+                            <input type="text" id="subjID" list="subjectIdList" class="form-control form-control-sm" placeholder="GI, NS">
+                            <datalist id="subjectIdList"></datalist>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="small">ชื่อวิชา</label>
+                            <input type="text" id="subjName" list="subjectNameList" class="form-control form-control-sm" placeholder="Full Name">
+                            <datalist id="subjectNameList"></datalist>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="small">กลุ่มคำย่อ (Group Keywords)</label>
+                            <input type="text" id="groupKeys" class="form-control form-control-sm"
+                                value="MCQ1,MCQ2,MCQ3,MCQ4,FMT1,FMT2,by AI"
+                                placeholder="เช่น MCQ1,MCQ2,FMT1,FMT2">
+                        </div>
+                    </div>
+
+                    <!-- AI PANEL -->
+                    <div id="converter-ai-panel">
+                        <div class="card mb-3" id="pdf-import-card">
+                            <div class="card-header-custom">
+                                <span><i class="fas fa-file-pdf me-2 text-danger"></i> PDF → AI Convert</span>
+                            </div>
                             <div class="card-body">
-                                <!-- Tabs for Instructions -->
-                                <ul class="nav nav-tabs" id="instructionTab" role="tablist">
-                                    <li class="nav-item" role="presentation">
-                                        <button class="nav-link active" id="tab1-tab" data-bs-toggle="tab"
-                                            data-bs-target="#tab1" type="button" role="tab">1. เพิ่มหัวข้อ Lecture
-                                            (ใช้ทำข้อสอบแยกเลค)</button>
-                                    </li>
-                                    <li class="nav-item" role="presentation">
-                                        <button class="nav-link" id="tab2-tab" data-bs-toggle="tab"
-                                            data-bs-target="#tab2" type="button" role="tab">2. เพิ่มคำถามทีละหลายๆชุด
-                                            (ใช้แปลงข้อสอบเก่าเข้าเว็บ)</button>
-                                    </li>
-                                    <li class="nav-item" role="presentation">
-                                        <button class="nav-link" id="tab3-tab" data-bs-toggle="tab"
-                                            data-bs-target="#tab3" type="button" role="tab">3. เพิ่มคำถามทีละชุด
-                                            (ใช้แปลงข้อสอบเก่าเข้าเว็บ)</button>
-                                    </li>
-                                </ul>
-                                <div class="tab-content pt-3" id="instructionTabContent">
-                                    <!-- Tab 1: Category List -->
-                                    <div class="tab-pane fade show active" id="tab1" role="tabpanel">
-                                        <h6 class="text-primary fw-bold">ใช้เมื่อ: ต้องการเพิ่มหัวข้อข้อสอบแยกเลค</h6>
-                                        <p class="mb-0"><b>ตัวอย่าง:</b></p>
-                                        <pre class="bg-light p-2 rounded small"><code>
+                                <div class="mb-2 d-flex gap-2 align-items-center">
+                                    <input type="password" id="gemini-api-key" class="form-control form-control-sm"
+                                           placeholder="Gemini API Key (เก็บใน sessionStorage เท่านั้น)"
+                                           oninput="sessionStorage.setItem('mdkku_gemini_key', this.value)">
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="toggleGeminiKeyVis()">👁</button>
+                                </div>
+                                <div class="mb-2 d-flex gap-2 align-items-center">
+                                    <label class="small text-muted mb-0 flex-shrink-0">Model:</label>
+                                    <select id="gemini-model-select" class="form-select form-select-sm">
+                                        <option value="gemini-3.5-flash" selected>gemini-3.5-flash (fastest · Pro capabilities · recommended)</option>
+                                        <option value="gemini-3.1-pro">gemini-3.1-pro (in-depth analysis and advanced coding)</option>
+                                        <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (Cost-effective and fast processing)</option>
+                                        <option value="gemini-2.5-pro">gemini-2.5-pro (Pro-level model, high stability)</option>
+                                        <option value="gemini-2.5-flash">gemini-2.5-flash (General model, high stability)</option>
+                                    </select>
+                                </div>
+                                <small class="text-muted d-block mb-3">Key จะถูกลบเมื่อปิด Tab — รับ API Key ฟรีที่
+                                    <a href="https://aistudio.google.com/" target="_blank" rel="noopener">Google AI Studio</a>
+                                </small>
+
+                                <div id="pdf-drop-zone" class="pdf-drop-zone"
+                                     onclick="document.getElementById('pdf-file-input').click()"
+                                     ondrop="handlePDFDrop(event)" ondragover="event.preventDefault()">
+                                    <i class="fas fa-cloud-upload-alt fa-2x text-muted mb-2"></i>
+                                    <p class="mb-0 text-muted">ลากไฟล์ PDF มาวาง หรือคลิกเพื่อเลือก (สูงสุด 14MB)</p>
+                                    <div id="pdf-status" class="small mt-2 text-primary"></div>
+                                    <progress id="pdf-progress" class="d-none" style="width:100%;height:6px" max="100" value="0"></progress>
+                                </div>
+                                <input type="file" id="pdf-file-input" accept=".pdf" class="d-none"
+                                       onchange="handlePDFFile(this.files[0])">
+
+                                <div class="mt-3 extra-prompt-area">
+                                    <label class="small text-muted mb-1">คำสั่งเพิ่มเติมสำหรับ Gemini (ไม่บังคับ)</label>
+                                    <textarea id="extra-prompt" class="form-control form-control-sm" rows="2"
+                                        placeholder="เช่น: อธิบาย mechanism เพิ่มเติม, ข้อสอบชุดนี้เป็น Formative ปี 2024"></textarea>
+                                </div>
+
+                                <button class="btn btn-danger mt-3 w-100" id="btn-convert-pdf"
+                                        onclick="startPDFConversion()" disabled>
+                                    <i class="fas fa-robot me-2"></i> แปลง PDF ด้วย Gemini
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- MANUAL PANEL (hidden by default) -->
+                    <div id="converter-manual-panel" class="d-none">
+                        <!-- Instructions -->
+                        <div class="card card-dashboard mb-4">
+                            <div class="card-header-custom">
+                                <span><i class="fas fa-info-circle me-2"></i> คู่มือการใช้งานและตัวอย่าง Format</span>
+                                <a class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse"
+                                    href="#converterInstructions" role="button" aria-expanded="true"
+                                    aria-controls="converterInstructions">
+                                    Show/Hide
+                                </a>
+                            </div>
+                            <div class="collapse show" id="converterInstructions">
+                                <div class="card-body">
+                                    <ul class="nav nav-tabs" id="instructionTab" role="tablist">
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link active" id="tab1-tab" data-bs-toggle="tab"
+                                                data-bs-target="#tab1" type="button" role="tab">1. เพิ่มหัวข้อ Lecture</button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link" id="tab2-tab" data-bs-toggle="tab"
+                                                data-bs-target="#tab2" type="button" role="tab">2. เพิ่มคำถามหลายชุด</button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link" id="tab3-tab" data-bs-toggle="tab"
+                                                data-bs-target="#tab3" type="button" role="tab">3. เพิ่มคำถามทีละชุด</button>
+                                        </li>
+                                    </ul>
+                                    <div class="tab-content pt-3" id="instructionTabContent">
+                                        <div class="tab-pane fade show active" id="tab1" role="tabpanel">
+                                            <h6 class="text-primary fw-bold">ใช้เมื่อ: ต้องการเพิ่มหัวข้อข้อสอบแยกเลค</h6>
+                                            <p class="mb-0"><b>ตัวอย่าง:</b></p>
+                                            <pre class="bg-light p-2 rounded small"><code>
     ตาม format นี้ "ชื่อย่อวิชา_กลุ่ม_ชื่อหัวข้อ"
     GI_Anatomy_Oral Cavity
     GI_Physiology_Gastric Secretion
     GI_Pathology_Bacterial GI Infections
-                                    </code></pre>
-                                    </div>
-                                    <!-- Tab 2: Quiz JSON Object -->
-                                    <div class="tab-pane fade" id="tab2" role="tabpanel">
-                                        <h6 class="text-primary fw-bold">ใช้เมื่อ: เพิ่มคำถามทีละหลายๆชุด</h6>
-                                        <!-- ... (ตัวอย่างเดิม) ... -->
-                                        <pre class="bg-light p-2 rounded small"><code>
-    1. เก็บทุกอย่างในตัวแปรชื่อ quizdata
-    ด้านในจะมี
-    "ชื่อหัวข้อ1" : [ {คำถาม 1}, {คำถาม 2},... ],
-    "ชื่อหัวข้อ2" : [ {คำถาม 1}, {คำถาม 2},... ], ...
-    2. โครงสร้างของคำถาม
-    {
-    "problem": "ใส่คำถามตรงนี้",
-    "img": "URL_A///URL_B", // ถ้ามีรูปหลายรูปให้ใช้ /// คั่นแต่ละลิงก์
-    "choices": "ตัวเลือก1///ตัวเลือก2///ตัวเลือก3", // ใช้ /// คั่นแต่ละ choice
-    "answer": "ตัวเลือกที่ถูกต้อง", // ต้องตรงกับ choice ที่ให้มา!!!
-    "explain": "คำอธิบายเพิ่มเติม (ถ้ามี)"
-    }
-
-    เช่น
+                                            </code></pre>
+                                        </div>
+                                        <div class="tab-pane fade" id="tab2" role="tabpanel">
+                                            <h6 class="text-primary fw-bold">ใช้เมื่อ: เพิ่มคำถามทีละหลายๆชุด</h6>
+                                            <pre class="bg-light p-2 rounded small"><code>
     var quizdata = {
     "GI51MCQ1_Anatomy": [
     {
     "problem": "1. What is the function of the liver?",
-    "img": "https://drive.google.com/open?id=1hBnJKKlO6S2tuGp6Wvy627V25CipDkN_&usp=drive_copy",
+    "img": "",
     "choices": "Detoxification///Digestion///Respiration",
     "answer": "Detoxification",
     "explain": "The liver detoxifies various metabolites..."
-    },
-    {prob...}
-    ],
-    "GI51FMT1_Physiology": [
-    {
-    "problem": "1. What hormone regulates blood sugar levels?",
-    "img": "",
-    "choices": "Insulin///Glucagon///Adrenaline",
-    "answer": "Insulin",
-    "explain": "Insulin lowers blood sugar levels..."
     }
     ]
     };
-
-                                        </code></pre>
-                                    </div>
-                                    <!-- Tab 3: Question Array (NEW) -->
-                                    <div class="tab-pane fade" id="tab3" role="tabpanel">
-                                        <h6 class="text-danger fw-bold">ใช้เมื่อ: เพิ่มคำถามทีละ 1 ชุด</h6>
-                                        <p><b>ใส่ชื่อหัวข้อ <span class="text-danger fw-bold">เช่น GI_52MCQ1_Anatomy,
-                                                    GEN4_52FMT2</span> ด้านล่าง</b></p>
-
-                                        <!-- 💥 ย้าย Input มาไว้ที่นี่ 💥 -->
-                                        <div class="col-12 mt-2 p-3 bg-danger-subtle rounded border border-danger mb-3">
-                                            <label class="small fw-bold text-danger"><i
-                                                    class="fas fa-exclamation-triangle"></i>
-                                                ใส่ชื่อหัวข้อ </label>
-                                            <input type="text" id="arrayCategoryID"
-                                                class="form-control form-control-sm border-danger"
-                                                placeholder="ตาม format นี้ ชื่อวิชา_ปีและกลุ่ม_ชื่อหัวข้อ">
+                                            </code></pre>
                                         </div>
-                                        <!-- 💥 สิ้นสุด Input ที่ย้ายมา 💥 -->
-
-                                        <p><b>ตัวอย่าง Input:</b></p>
-                                        <pre class="bg-light p-2 rounded small"><code>
-    1. เอามาแค่ [ {คำถาม1}, {คำถาม2},... ] แบบนี้เลย
-    2. โครงสร้างของคำถาม
-    {
-    problem: "ใส่คำถามตรงนี้",
-    img: "URL_A///URL_B", // ถ้ามีรูปหลายรูปให้ใช้ /// คั่นแต่ละลิงก์
-    choices: "ตัวเลือก1///ตัวเลือก2///ตัวเลือก3", // ใช้ /// คั่นแต่ละ choice
-    answer: "ตัวเลือกที่ถูกต้อง", // ต้องตรงกับ choice ที่ให้มา!!!
-    explain: "คำอธิบายเพิ่มเติม (ถ้ามี)"
-    }
-
-    เช่น
+                                        <div class="tab-pane fade" id="tab3" role="tabpanel">
+                                            <h6 class="text-danger fw-bold">ใช้เมื่อ: เพิ่มคำถามทีละ 1 ชุด</h6>
+                                            <div class="col-12 mt-2 p-3 bg-danger-subtle rounded border border-danger mb-3">
+                                                <label class="small fw-bold text-danger"><i class="fas fa-exclamation-triangle"></i>
+                                                    ใส่ชื่อหัวข้อ</label>
+                                                <input type="text" id="arrayCategoryID"
+                                                    class="form-control form-control-sm border-danger"
+                                                    placeholder="ตาม format นี้ ชื่อวิชา_ปีและกลุ่ม_ชื่อหัวข้อ">
+                                            </div>
+                                            <pre class="bg-light p-2 rounded small"><code>
     [
     {
     problem: "1. What is the primary function of red blood cells?",
-    img: "https://drive.google.com/open?id=1hBnJKKlO6S2tuGp6Wvy627V25CipDkN_&usp=drive_copy",
+    img: "",
     choices: "Oxygen transport///Immune response///Blood clotting",
     answer: "Oxygen transport",
     explain: "Red blood cells are responsible for transporting oxygen..."
-    },
-    {
-    problem: "2. Which organ is primarily responsible for detoxification?",
-    img: "",
-    choices: "Liver///Kidneys///Lungs",
-    answer: "Liver",
-    explain: "The liver detoxifies various metabolites..."
     }
     ]
-                                        </code></pre>
-                                        <!-- <p class="mb-0"><b>การทำงานของ Group Keywords:</b> หาก Category ID ที่คุณระบุ
-                                            (เช่น
-                                            `NS_MCQ1_CranialNerves`) มีคำที่ตรงกับ <code>Group Keywords</code> (เช่น
-                                            `MCQ`)
-                                            ระบบจะจัดให้อยู่ในกลุ่ม <b>MCQ</b> โดยอัตโนมัติ</p> -->
+                                            </code></pre>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    <!-- END Instructions Section -->
 
-
-                    <div class="converter-control-panel">
-                        <div>
+                        <!-- Manual JSON input + controls -->
+                        <div class="mb-3">
                             <label class="mb-2 fw-bold">วาง Code หรือ รายชื่อ CategoryID ที่นี่</label>
                             <textarea id="jsonInput" class="form-control" rows="8"
                                 placeholder="วางโค้ดที่นี่..."></textarea>
                         </div>
-                        <div>
-                            <div class="row g-2">
-                                <div class="col-12 mt-3 d-flex gap-2">
-                                    <button class="btn btn-outline-secondary" onclick="resetConverter()"
-                                        title="ล้างข้อมูลทั้งหมด">
-                                        <i class="fas fa-sync-alt"></i> รีเซ็ต
+                        <div class="d-flex gap-2 mb-3">
+                            <button class="btn btn-outline-secondary" onclick="resetConverter()" title="ล้างข้อมูลทั้งหมด">
+                                <i class="fas fa-sync-alt"></i> รีเซ็ต
+                            </button>
+                            <button class="btn btn-primary flex-grow-1" onclick="processAll()">
+                                <i class="fas fa-bolt"></i> เริ่มประมวลผลข้อมูล
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Split layout (shown after PDF loads or manual processAll) -->
+                    <div id="converter-split" class="converter-split d-none">
+                        <!-- LEFT: PDF Viewer -->
+                        <div class="pdf-viewer-panel">
+                            <div class="pdf-viewer-header">
+                                <i class="fas fa-file-pdf text-danger me-1"></i> PDF Preview
+                            </div>
+                            <div id="pdf-pages-container" class="pdf-pages-container">
+                                <p class="text-muted small text-center p-4">ยังไม่ได้โหลด PDF</p>
+                            </div>
+                        </div>
+
+                        <!-- RIGHT: Converted Questions -->
+                        <div class="converter-right-pane">
+                            <!-- AI summary bar: image count + require_img filter -->
+                            <div id="ai-cards-section" class="mb-2 d-none">
+                                <div class="d-flex justify-content-between align-items-center p-2 rounded bg-light border">
+                                    <span class="small fw-semibold">
+                                        <i class="fas fa-images me-1 text-primary"></i>
+                                        <span id="card-count-text">รูปภาพที่แยกออกมาได้ 0 รูป</span>
+                                    </span>
+                                    <div class="form-check form-switch mb-0">
+                                        <input class="form-check-input" type="checkbox" id="filter-require-img"
+                                               onchange="toggleRequireImgFilter(this.checked)">
+                                        <label class="form-check-label small" for="filter-require-img">เฉพาะข้อที่ต้องการรูป</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="tabs">
+                                <div class="tab" id="tab-struct" onclick="switchTab('struct')">1. Structure</div>
+                                <div class="tab" id="tab-category" onclick="switchTab('category')">2. Category</div>
+                                <div class="tab active" id="tab-ques" onclick="switchTab('ques')">3. Questions</div>
+                            </div>
+
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span id="previewText" class="small text-muted">รอข้อมูล...</span>
+                                <div class="d-flex gap-1">
+                                    <button class="btn btn-outline-primary btn-sm" onclick="copyCurrentSheet()" title="Copy to Clipboard">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                    <button class="btn btn-success btn-sm" onclick="importConvertedData()">
+                                        <i class="fas fa-cloud-upload-alt"></i> บันทึก
+                                    </button>
+                                    <button class="btn btn-success btn-sm" id="btn-upload-and-save"
+                                            onclick="importConvertedData()" style="display:none">
+                                        <i class="fas fa-images me-1"></i> อัปโหลดและบันทึก
                                     </button>
                                 </div>
-                                <div class="col-md-4">
-                                    <label class="small">ชั้นปี (Year)</label>
-                                    <input type="number" id="yearVal" class="form-control form-control-sm"
-                                        placeholder="1,2,3">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="small">รหัสวิชา (Subject ID)</label>
-                                    <input type="text" id="subjID" list="subjectIdList"
-                                        class="form-control form-control-sm" placeholder="GI, NS">
-                                    <datalist id="subjectIdList"></datalist> <!-- เพิ่ม datalist -->
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="small">ชื่อวิชา</label>
-                                    <input type="text" id="subjName" list="subjectNameList"
-                                        class="form-control form-control-sm" placeholder="Full Name">
-                                    <datalist id="subjectNameList"></datalist> <!-- เพิ่ม datalist -->
-                                </div>
-                                <div class="col-12">
-                                    <label class="small">กลุ่มคำย่อ (Group Keywords)</label>
-                                    <input type="text" id="groupKeys" class="form-control form-control-sm"
-                                        value="MCQ1,MCQ2,MCQ3,MCQ4,FMT1,FMT2,by AI"
-                                        placeholder="เช่น MCQ1,MCQ2,MCQ3,MCQ4,FMT1,FMT2,by AI">
-                                </div>
+                            </div>
 
-                                <!-- 🚫 ช่อง Input Array Category ID ถูกนำออกแล้ว เพื่อให้แสดงแค่ใน Instruction Tab 🚫 -->
-
-                                <div class="col-12 mt-3">
-                                    <button class="btn btn-primary w-100" onclick="processAll()"><i
-                                            class="fas fa-bolt"></i>
-                                        เริ่มประมวลผลข้อมูล</button>
+                            <div class="border rounded bg-light p-2">
+                                <div class="d-flex gap-1 mb-2 flex-wrap" id="converter-filter-bar"
+                                    style="background: #f1f3f9; padding: 8px; border-radius: 8px; border: 1px solid #e3e6f0;">
+                                    <button class="btn btn-sm btn-outline-secondary active"
+                                        onclick="filterConverterTable('ALL', this)">
+                                        ทั้งหมด (<span id="count-all">0</span>)
+                                    </button>
+                                    <button class="btn btn-sm btn-success text-white"
+                                        onclick="filterConverterTable('NEW', this)">
+                                        ใหม่ (<span id="count-new">0</span>)
+                                    </button>
+                                    <button class="btn btn-sm btn-warning text-dark"
+                                        onclick="filterConverterTable('UPDATED', this)">
+                                        อัปเดต (<span id="count-updated">0</span>)
+                                    </button>
+                                    <button class="btn btn-sm btn-danger text-white"
+                                        onclick="filterConverterTable('DUPLICATE', this)">
+                                        ซ้ำ (<span id="count-duplicate">0</span>)
+                                    </button>
+                                    <button class="btn btn-sm btn-secondary text-white"
+                                        onclick="filterConverterTable('EXISTING', this)">
+                                        เดิม (<span id="count-existing">0</span>)
+                                    </button>
                                 </div>
+                                <div id="cardsBody" class="converter-cards-container"></div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- ปรับปรุงชื่อ Tab ให้สื่อสารวัตถุประสงค์ -->
-                    <div class="tabs">
-                        <div class="tab" id="tab-struct" onclick="switchTab('struct')">1. Structure
-                            (โครงสร้างวิชา/กลุ่ม)</div>
-                        <div class="tab" id="tab-category" onclick="switchTab('category')">2. Category (หัวข้อ)
-                        </div>
-                        <div class="tab active" id="tab-ques" onclick="switchTab('ques')">3. Questions (ข้อมูลข้อสอบ)
-                        </div>
-                    </div>
-
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <div>
-                            <span id="previewText" class="small text-muted">รอข้อมูล...</span>
-                            <span class="badge bg-warning text-dark ms-2"><i class="fas fa-pen"></i>
-                                แก้ไขในตารางได้เลย</span>
-                        </div>
-                        <div class="d-flex gap-2">
-                            <!-- <button class="btn btn-warning btn-sm"
-                    onclick="deduplicateConverterData('struct', [1, 3]); deduplicateConverterData('category', [0]); deduplicateConverterData('ques', [0]);"><i
-                        class="fas fa-filter"></i> ลบข้อมูลซ้ำ (Auto Deduplicate)</button> -->
-                            <button class="btn btn-outline-primary btn-sm me-2" onclick="copyCurrentSheet()"><i
-                                    class="fas fa-copy"></i>
-                                Copy to Clipboard</button>
-                            <button class="btn btn-success btn-sm" onclick="importConvertedData()"><i
-                                    class="fas fa-cloud-upload-alt"></i>
-                                💾 บันทึกเข้าระบบ (Import to DB)</button>
-                        </div>
-                    </div>
-
-                    <div class="table-scroll border rounded bg-light p-2">
-                        <!-- แผงคัดกรองสถานะข้อมูลนำเข้าพรีวิว (Filter Bar) -->
-                        <div class="d-flex gap-2 mb-3 flex-wrap" id="converter-filter-bar"
-                            style="background: #f1f3f9; padding: 10px; border-radius: 8px; border: 1px solid #e3e6f0;">
-                            <button class="btn btn-sm btn-outline-secondary active"
-                                onclick="filterConverterTable('ALL', this)">
-                                <i class="fas fa-list"></i> แสดงทั้งหมด (<span id="count-all">0</span>)
-                            </button>
-                            <button class="btn btn-sm btn-success text-white"
-                                onclick="filterConverterTable('NEW', this)">
-                                <i class="fas fa-plus-circle"></i> ข้อมูลใหม่ (<span id="count-new">0</span>)
-                            </button>
-                            <button class="btn btn-sm btn-warning text-dark"
-                                onclick="filterConverterTable('UPDATED', this)">
-                                <i class="fas fa-edit"></i> อัปเดตข้อมูล (<span id="count-updated">0</span>)
-                            </button>
-                            <button class="btn btn-sm btn-danger text-white"
-                                onclick="filterConverterTable('DUPLICATE', this)">
-                                <i class="fas fa-clone"></i> ข้อมูลซ้ำในชุด (<span id="count-duplicate">0</span>)
-                            </button>
-                            <button class="btn btn-sm btn-secondary text-white"
-                                onclick="filterConverterTable('EXISTING', this)">
-                                <i class="fas fa-check-double"></i> ข้อมูลเดิมไม่มีการแก้ (<span
-                                    id="count-existing">0</span>)
-                            </button>
-                        </div>
-                        <table class="table table-sm table-bordered bg-white mb-0" id="dataTable">
-                            <thead>
-                                <tr id="tableHead"></tr>
-                            </thead>
-                            <tbody id="tableBody"></tbody>
-                        </table>
+                    <!-- Legacy image tray (hidden; renderImageTray targets #image-tray-container) -->
+                    <div id="image-tray-section" class="d-none">
+                        <div id="image-tray-container" class="image-tray-grid p-2"></div>
                     </div>
                 </div>
+            </div>
+
+            <!-- Image Picker Modal (fullscreen overlay, position:fixed) -->
+            <div id="img-picker-modal" class="img-picker-overlay d-none">
+                <div class="img-picker-header">
+                    <span>
+                        <i class="fas fa-images me-2"></i> เลือกรูปภาพจาก PDF
+                        (<span id="tray-count">0</span> รูป)
+                    </span>
+                    <button class="btn btn-sm btn-outline-light" onclick="closeImgPickerModal()">
+                        <i class="fas fa-times me-1"></i> ปิด
+                    </button>
+                </div>
+                <div id="img-picker-grid" class="img-picker-grid"></div>
             </div>
 
             <!-- SECTION: Logs (Admin) -->
@@ -1469,8 +1495,20 @@
 <script src="js/vote.js"></script>
 <script src="js/report.js"></script>
 <script src="js/structure.js"></script>
+<script src="js/splitter.js"></script>
+<script src="js/gemini.js"></script>
+<script src="js/extractor.js"></script>
+<script src="js/queue.js"></script>
 <script src="js/converter.js"></script>
 <script src="js/app.js"></script>
+<script>
+    // PDF.js worker (must be set after pdf.min.js loads)
+    if (typeof pdfjsLib !== 'undefined') {
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+    $(document).ready(function () { initPDFConverter(); });
+</script>
 </body>
 
 </html>
