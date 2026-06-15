@@ -426,3 +426,130 @@ function openAddCategoryModal(subjectId = null, groupName = null) {
 
         $('#addCategoryModal').modal('show');
     }
+
+const BULK_GROUP_MAP = {
+    ANA:      subj => `${subj} ANATOMY`,
+    PHYSIO:   subj => `${subj} PHYSIO and BIOCHEM`,
+    BIOCHEM:  subj => `${subj} PHYSIO and BIOCHEM`,
+    MICRO:    subj => `${subj} PARASITO and MICRO`,
+    PARASITO: subj => `${subj} PARASITO and MICRO`,
+    PATHO:    subj => `${subj} PATHO`,
+    PHARM:    subj => `${subj} PHARM`,
+    RADIO:    subj => `${subj} RADIO and CLINICAL`,
+    CLINICAL: subj => `${subj} RADIO and CLINICAL`,
+};
+
+function toggleBulkImport() {
+    const panel = document.getElementById('bulk-import-panel');
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    document.getElementById('bulk-preview-area').innerHTML = '';
+    document.getElementById('bulk-confirm-btn').style.display = 'none';
+}
+
+function previewBulkImport() {
+    const subjectRef = document.getElementById('bulk-subject-id').value.trim().toUpperCase();
+    const text = document.getElementById('bulk-topic-text').value;
+    const year = parseInt(document.querySelector('input[name="bulk-year-level"]:checked').value);
+
+    if (!subjectRef) {
+        Swal.fire('ข้อผิดพลาด', 'กรุณาระบุ Subject ID', 'warning');
+        return;
+    }
+
+    const parsed = parseLecTopics(subjectRef, text, year);
+    if (!parsed.length) {
+        document.getElementById('bulk-preview-area').innerHTML = '<p class="text-danger small mt-2">ไม่พบหัวข้อในรูปแบบ <code>LEC_DISCIPLINE_Topic Name</code></p>';
+        document.getElementById('bulk-confirm-btn').style.display = 'none';
+        return;
+    }
+
+    const existingIDs = new Set(globalData.category.map(c => c.CategoryID));
+    let rows = parsed.map(c => {
+        const dup = existingIDs.has(c.CategoryID);
+        return `<tr class="${dup ? 'table-warning' : ''}">
+            <td class="small">${c.CategoryID}</td>
+            <td class="small">${c.AccordionGroup}</td>
+            <td class="small">${c.CategoryName}</td>
+            <td class="small">${dup ? '<span class="badge bg-warning text-dark">ซ้ำ</span>' : '<span class="badge bg-success">ใหม่</span>'}</td>
+        </tr>`;
+    }).join('');
+
+    const newCount = parsed.filter(c => !existingIDs.has(c.CategoryID)).length;
+    document.getElementById('bulk-preview-area').innerHTML = `
+        <p class="small mb-2">พบ <b>${parsed.length}</b> หัวข้อ — ใหม่ <b class="text-success">${newCount}</b> / ซ้ำ <b class="text-warning">${parsed.length - newCount}</b></p>
+        <div style="max-height:300px;overflow-y:auto;">
+        <table class="table table-sm table-bordered small mb-0">
+            <thead class="table-dark"><tr><th>CategoryID</th><th>AccordionGroup</th><th>CategoryName</th><th>สถานะ</th></tr></thead>
+            <tbody>${rows}</tbody>
+        </table></div>`;
+
+    document.getElementById('bulk-confirm-btn').style.display = newCount > 0 ? 'inline-block' : 'none';
+    document.getElementById('bulk-confirm-btn').dataset.subjectRef = subjectRef;
+}
+
+async function confirmBulkImport() {
+    const subjectRef = document.getElementById('bulk-confirm-btn').dataset.subjectRef;
+    const text = document.getElementById('bulk-topic-text').value;
+    const year = parseInt(document.querySelector('input[name="bulk-year-level"]:checked').value);
+    const parsed = parseLecTopics(subjectRef, text, year);
+    const existingIDs = new Set(globalData.category.map(c => c.CategoryID));
+    const toInsert = parsed.filter(c => !existingIDs.has(c.CategoryID));
+
+    if (!toInsert.length) return;
+
+    const { isConfirmed } = await Swal.fire({
+        title: `นำเข้า ${toInsert.length} หัวข้อ?`,
+        text: `SubjectRef: ${subjectRef}`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'นำเข้าเลย'
+    });
+    if (!isConfirmed) return;
+
+    let done = 0;
+    for (const cat of toInsert) {
+        await sendAdminAction('addCategory', cat, true);
+        done++;
+    }
+
+    await Swal.fire('สำเร็จ', `นำเข้า ${done} หัวข้อเรียบร้อย`, 'success');
+    toggleBulkImport();
+    renderStructureTree(subjectRef);
+}
+
+function parseLecTopics(subjectRef, text, year = 2) {
+    if (year === 1) {
+        return text.split('\n')
+            .map(l => l.trim())
+            .filter(l => /^LEC_.+/.test(l))
+            .map(line => {
+                const m = line.match(/^LEC_(.+)$/);
+                if (!m) return null;
+                const topicName = m[1].trim();
+                return {
+                    CategoryID:    `${subjectRef}_LEC_${topicName}`,
+                    SubjectRef:    subjectRef,
+                    AccordionGroup: `${subjectRef} LEC`,
+                    CategoryName:  topicName
+                };
+            })
+            .filter(Boolean);
+    }
+    return text.split('\n')
+        .map(l => l.trim())
+        .filter(l => /^LEC_[A-Z]+_.+/.test(l))
+        .map(line => {
+            const m = line.match(/^LEC_([A-Z]+)_(.+)$/);
+            if (!m) return null;
+            const discipline = m[1];
+            const topicName = m[2].trim();
+            const groupFn = BULK_GROUP_MAP[discipline];
+            return {
+                CategoryID:    `${subjectRef}_${discipline}_${topicName}`,
+                SubjectRef:    subjectRef,
+                AccordionGroup: groupFn ? groupFn(subjectRef) : `${subjectRef} ${discipline}`,
+                CategoryName:  topicName
+            };
+        })
+        .filter(Boolean);
+}
