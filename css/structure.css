@@ -257,3 +257,289 @@
             padding: 2px 6px;
             border-radius: 10px;
         }
+
+        /* ═══════════════════════════════════════════════
+           SPLIT-PANEL LAYOUT (replaces tree view)
+           ═══════════════════════════════════════════════ */
+
+        /* CSS variable — JS sets this via style.setProperty */
+        .struct-split { --struct-sidebar-w: 230px; }
+
+        .struct-split {
+            display: flex;
+            min-height: calc(100vh - 320px);
+            border: 1px solid #e3e6f0;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        /* ── Left: Subject list ── */
+        .struct-subjects {
+            width: var(--struct-sidebar-w, 230px);
+            min-width: 140px;
+            flex-shrink: 0;
+            background: #f8f9fc;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .struct-subjects-header {
+            padding: 8px 12px;
+            border-bottom: 1px solid #e3e6f0;
+            background: #f1f3fb;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+        }
+
+        .struct-subj-total-badge {
+            font-size: 0.7rem;
+            font-weight: 700;
+            background: #4e73df;
+            color: #fff;
+            border-radius: 10px;
+            padding: 1px 7px;
+            flex-shrink: 0;
+        }
+
+        .struct-subjects-list {
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .struct-subj-item {
+            cursor: pointer;
+            border-bottom: 1px solid #eaecf4;
+            transition: background 0.12s;
+            touch-action: manipulation;
+        }
+
+        .struct-subj-item:hover { background: #edf0fb; }
+        .struct-subj-item.active { background: #4e73df; }
+        .struct-subj-item.active .struct-subj-name,
+        .struct-subj-item.active .struct-subj-count { color: #fff; }
+        .struct-subj-item.active .struct-subj-badge { background: rgba(255,255,255,0.25); color: #fff; }
+        .struct-subj-item.active .btn-node { color: rgba(255,255,255,0.8); }
+        .struct-subj-item.active .btn-node:hover { background: rgba(255,255,255,0.2); color: #fff; }
+
+        .struct-subj-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+            padding: 8px 10px;
+            min-width: 0;
+        }
+
+        .struct-subj-badge {
+            font-size: 0.63rem;
+            font-weight: 700;
+            background: #e8eaf6;
+            color: #4e73df;
+            border-radius: 4px;
+            padding: 2px 5px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .struct-subj-name {
+            font-size: 0.8rem;
+            color: #444;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .struct-subj-count {
+            font-size: 0.7rem;
+            color: #888;
+            flex-shrink: 0;
+        }
+
+        .struct-subj-actions {
+            display: flex;
+            gap: 2px;
+        }
+
+        /* ── Resize handle (desktop only) ── */
+        .struct-resize-handle {
+            width: 5px;
+            flex-shrink: 0;
+            cursor: col-resize;
+            background: transparent;
+            border-right: 1px solid #e3e6f0;
+            transition: background 0.15s, border-color 0.15s;
+            position: relative;
+        }
+        .struct-resize-handle:hover,
+        .struct-resize-handle.dragging {
+            background: #4e73df22;
+            border-color: #4e73df;
+        }
+
+        /* ── Right: Detail panel ── */
+        .struct-detail {
+            flex: 1;
+            min-width: 0;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .struct-detail-header {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: #fff;
+            border-bottom: 1px solid #e3e6f0;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .struct-detail-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #4e73df;
+        }
+
+        .struct-groups-area {
+            padding: 12px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        /* ── Group card ── */
+        .struct-group-card {
+            border: 1px solid #e3e6f0;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .struct-group-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            background: #f0fdf4;
+            border-left: 4px solid #1cc88a;
+            font-size: 0.85rem;
+        }
+
+        /* ── Category table ── */
+        .struct-cat-table-wrap {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .struct-cat-table {
+            font-size: 0.82rem;
+            border-top: 1px solid #e3e6f0;
+            min-width: 360px;
+        }
+        .struct-cat-table thead th {
+            font-size: 0.72rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            color: #888;
+            background: #fafbff;
+            border-bottom: 1px solid #e3e6f0;
+            padding: 5px 10px;
+            white-space: nowrap;
+        }
+        .struct-cat-table tbody tr:hover { background: #f5f7ff; }
+        .struct-cat-table td { padding: 6px 10px; vertical-align: middle; border-bottom: 1px solid #f1f3f9; }
+        .struct-cat-table tbody tr:last-child td { border-bottom: none; }
+
+        .struct-cat-id {
+            font-family: monospace;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #4e73df;
+            background: #eef0fb;
+            border: 1px solid #d5d9f5;
+            border-radius: 4px;
+            padding: 1px 6px;
+            white-space: nowrap;
+        }
+
+        .struct-cat-name { color: #333; }
+
+        /* ── Empty state ── */
+        .struct-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+            color: #b0b7c3;
+            flex: 1;
+        }
+
+        /* ════════════════════════════════════
+           RESPONSIVE BREAKPOINTS
+           ════════════════════════════════════ */
+
+        /* Tablet landscape & smaller desktop (768–1023px):
+           side-by-side, narrower sidebar, no resize handle */
+        @media (max-width: 1023px) {
+            .struct-split { --struct-sidebar-w: 180px; }
+            .struct-resize-handle { display: none; }
+        }
+
+        /* Tablet portrait (576–767px):
+           keep side-by-side but even narrower sidebar */
+        @media (max-width: 767px) {
+            .struct-split {
+                flex-direction: column;
+                min-height: auto;
+            }
+            .struct-subjects {
+                width: 100%;
+                min-width: 0;
+                max-height: 140px;
+                border-right: none;
+                border-bottom: 1px solid #e3e6f0;
+            }
+            .struct-subjects-list {
+                display: flex;
+                flex-direction: row;
+                overflow-x: auto;
+                flex-wrap: nowrap;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: thin;
+            }
+            .struct-subj-item {
+                flex: 0 0 auto;
+                border-bottom: none;
+                border-right: 1px solid #eaecf4;
+            }
+            .struct-subj-inner { padding: 10px 10px; }
+            .struct-detail-header { position: static; }
+            .struct-groups-area { padding: 10px 12px; }
+        }
+
+        /* Small phone (≤ 575px):
+           compact chips — hide name, show only ID badge */
+        @media (max-width: 575px) {
+            .struct-subjects { max-height: 108px; }
+            .struct-subj-name { display: none; }
+            .struct-subj-count { display: none; }
+            .struct-subj-inner { padding: 8px 8px; gap: 4px; }
+            .struct-subj-badge { font-size: 0.68rem; padding: 4px 7px; }
+            .struct-subj-actions .btn-node { width: 28px; height: 28px; }
+            .struct-detail-header { padding: 10px 12px; gap: 8px; }
+            .struct-detail-header .btn { font-size: 0.75rem; padding: 4px 8px; }
+            .struct-groups-area { padding: 8px; gap: 8px; }
+            .struct-cat-table td, .struct-cat-table thead th { padding: 5px 8px; }
+        }

@@ -2,104 +2,199 @@
 // JS/STRUCTURE.JS
 // ─────────────────────────────────────────────────────
 
+let _selectedSubjectID = '';
+
 function renderStructureTree(filterSubjectID = "") {
-        const container = $('#structure-tree-view');
-        container.empty();
+    const container = $('#structure-tree-view');
+    container.empty();
 
-        let subjects = globalData.structure;
-        if (filterSubjectID) subjects = subjects.filter(s => s.SubjectID === filterSubjectID);
+    // Deduplicate subjects
+    const uniqueSubjects = [];
+    const seenIDs = new Set();
+    (globalData.structure || []).forEach(s => {
+        if (!seenIDs.has(s.SubjectID)) { uniqueSubjects.push(s); seenIDs.add(s.SubjectID); }
+    });
+    uniqueSubjects.sort((a, b) => {
+        const yr = (a.Year || 0) - (b.Year || 0);
+        return yr !== 0 ? yr : a.SubjectID.localeCompare(b.SubjectID);
+    });
 
-        // Remove duplicate subjects based on SubjectID
-        const uniqueSubjects = [];
-        const seenSubjectIDs = new Set();
+    // Resolve which subject to show — explicit param wins, else remember last, else first
+    let toSelect = filterSubjectID;
+    if (!toSelect) toSelect = _selectedSubjectID;
+    if (!toSelect || !uniqueSubjects.find(s => s.SubjectID === toSelect)) {
+        toSelect = uniqueSubjects.length > 0 ? uniqueSubjects[0].SubjectID : '';
+    }
+    _selectedSubjectID = toSelect;
 
-        subjects.forEach(subj => {
-            if (!seenSubjectIDs.has(subj.SubjectID)) {
-                uniqueSubjects.push(subj);
-                seenSubjectIDs.add(subj.SubjectID);
-            }
-        });
-
-        let treeHtml = '<ul class="tree-view">';
-
-        uniqueSubjects.forEach(subj => {
-            // LEVEL 1: SUBJECT
-            treeHtml += `
-            <li id="node-subj-${subj.SubjectID}">
-                <div class="tree-node node-subject">
-                    <i class="fas fa-chevron-down toggle-icon" onclick="toggleTreeNode(this)"></i>
-                    <i class="fas fa-university me-2 text-primary"></i>
-                    <span class="fw-bold">${subj.SubjectID} - ${subj.SubjectName}</span>
-                    <div class="node-actions">
-                        <button class="btn-node btn-add" onclick="crudAction('addGroup', '${subj.SubjectID}')" title="เพิ่ม Group"><i class="fas fa-plus"></i></button>
-                        <button class="btn-node btn-edit" onclick="crudAction('editSubj', '${subj.SubjectID}')"><i class="fas fa-pen"></i></button>
-                        <button class="btn-node btn-delete" onclick="crudAction('deleteSubj', '${subj.SubjectID}')"><i class="fas fa-trash"></i></button>
+    // ── Left panel: subject list ──────────────────────
+    let subjectListHTML = '';
+    uniqueSubjects.forEach(subj => {
+        const catCount = (globalData.category || []).filter(c => c.SubjectRef === subj.SubjectID).length;
+        const isActive = toSelect === subj.SubjectID;
+        subjectListHTML += `
+        <div class="struct-subj-item${isActive ? ' active' : ''}" data-sid="${subj.SubjectID}" onclick="selectSubject('${subj.SubjectID}')">
+            <div class="struct-subj-inner">
+                <div class="d-flex align-items-center gap-2 min-w-0">
+                    <span class="struct-subj-badge">${subj.SubjectID}</span>
+                    <span class="struct-subj-name">${subj.SubjectName || ''}</span>
+                </div>
+                <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                    <span class="struct-subj-count">${catCount}</span>
+                    <div class="struct-subj-actions">
+                        <button class="btn-node btn-edit" onclick="event.stopPropagation();crudAction('editSubj','${subj.SubjectID}')" title="แก้ไข"><i class="fas fa-pen"></i></button>
+                        <button class="btn-node btn-delete" onclick="event.stopPropagation();crudAction('deleteSubj','${subj.SubjectID}')" title="ลบ"><i class="fas fa-trash"></i></button>
                     </div>
                 </div>
-                <ul>`;
+            </div>
+        </div>`;
+    });
 
-            // ดึง Group ทั้งหมดในวิชานี้ (ลบซ้ำ)
-            const groups = [...new Set(globalData.category.filter(c => c.SubjectRef === subj.SubjectID).map(c => c.AccordionGroup))].sort();
+    // ── Right panel: detail ───────────────────────────
+    const detailHTML = toSelect ? renderSubjectDetail(toSelect) : `
+        <div class="struct-empty">
+            <i class="fas fa-sitemap fa-2x text-muted mb-3"></i>
+            <p class="text-muted">เลือกวิชาทางด้านซ้าย</p>
+        </div>`;
 
-            groups.forEach(groupName => {
-                // LEVEL 2: ACCORDION GROUP
-                treeHtml += `
-                <li>
-                    <div class="tree-node node-group">
-                        <i class="fas fa-chevron-down toggle-icon" onclick="toggleTreeNode(this)"></i>
-                        <i class="fas fa-layer-group me-2 text-success"></i>
-                        <span>${groupName || 'GENERAL'}</span>
-                        <div class="node-actions">
-                            <button class="btn-node btn-add" onclick="crudAction('addCat', '${subj.SubjectID}', '${groupName}')" title="เพิ่มหัวข้อ"><i class="fas fa-plus"></i></button>
-                            <!-- NEW: ปุ่มแก้ไข Group -->
-                            <button class="btn-node btn-edit" onclick="crudAction('editGroup', '${subj.SubjectID}', '${groupName}')" title="แก้ไขชื่อ Group"><i class="fas fa-pen"></i></button>
-                            <!-- END NEW -->
-                            <button class="btn-node btn-delete" onclick="crudAction('deleteGroup', '${subj.SubjectID}', '${groupName}')"><i class="fas fa-trash"></i></button>
-                        </div>
-                    </div>
-                    <ul>`;
+    container.html(`
+    <div class="struct-split">
+        <div class="struct-subjects">
+            <div class="struct-subjects-header">
+                <span class="small text-muted fw-semibold">วิชาทั้งหมด</span>
+                <span class="struct-subj-total-badge">${uniqueSubjects.length}</span>
+            </div>
+            <div class="struct-subjects-list">${subjectListHTML}</div>
+        </div>
+        <div class="struct-resize-handle" title="ลากเพื่อปรับขนาด"></div>
+        <div class="struct-detail" id="struct-detail-panel">${detailHTML}</div>
+    </div>`);
+    initStructureResize();
+}
 
-                // LEVEL 3: CATEGORY (ลบซ้ำ)
-                const seenCategoryIDs = new Set();
-                const categories = globalData.category.filter(c => {
-                    if (c.SubjectRef === subj.SubjectID && c.AccordionGroup === groupName) {
-                        if (!seenCategoryIDs.has(c.CategoryID)) {
-                            seenCategoryIDs.add(c.CategoryID);
-                            return true;
-                        }
-                    }
-                    return false;
-                });
+function initStructureResize() {
+    if (window.innerWidth < 1024) return;
+    const handle = document.querySelector('.struct-resize-handle');
+    const split = document.querySelector('.struct-split');
+    if (!handle || !split) return;
 
-                categories.forEach(cat => {
-                    treeHtml += `
-                    <li>
-                        <div class="tree-node node-category">
-                            <i class="fas fa-tag me-2 text-secondary"></i>
-                            <span class="small"><b>${cat.CategoryID}:</b> ${cat.CategoryName}</span>
-                            <div class="node-actions">
-                                <button class="btn-node btn-edit" onclick="crudAction('editCat', '${cat.CategoryID}')"><i class="fas fa-pen"></i></button>
-                                <button class="btn-node btn-delete" onclick="crudAction('deleteCat', '${cat.CategoryID}')"><i class="fas fa-trash"></i></button>
-                            </div>
-                        </div>
-                    </li>`;
-                });
+    const savedW = localStorage.getItem('struct_sidebar_w');
+    if (savedW) split.style.setProperty('--struct-sidebar-w', savedW);
 
-                treeHtml += '</ul></li>';
-            });
+    let dragging = false, startX = 0, startW = 0;
+    handle.addEventListener('mousedown', e => {
+        dragging = true;
+        startX = e.clientX;
+        startW = document.querySelector('.struct-subjects').offsetWidth;
+        handle.classList.add('dragging');
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        e.preventDefault();
+    });
+    document.addEventListener('mousemove', e => {
+        if (!dragging) return;
+        const newW = Math.max(140, Math.min(420, startW + (e.clientX - startX)));
+        split.style.setProperty('--struct-sidebar-w', newW + 'px');
+    });
+    document.addEventListener('mouseup', () => {
+        if (!dragging) return;
+        dragging = false;
+        handle.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        const w = document.querySelector('.struct-subjects')?.offsetWidth;
+        if (w) localStorage.setItem('struct_sidebar_w', w + 'px');
+    });
+}
 
-            treeHtml += '</ul></li>';
+function selectSubject(subjectID) {
+    _selectedSubjectID = subjectID;
+    $('#struct-subject-filter').val(subjectID);
+    $('.struct-subj-item').removeClass('active');
+    $(`.struct-subj-item[data-sid="${subjectID}"]`).addClass('active');
+    $('#struct-detail-panel').html(renderSubjectDetail(subjectID));
+}
+
+function renderSubjectDetail(subjectID) {
+    const subj = (globalData.structure || []).find(s => s.SubjectID === subjectID);
+    const groups = [...new Set((globalData.category || [])
+        .filter(c => c.SubjectRef === subjectID)
+        .map(c => c.AccordionGroup)
+    )].sort();
+
+    let html = `
+    <div class="struct-detail-header">
+        <div class="d-flex align-items-center flex-wrap gap-2">
+            <span class="struct-detail-title">${subjectID}</span>
+            ${subj?.SubjectName ? `<span class="text-muted">${subj.SubjectName}</span>` : ''}
+            ${subj?.Year ? `<span class="badge bg-light text-secondary border">ปี ${subj.Year}</span>` : ''}
+        </div>
+        <div class="d-flex gap-2 flex-shrink-0">
+            <button class="btn btn-outline-success btn-sm" onclick="crudAction('addGroup','${subjectID}')">
+                <i class="fas fa-plus me-1"></i>Add Group
+            </button>
+            <button class="btn btn-primary btn-sm" onclick="crudAction('addCat','${subjectID}')">
+                <i class="fas fa-plus me-1"></i>Add Category
+            </button>
+        </div>
+    </div>
+    <div class="struct-groups-area">`;
+
+    if (groups.length === 0) {
+        html += `<div class="struct-empty"><i class="fas fa-folder-open fa-2x text-muted mb-2"></i><p class="text-muted small">ยังไม่มีกลุ่มหัวข้อในวิชานี้</p></div>`;
+    }
+
+    groups.forEach(groupName => {
+        const seenCatIDs = new Set();
+        const cats = (globalData.category || []).filter(c => {
+            if (c.SubjectRef === subjectID && c.AccordionGroup === groupName && !seenCatIDs.has(c.CategoryID)) {
+                seenCatIDs.add(c.CategoryID);
+                return true;
+            }
+            return false;
         });
 
-        treeHtml += '</ul>';
-        container.html(treeHtml);
-    }
+        const safeGroup = (groupName || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
-function toggleTreeNode(el) {
-        // ... (โค้ด toggleTreeNode เดิม) ...
-        $(el).closest('.tree-node').toggleClass('collapsed');
-        // ... (จบโค้ด toggleTreeNode เดิม) ...
-    }
+        html += `
+        <div class="struct-group-card">
+            <div class="struct-group-header">
+                <i class="fas fa-layer-group me-2 text-success"></i>
+                <span class="fw-semibold">${groupName || 'GENERAL'}</span>
+                <span class="badge bg-light text-secondary border ms-2">${cats.length}</span>
+                <div class="ms-auto d-flex gap-1">
+                    <button class="btn-node btn-add" onclick="crudAction('addCat','${subjectID}','${safeGroup}')" title="เพิ่มหัวข้อ"><i class="fas fa-plus"></i></button>
+                    <button class="btn-node btn-edit" onclick="crudAction('editGroup','${subjectID}','${safeGroup}')" title="แก้ไขกลุ่ม"><i class="fas fa-pen"></i></button>
+                    <button class="btn-node btn-delete" onclick="crudAction('deleteGroup','${subjectID}','${safeGroup}')" title="ลบกลุ่ม"><i class="fas fa-trash"></i></button>
+                </div>
+            </div>
+            <div class="struct-cat-table-wrap">
+            <table class="struct-cat-table table table-sm mb-0">
+                <thead><tr>
+                    <th style="width:165px">Category ID</th>
+                    <th>ชื่อหัวข้อ</th>
+                    <th style="width:72px" class="text-end">จัดการ</th>
+                </tr></thead>
+                <tbody>`;
+
+        cats.forEach(cat => {
+            html += `
+                <tr>
+                    <td><span class="struct-cat-id">${cat.CategoryID}</span></td>
+                    <td class="struct-cat-name">${cat.CategoryName}</td>
+                    <td class="text-end" style="white-space:nowrap">
+                        <button class="btn-node btn-edit" onclick="crudAction('editCat','${cat.CategoryID}')" title="แก้ไข"><i class="fas fa-pen"></i></button>
+                        <button class="btn-node btn-delete" onclick="crudAction('deleteCat','${cat.CategoryID}')" title="ลบ"><i class="fas fa-trash"></i></button>
+                    </td>
+                </tr>`;
+        });
+
+        html += `</tbody></table></div></div>`;
+    });
+
+    html += `</div>`;
+    return html;
+}
 
 async function confirmStrictDelete(itemName, confirmKey) {
         // ... (โค้ด confirmStrictDelete เดิม) ...

@@ -432,35 +432,16 @@
                             <div id="bulk-preview-area" class="mt-3"></div>
                         </div>
 
-                        <!-- Filter -->
-                        <div class="row mb-4">
-                            <div class="col-md-5">
-                                <label class="form-label small fw-bold">กรองตามรายวิชา (Filter by Subject)</label>
-                                <div class="input-group">
-                                    <span class="input-group-text"><i class="fas fa-filter"></i></span>
-                                    <select id="struct-subject-filter" class="form-select"
-                                        onchange="renderStructureTree(this.value)">
-                                        <option value="">-- แสดงทุกวิชา --</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
+                        <!-- Hidden filter — kept for app.js state management -->
+                        <select id="struct-subject-filter" class="d-none" onchange="renderStructureTree(this.value)">
+                            <option value="">-- แสดงทุกวิชา --</option>
+                        </select>
 
-                        <!-- Area สำหรับแสดง Tree -->
-                        <div class="tree-container"
-                            style="max-height: calc(100vh - 300px); overflow-y: auto; -webkit-overflow-scrolling: touch; padding-right: 8px;">
-                            <div id="structure-tree-view" class="tree-view">
-                                <!-- โครงสร้าง Folder จะถูกสร้างที่นี่ -->
-                                <div class="text-center py-4 text-muted">
-                                    <i class="fas fa-spinner fa-spin"></i> กำลังสร้างโครงสร้าง...
-                                </div>
+                        <!-- Split-panel view -->
+                        <div id="structure-tree-view" style="min-height: calc(100vh - 320px);">
+                            <div class="text-center py-4 text-muted">
+                                <i class="fas fa-spinner fa-spin"></i> กำลังสร้างโครงสร้าง...
                             </div>
-                        </div>
-
-                        <!-- (Option) ปุ่มดูแบบตารางเดิมถ้าต้องการ -->
-                        <div class="mt-3 text-end">
-                            <small class="text-muted">หากต้องการแก้ไขรหัสโดยตรง โปรดใช้หน้า <b>จัดการ
-                                    Database</b></small>
                         </div>
                     </div>
                 </div>
