@@ -32,6 +32,8 @@ function renderReportList() {
         filteredReports.forEach((r, index) => {
             let reportDetail = r['ReportDetail'] || '-';
             let suggested = r['SuggestedAnswer'] || '-';
+            const voteCount = parseInt(r['VoteCount']) || 0;
+            const isAutoResolved = String(r['Status'] || "").trim() === 'AutoResolved';
 
             const rQid = r['QuestionID'] || "";
             let dbQuestion = globalData.questions.find(q => q.questionId === rQid);
@@ -66,12 +68,14 @@ function renderReportList() {
             }
 
             let card = `
-            <div class="card mb-4 shadow-sm border-0 bg-white" style="border-left: 4px solid #e74a3b !important;">
+            <div class="card mb-4 shadow-sm border-0 bg-white" style="border-left: 4px solid ${isAutoResolved ? '#22c55e' : '#e74a3b'} !important;">
                 <div class="card-body">
                     <div class="row">
                         <div class="col-md-8 border-end">
                             <h5 class="text-primary fw-bold">
                                 <i class="fas fa-hashtag me-1"></i> ${r['Category'] || 'Unknown Category'}
+                                ${isAutoResolved ? '<span class="badge bg-success ms-2"><i class="fas fa-robot"></i> AutoResolved</span>' : ''}
+                                ${voteCount > 0 ? `<span class="badge bg-secondary ms-1"><i class="fas fa-users"></i> ${voteCount} votes</span>` : ''}
                                 <small class="text-muted fs-6 float-end"><i class="far fa-clock"></i> ${formatDate(r['Time'])}</small>
                             </h5>
     
@@ -258,4 +262,10 @@ function openEditReportModal(reportTime) {
 
         // *** จุดสำคัญ: ต้องส่ง suggestedAnswer ไปที่ openEditModal ***
         openEditModal(dbQuestion.questionId, suggestedAnswer);
+
+        // Pre-fill explanation if reporter provided a suggested explanation
+        const suggestedExplain = r['SuggestedExplain'];
+        if (suggestedExplain && suggestedExplain.toString().trim()) {
+            $('#edit-explanation').val(suggestedExplain.toString().trim());
+        }
     }
