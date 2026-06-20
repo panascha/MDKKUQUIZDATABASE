@@ -543,7 +543,8 @@ async function fetchData(forceRefresh = false, isAutoPoll = false) {
                 category: data.category || [],
                 votes: data.votes || [],
                 logs: data.logs || [],
-                admins: data.admins || []
+                admins: data.admins || [],
+                announcements: data.announcements || []
             };
 
             // บันทึกลง Cache (IndexedDB) ทันที
@@ -724,6 +725,11 @@ function refreshTables(keepState = false) {
         // 5. Dashboard (อัปเดตตัวเลข/ตารางรายงาน)
         if (!$('#sec-dashboard').hasClass('hidden')) {
             updateDashboard();
+        }
+
+        // 6. หน้าจัดการประกาศ (Banners)
+        if (!$('#sec-announcements').hasClass('hidden')) {
+            renderAnnouncementsList();
         }
 
         if ($.fn.DataTable.isDataTable('#publicTable')) {

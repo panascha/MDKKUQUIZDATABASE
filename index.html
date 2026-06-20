@@ -80,6 +80,9 @@
                 <a href="#" class="list-group-item list-group-item-action" onclick="showSection('converter')">
                     <i class="fas fa-file-code"></i> Converter Tool
                 </a>
+                <a href="#" class="list-group-item list-group-item-action" onclick="showSection('announcements')">
+                    <i class="fas fa-bullhorn"></i> จัดการประกาศ (Banners)
+                </a>
                 <a href="#" class="list-group-item list-group-item-action developer-only" onclick="showSection('logs')">
                     <i class="fas fa-list-ul"></i> Activity Logs
                 </a>
@@ -787,6 +790,37 @@
                                     </tr>
                                 </thead>
                                 <tbody id="admin-user-list"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION: Announcements Manager (Admin) -->
+            <div id="sec-announcements" class="content-section hidden">
+                <div class="card card-dashboard">
+                    <div class="card-header-custom">
+                        <span><i class="fas fa-bullhorn me-2"></i> จัดการป้ายประกาศแบบ Dynamic (Announcements)</span>
+                        <button class="btn btn-success btn-sm shadow-sm" onclick="openAddAnnouncementModal()">
+                            <i class="fas fa-plus"></i> เพิ่มประกาศใหม่
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-striped" style="width:100%" id="announcementsTable">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 100px;">ID</th>
+                                        <th>ข้อความประกาศ (HTML)</th>
+                                        <th style="width: 130px;">ประเภทสี</th>
+                                        <th style="width: 110px; text-align: center;">สถานะใช้งาน</th>
+                                        <th style="width: 80px; text-align: center;">ลำดับ</th>
+                                        <th style="width: 120px; text-align: center;">การกระทำ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="announcements-list-body">
+                                    <!-- Populated by JS -->
+                                </tbody>
                             </table>
                         </div>
                     </div>
@@ -1516,6 +1550,7 @@
 <script src="js/extractor.js"></script>
 <script src="js/queue.js"></script>
 <script src="js/converter.js"></script>
+<script src="js/announcements.js"></script>
 <script src="js/app.js"></script>
 <script>
     // PDF.js worker (must be set after pdf.min.js loads)

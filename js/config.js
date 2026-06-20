@@ -10,7 +10,8 @@ window.globalData = {
         category: [],
         report: [],
         votes: [],
-        logs: []
+        logs: [],
+        announcements: []
     };
 
 window.currentUser = { displayName: 'Guest', avatar: '', username: '', role: '' };

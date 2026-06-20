@@ -466,7 +466,7 @@ function confirmAdmin() {
 
 function showSection(sectionId) {
 
-        const adminSections = ['report-inbox', 'database', 'structure', 'converter', 'logs', 'admin-manager'];
+        const adminSections = ['report-inbox', 'database', 'structure', 'converter', 'logs', 'admin-manager', 'announcements'];
 
         if (adminSections.includes(sectionId) && !isAdmin) {
             checkAuthBeforeAction(() => showSection(sectionId));
@@ -492,6 +492,8 @@ function showSection(sectionId) {
             } else if (sectionId === 'admin-manager') {
                 loadAdminManager();
             }
+        } else if (sectionId === 'announcements') {
+            renderAnnouncementsList();
         }
 
         $('#page-title').text(sectionId.charAt(0).toUpperCase() + sectionId.slice(1).replace('-', ' '));
