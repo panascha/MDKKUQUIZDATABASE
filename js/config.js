@@ -2,7 +2,7 @@
 // JS/CONFIG.JS
 // ─────────────────────────────────────────────────────
 
-window.APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxbejOfM77QLzNE1TyY4OXzAmyhC9IjzwMnw5TbZnDvX1T-jX_aL2bQ3mM1dogXvqCj/exec';
+window.APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwqv5BXxGOvTKO1DJoahJSTgn74_lPnRq_opqrUndXhJC3TAt7PHv6B_PbMvxzrAAIl/exec';
 
 window.globalData = {
         questions: [],
