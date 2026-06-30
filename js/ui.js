@@ -315,46 +315,40 @@ async function submitRegister() {
     }
 
 async function submitResetPassword() {
-        const data = {
-            verifyData: {
-                Username: $('#reset-username').val().trim(),
-                KKUMail: $('#reset-kkumail').val().trim(),
-                StudentID: $('#reset-studentid').val().trim(),
-                FullName: $('#reset-fullname').val().trim()
-            },
-            newPassword: $('#reset-newpass').val()
-        };
+    const data = {
+        verifyData: {
+            Username: $('#reset-username').val().trim(),
+            KKUMail: $('#reset-kkumail').val().trim(),
+            StudentID: $('#reset-studentid').val().trim(),
+            FullName: $('#reset-fullname').val().trim()
+        },
+        newPassword: $('#reset-newpass').val()
+    };
 
-        if (!data.newPassword || data.newPassword.length < 4) {
-            Swal.fire('Warning', 'กรุณาตั้งรหัสผ่านใหม่อย่างน้อย 4 ตัวอักษร', 'warning');
-            return;
-        }
-
-        $('#loading-overlay').css('display', 'flex');
-        try {
-            const response = await fetch(APPSCRIPT_URL, {
-                method: 'POST',
-                redirect: "follow",
-                headers: { "Content-Type": "text/plain" },
-                body: JSON.stringify({
-                    action: 'resetPassword',
-                    ...data
-                })
-            });
-            const res = await response.json();
-
-            if (res.result === 'success') {
-                Swal.fire('สำเร็จ', 'เปลี่ยนรหัสผ่านเรียบร้อยแล้ว กรุณาล็อกอินด้วยรหัสผ่านใหม่', 'success');
-                $('#resetModal').modal('hide');
-            } else {
-                Swal.fire('Error', res.message, 'error');
-            }
-        } catch (e) {
-            Swal.fire('Error', e.message, 'error');
-        } finally {
-            $('#loading-overlay').hide();
-        }
+    if (!data.newPassword || data.newPassword.length < 4) {
+        Swal.fire('Warning', 'กรุณาตั้งรหัสผ่านใหม่อย่างน้อย 4 ตัวอักษร', 'warning');
+        return;
     }
+
+    $('#loading-overlay').css('display', 'flex');
+    try {
+        const res = await sendWithRetry({
+            action: 'resetPassword',
+            ...data
+        });
+
+        if (res.result === 'success') {
+            Swal.fire('สำเร็จ', 'เปลี่ยนรหัสผ่านเรียบร้อยแล้ว กรุณาล็อกอินด้วยรหัสผ่านใหม่', 'success');
+            $('#resetModal').modal('hide');
+        } else {
+            Swal.fire('Error', res.message, 'error');
+        }
+    } catch (e) {
+        Swal.fire('Error', e.message, 'error');
+    } finally {
+        $('#loading-overlay').hide();
+    }
+}
 
 async function performLogin() {
         const username = $('#login-username').val();

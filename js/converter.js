@@ -650,10 +650,8 @@ async function importConvertedData() {
                     const dataToImport = getFilteredImportData(sheet.key);
 
                     if (dataToImport.length > 0) {
-                        const response = await fetch(APPSCRIPT_URL, {
-                            method: 'POST',
-                            headers: { "Content-Type": "text/plain;charset=utf-8" },
-                            body: JSON.stringify({
+                        try {
+                            const resJson = await sendWithRetry({
                                 action: 'adminImport',
                                 username: currentUser.username,
                                 adminPass: adminPass,
@@ -661,21 +659,21 @@ async function importConvertedData() {
                                     sheetName: sheet.key,
                                     data: dataToImport
                                 }
-                            }),
-                            redirect: 'follow'
-                        });
+                            });
 
-                        const resJson = await response.json();
-
-                        if (resJson.result === 'success') {
-                            totalNew += (resJson.count || 0);
-                            totalSkipped += (resJson.skipped || 0);
-                            const addedLine = resJson.added != null
-                                ? `เพิ่ม ${resJson.added}, อัปเดต ${resJson.updated}`
-                                : `เพิ่ม/อัปเดต ${resJson.count} แถว (ซ้ำ ${resJson.skipped || 0})`;
-                            importLog += `• ${sheet.name}: ${addedLine}\n`;
-                        } else {
-                            console.error(`Error importing ${sheet.name}:`, resJson.message);
+                            if (resJson.result === 'success') {
+                                totalNew += (resJson.count || 0);
+                                totalSkipped += (resJson.skipped || 0);
+                                const addedLine = resJson.added != null
+                                    ? `เพิ่ม ${resJson.added}, อัปเดต ${resJson.updated}`
+                                    : `เพิ่ม/อัปเดต ${resJson.count} แถว (ซ้ำ ${resJson.skipped || 0})`;
+                                importLog += `• ${sheet.name}: ${addedLine}\n`;
+                            } else {
+                                console.error(`Error importing ${sheet.name}:`, resJson.message);
+                            }
+                        } catch (fetchErr) {
+                            console.error(`Error importing ${sheet.name}:`, fetchErr);
+                            throw fetchErr;
                         }
                     }
                 }

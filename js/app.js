@@ -347,109 +347,102 @@ $(document).ready(function () {
 
         // --- 2.4 Report Modal Bindings ---
         $('#cancel-report').on('click', () => $('#report-card').fadeOut());
-        // #submit-report logic is large, so keep it inside document.ready but after global functions.
-        $('#submit-report').on('click', async function () {
+    // #submit-report logic is large, so keep it inside document.ready but after global functions.
+    $('#submit-report').on('click', async function () {
 
-            // 1. ดึง Category ID และแปลงเป็น String
-            let currentCategoryIds = current_question.category || [];
-            let categoryString = Array.isArray(currentCategoryIds) ? currentCategoryIds.join(", ") : currentCategoryIds;
+        // 1. ดึง Category ID และแปลงเป็น String
+        let currentCategoryIds = current_question.category || [];
+        let categoryString = Array.isArray(currentCategoryIds) ? currentCategoryIds.join(", ") : currentCategoryIds;
 
-            // 2. หา "Subject" (วิชา) จาก Category ID
-            let subjectFrom = "Unknown Subject";
+        // 2. หา "Subject" (วิชา) จาก Category ID
+        let subjectFrom = "Unknown Subject";
 
-            if (globalData.category && Array.isArray(currentCategoryIds) && currentCategoryIds.length > 0) {
-                let firstCatId = String(currentCategoryIds[0]).trim();
-                const matchedCategoryInfo = globalData.category.find(t => String(t.CategoryID) === firstCatId);
+        if (globalData.category && Array.isArray(currentCategoryIds) && currentCategoryIds.length > 0) {
+            let firstCatId = String(currentCategoryIds[0]).trim();
+            const matchedCategoryInfo = globalData.category.find(t => String(t.CategoryID) === firstCatId);
 
-                if (matchedCategoryInfo && matchedCategoryInfo.SubjectRef) {
-                    subjectFrom = matchedCategoryInfo.SubjectRef;
-                }
+            if (matchedCategoryInfo && matchedCategoryInfo.SubjectRef) {
+                subjectFrom = matchedCategoryInfo.SubjectRef;
             }
+        }
 
-            // 3. ส่วนตรวจสอบ Input (Validation)
-            const $select = $('#report-correct-choice-select');
-            const $inputNew = $('#report-new-choice-input');
-            const $reason = $('#report_text');
+        // 3. ส่วนตรวจสอบ Input (Validation)
+        const $select = $('#report-correct-choice-select');
+        const $inputNew = $('#report-new-choice-input');
+        const $reason = $('#report_text');
 
-            const selectedVal = $select.val();
-            const newVal = $inputNew.val().trim();
-            const reasonVal = $reason.val().trim();
+        const selectedVal = $select.val();
+        const newVal = $inputNew.val().trim();
+        const reasonVal = $reason.val().trim();
 
-            if (selectedVal === 'newanswer' && !newVal) {
-                Swal.fire('แจ้งเตือน', 'กรุณาพิมพ์คำตอบที่ถูกต้องใหม่ในช่องด้านล่าง', 'warning');
-                setTimeout(() => $inputNew.focus(), 500);
-                return;
+        if (selectedVal === 'newanswer' && !newVal) {
+            Swal.fire('แจ้งเตือน', 'กรุณาพิมพ์คำตอบที่ถูกต้องใหม่ในช่องด้านล่าง', 'warning');
+            setTimeout(() => $inputNew.focus(), 500);
+            return;
+        }
+
+        if (reasonVal === '') {
+            Swal.fire('แจ้งเตือน', 'กรุณาระบุเหตุผลของปัญหา', 'warning');
+            setTimeout(() => $reason.focus(), 500);
+            return;
+        }
+
+        // --- ส่วนจัดการข้อมูลก่อนส่ง (Data Processing) ---
+        // 4. จัดการคำตอบที่เสนอ (Suggested Choice)
+        let suggestedChoice = (selectedVal === 'newanswer') ? newVal : selectedVal;
+        if (suggestedChoice && (suggestedChoice.includes('drive.google') || suggestedChoice.startsWith('http'))) {
+            suggestedChoice = transformUrl(suggestedChoice);
+        }
+
+        // 5. จัดการรูปโจทย์ (Question Images)
+        let questionImagesString = "";
+        if (current_question.img) {
+            const rawImgs = current_question.img.split("///");
+            const processedImgs = rawImgs.map(url => transformUrl(url.trim()));
+            questionImagesString = processedImgs.join("///");
+        }
+
+        // 6. จัดการตัวเลือกทั้งหมด (Format ให้ดูง่ายขึ้น)
+        const allChoices = (current_question.choices || "").split("///").map((s, i) => {
+            const letter = String.fromCharCode(65 + i);
+            let choiceText = s.trim();
+            const isCurrentAnswer = choiceText === (current_question.answer || "").trim();
+            return `${letter}. ${isCurrentAnswer ? '(เฉลยปัจจุบัน) ' : ''}${choiceText}`;
+        }).join("\n");
+
+        // --- ส่วนการส่งข้อมูล (Fetch) ---
+        const $btn = $(this);
+        $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Sending...');
+
+        const reportData = {
+            action: 'submitReport',
+            from: subjectFrom,
+            category: categoryString,
+            questionId: current_question.questionId,
+            question: current_question.problem,
+            questionImages: questionImagesString,
+            allChoices: allChoices,
+            suggestedChoice: suggestedChoice,
+            report: reasonVal
+        };
+
+        try {
+            const resJson = await sendWithRetry(reportData);
+
+            if (resJson.result === 'success') {
+                Swal.fire('สำเร็จ', 'ขอบคุณที่แจ้งปัญหา! ข้อมูลจะถูกส่งให้ทีมงานตรวจสอบ', 'success');
+                $('#report-card').fadeOut();
+                fetchData();
+            } else {
+                throw new Error(resJson.error || 'Server reported error');
             }
-
-            if (reasonVal === '') {
-                Swal.fire('แจ้งเตือน', 'กรุณาระบุเหตุผลของปัญหา', 'warning');
-                setTimeout(() => $reason.focus(), 500);
-                return;
-            }
-
-            // --- ส่วนจัดการข้อมูลก่อนส่ง (Data Processing) ---
-            // 4. จัดการคำตอบที่เสนอ (Suggested Choice)
-            let suggestedChoice = (selectedVal === 'newanswer') ? newVal : selectedVal;
-            if (suggestedChoice && (suggestedChoice.includes('drive.google') || suggestedChoice.startsWith('http'))) {
-                suggestedChoice = transformUrl(suggestedChoice);
-            }
-
-            // 5. จัดการรูปโจทย์ (Question Images)
-            let questionImagesString = "";
-            if (current_question.img) {
-                const rawImgs = current_question.img.split("///");
-                const processedImgs = rawImgs.map(url => transformUrl(url.trim()));
-                questionImagesString = processedImgs.join("///");
-            }
-
-            // 6. จัดการตัวเลือกทั้งหมด (Format ให้ดูง่ายขึ้น)
-            const allChoices = (current_question.choices || "").split("///").map((s, i) => {
-                const letter = String.fromCharCode(65 + i);
-                let choiceText = s.trim();
-                const isCurrentAnswer = choiceText === (current_question.answer || "").trim();
-                return `${letter}. ${isCurrentAnswer ? '(เฉลยปัจจุบัน) ' : ''}${choiceText}`;
-            }).join("\n");
-
-            // --- ส่วนการส่งข้อมูล (Fetch) ---
-            const $btn = $(this);
-            $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Sending...');
-
-            const reportData = {
-                action: 'submitReport',
-                from: subjectFrom,
-                category: categoryString,
-                questionId: current_question.questionId,
-                question: current_question.problem,
-                questionImages: questionImagesString,
-                allChoices: allChoices,
-                suggestedChoice: suggestedChoice,
-                report: reasonVal
-            };
-
-            try {
-                const response = await fetch(APPSCRIPT_URL, {
-                    method: "POST",
-                    redirect: "follow",
-                    headers: { "Content-Type": "text/plain;charset=utf-8" },
-                    body: JSON.stringify(reportData)
-                });
-
-                const resJson = await response.json();
-
-                if (resJson.result === 'success') {
-                    Swal.fire('สำเร็จ', 'ขอบคุณที่แจ้งปัญหา! ข้อมูลจะถูกส่งให้ทีมงานตรวจสอบ', 'success');
-                    $('#report-card').fadeOut();
-                    fetchData();
-                } else {
-                    throw new Error(resJson.error || 'Server reported error');
-                }
-            } catch (error) {
-                console.error(error);
-                Swal.fire('Error', 'ไม่สามารถส่งรายงานได้: ' + error.message, 'error');
-            } finally {
-                $btn.prop('disabled', false).text('ส่งรายงาน (Submit)');
-            }
-        });
+        } catch (error) {
+            console.error(error);
+            Swal.fire('Error', 'ไม่สามารถส่งรายงานได้: ' + error.message, 'error');
+        } finally {
+            $btn.prop('disabled', false).text('ส่งรายงาน (Submit)');
+        }
+    });
 
         // --- 2.5 Initial Data & Table Setup ---
         initPublicTable();
