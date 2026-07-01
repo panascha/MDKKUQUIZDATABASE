@@ -112,17 +112,35 @@ async function saveQuestionChanges() {
 
     // --- STEP 2: Optimistic UI Update (แก้หน้าจอทันที) ---
     const qIndex = globalData.questions.findIndex(q => q.questionId === qId);
-    if (qIndex !== -1) {
-        // อัปเดตข้อมูลจำลองในเครื่องก่อน เพื่อให้ User เห็นความเปลี่ยนแปลงทันที
-        globalData.questions[qIndex].problem = problemText;
+    let originalQuestionBackup = null;
 
+    if (qIndex !== -1) {
+        // ทำสำรองข้อมูลดั้งเดิมก่อนเขียนทับเพื่อทำกระบวนการย้อนกลับเมื่อทำงานล้มเหลว
+        originalQuestionBackup = JSON.parse(JSON.stringify(globalData.questions[qIndex]));
+
+        // บังคับแปลงตัวเลือก (Choices) และ เฉลย (Answer) ท้องถิ่นชั่วคราวเพื่อทำ Optimistic Update ทันที
+        const tempChoicesList = rowsSnapshot.map(row => {
+            if (row.isPending) return "[IMAGE_PENDING]";
+            if (row.isExisting) return row.imageData;
+            return row.text;
+        }).filter(Boolean);
+
+        const tempCorrectAnswer = rowsSnapshot.find(row => row.isCorrect)
+            ? (rowsSnapshot.find(row => row.isCorrect).isExisting
+                ? rowsSnapshot.find(row => row.isCorrect).imageData
+                : rowsSnapshot.find(row => row.isCorrect).text)
+            : "";
+
+        globalData.questions[qIndex].problem = problemText;
         const tempExplainUrls = Array.from(new Set([...snapshotExistingExplain, ...snapshotPendingExplain]))
             .filter(url => url.trim() !== "");
         globalData.questions[qIndex].explain = serializeExplain(explainText, tempExplainUrls);
         globalData.questions[qIndex].category = categories;
         globalData.questions[qIndex].img = uniqueMainImages.join('///');
+        globalData.questions[qIndex].choices = tempChoicesList.join('///');
+        globalData.questions[qIndex].answer = tempCorrectAnswer;
 
-        // บันทึกลง IndexedDB เบื้องต้น (ปล่อยให้บันทึกเป็นเบื้องหลัง เพื่อไม่ให้บล็อก UI การทำงาน)
+        // บันทึกลง IndexedDB เบื้องต้น (ปล่อยให้เขียนลงไฟล์ในเบื้องหลัง เพื่อไม่ให้บล็อก UI การทำงาน)
         setCacheDB('global_admin_data', globalData).catch(e => console.warn("Cache write failed:", e));
         refreshTables(true); // รีเฟรชตารางทันทีด้วยข้อมูลใหม่
         updateDashboard();
@@ -266,57 +284,75 @@ async function saveQuestionChanges() {
                 answer: finalAnswerServer
             };
 
-            // 🔥 แก้ไขจุดนี้: เพิ่ม const finalRes = เพื่อรับค่าจากฟังก์ชัน
             const finalRes = await sendWithRetry({
                 action: 'editQuestion',
                 username: currentUser.username, adminPass: adminPass,
                 data: savePayload
             });
 
-                // 3.4 จัดการ Report (ถ้ามี)
-                const reportData = $('#editQuestionModal').data('reportData');
-                if (reportData) {
-                    await sendWithRetry({
-                        action: 'updateReportStatus',
-                        username: currentUser.username, adminPass: adminPass,
-                        data: {
-                            timestamp: reportData.timestamp,
-                            adminNote: reportData.adminNote || "แก้ไขเรียบร้อยแล้ว",
-                            status: 'Resolved', done: 'TRUE'
-                        }
-                    });
-                    $('#editQuestionModal').removeData('reportData');
-                }
-
-                // 🔥 แจ้งเตือนสำเร็จทันที
-                if (finalRes && finalRes.result === 'success') {
-                    bgToast.fire({
-                        icon: 'success',
-                        title: 'บันทึกสำเร็จ!',
-                        text: `ข้อมูลข้อสอบ ${qId} ถูกเขียนลงฐานข้อมูลแล้ว`,
-                        timer: 2000
-                    });
-                }
-
-                // ✅ ทำงานเบื้องหลัง (ไม่ใช้ await เพื่อให้จบฟังก์ชันทันที)
-                (async () => {
-                    await clearAdminCache();
-                    await fetchData(true, true);
-                    console.log("Background Data Sync Completed.");
-                })();
-
-            } catch (error) {
-                console.error("Sync Error:", error);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'การซิงค์ข้อมูลขัดข้อง',
-                    text: error.message,
+            // 3.4 จัดการ Report (ถ้ามี)
+            const reportData = $('#editQuestionModal').data('reportData');
+            if (reportData) {
+                await sendWithRetry({
+                    action: 'updateReportStatus',
+                    username: currentUser.username, adminPass: adminPass,
+                    data: {
+                        timestamp: reportData.timestamp,
+                        adminNote: reportData.adminNote || "แก้ไขเรียบร้อยแล้ว",
+                        status: 'Resolved', done: 'TRUE'
+                    }
                 });
-            } finally {
-                activeUploadsCount--;
+                $('#editQuestionModal').removeData('reportData');
             }
-        })();
-    }
+
+            // สลัก URL รูปจริงของกูเกิลไดรฟ์ลงสู่หน่วยความจำท้องถิ่นทันทีเมื่อบันทึกผ่านเซิร์ฟเวอร์เสร็จสมบูรณ์
+            if (finalRes && finalRes.result === 'success') {
+                if (qIndex !== -1) {
+                    globalData.questions[qIndex].img = serverMainUrls.join('///');
+                    globalData.questions[qIndex].explain = serializeExplain(explainText, serverExplainUrls);
+                    globalData.questions[qIndex].choices = serverChoicesArray.join('///');
+                    globalData.questions[qIndex].answer = finalAnswerServer;
+
+                    setCacheDB('global_admin_data', globalData).catch(e => console.warn("Cache write failed:", e));
+                    refreshTables(true);
+                }
+
+                bgToast.fire({
+                    icon: 'success',
+                    title: 'บันทึกสำเร็จ!',
+                    text: `ข้อมูลข้อสอบ ${qId} ถูกเขียนลงฐานข้อมูลแล้ว`,
+                    timer: 2000
+                });
+            }
+
+            // ✅ ทำงานเบื้องหลัง (ไม่ใช้ await เพื่อให้จบฟังก์ชันทันที)
+            (async () => {
+                await clearAdminCache();
+                await fetchData(true, true);
+                console.log("Background Data Sync Completed.");
+            })();
+
+        } catch (error) {
+            console.error("Sync Error:", error);
+
+            // กระบวนการย้อนกลับ (Rollback) ข้อมูลทันทีเมื่อการส่งข้อมูลหลังบ้านล้มเหลว
+            if (qIndex !== -1 && originalQuestionBackup) {
+                globalData.questions[qIndex] = originalQuestionBackup;
+                setCacheDB('global_admin_data', globalData).catch(e => console.warn("Cache rollback failed:", e));
+                refreshTables(true);
+                updateDashboard();
+            }
+
+            Swal.fire({
+                icon: 'error',
+                title: 'การซิงค์ข้อมูลขัดข้อง (ย้อนกลับข้อมูลแล้ว)',
+                text: error.message,
+            });
+        } finally {
+            activeUploadsCount--;
+        }
+    })();
+}
 
 async function deleteQuestion() {
         // ... (โค้ด deleteQuestion เดิม) ...
