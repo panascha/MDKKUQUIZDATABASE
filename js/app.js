@@ -473,76 +473,77 @@ $('#cancel-report, #btn-close-vote-modal').on('click', function () {
     });
 
 async function fetchData(forceRefresh = false, isAutoPoll = false) {
-        if (isFetching) return;
-        isFetching = true;
+    if (isFetching) return;
+    isFetching = true;
 
-        const cacheKey = 'global_admin_data';
-        const verKey = 'global_admin_ver';
+    const cacheKey = 'global_admin_data';
+    const verKey = 'global_admin_ver';
 
-        // 1. โหลดข้อมูลเดิมที่มีในเครื่องขึ้นมาโชว์ก่อน (ถ้ามี)
-        const localData = await getCacheDB(cacheKey);
-        const localVer = await getCacheDB(verKey);
+    // 1. โหลดข้อมูลเดิมที่มีในเครื่องขึ้นมาโชว์ก่อน (ถ้ามี)
+    const localData = await getCacheDB(cacheKey);
+    const localVer = await getCacheDB(verKey);
 
-        if (localData && !globalData.questions.length) {
-            globalData = localData;
-            finalizeDataLoading();
+    if (localData && !globalData.questions.length) {
+        globalData = localData;
+        finalizeDataLoading();
+    }
+
+    try {
+        // --- ตรรกะบีบอัด Round-trip: เรียกข้อมูลชุดเดียวแบบผูกตรวจเช็คเวอร์ชัน (ลดเวลาโหลดลง 50%) ---
+        const url = `${APPSCRIPT_URL}?action=getAllData${(!forceRefresh && localData && localVer) ? `&clientVer=${localVer}` : ''}`;
+        const response = await fetch(url);
+        const resJson = await response.json();
+
+        // --- กรณีที่ 1: เวอร์ชันตรงกัน (เซิร์ฟเวอร์ดีด NOT_MODIFIED ทันทีโดยไม่ประมวลผลต่อ) ---
+        if (resJson.status === 'NOT_MODIFIED') {
+            if (!isAutoPoll) {
+                // แจ้งเตือนแอดมินเบาๆ ว่าข้อมูลล่าสุดแล้ว (เฉพาะตอนกด Refresh เอง)
+                Swal.fire({
+                    icon: 'success', title: 'ข้อมูลเป็นปัจจุบันแล้ว',
+                    toast: true, position: 'top-end', showConfirmButton: false, timer: 2000
+                });
+            }
+            isFetching = false;
+            return;
         }
 
-        try {
-            // 2. เช็ค Version จาก Server (Request ขนาดเล็กมาก)
-            const resVer = await fetch(`${APPSCRIPT_URL}?action=checkVersion`).then(r => r.json());
-            const serverVersion = resVer.v;
+        const serverVersion = resJson.v || new Date().getTime().toString();
+        const data = resJson;
 
-            // --- กรณีที่ 1: เวอร์ชันตรงกัน ---
-            if (!forceRefresh && localData && localVer === serverVersion) {
-                if (!isAutoPoll) {
-                    // แจ้งเตือนแอดมินเบาๆ ว่าข้อมูลล่าสุดแล้ว (เฉพาะตอนกด Refresh เอง)
-                    Swal.fire({
-                        icon: 'success', title: 'ข้อมูลเป็นปัจจุบันแล้ว',
-                        toast: true, position: 'top-end', showConfirmButton: false, timer: 2000
-                    });
-                }
-                isFetching = false;
-                return;
+        // --- กรณีที่ 2: พบเวอร์ชันใหม่ ---
+        const updateToast = Swal.mixin({
+            toast: true, position: 'top-end', showConfirmButton: false, timerProgressBar: true
+        });
+
+        if (!isAutoPoll) {
+            updateToast.fire({ icon: 'info', title: 'พบเวอร์ชันใหม่ กำลังซิงค์ข้อมูล...' });
+        }
+
+        // ประมวลผลข้อมูล (Logic เดิม)
+        const processedQuestions = (data.questions || []).map(q => {
+            if (typeof q.category === 'string' && q.category.startsWith('[')) {
+                try { q.category = JSON.parse(q.category.replace(/'/g, '"')); }
+                catch (e) { q.category = [q.category]; }
+            } else if (typeof q.category === 'string') {
+                q.category = [q.category];
             }
+            return q;
+        });
 
-            // --- กรณีที่ 2: พบเวอร์ชันใหม่ ---
-            const updateToast = Swal.mixin({
-                toast: true, position: 'top-end', showConfirmButton: false, timerProgressBar: true
-            });
+        const newData = {
+            questions: processedQuestions,
+            report: data.report || [],
+            structure: data.structure || [],
+            category: data.category || [],
+            votes: data.votes || [],
+            logs: data.logs || [],
+            admins: data.admins || [],
+            announcements: data.announcements || []
+        };
 
-            if (!isAutoPoll) {
-                updateToast.fire({ icon: 'info', title: 'พบเวอร์ชันใหม่ กำลังซิงค์ข้อมูล...' });
-            }
-
-            const response = await fetch(`${APPSCRIPT_URL}?action=getAllData`);
-            const data = await response.json();
-
-            // ประมวลผลข้อมูล (Logic เดิม)
-            const processedQuestions = (data.questions || []).map(q => {
-                if (typeof q.category === 'string' && q.category.startsWith('[')) {
-                    try { q.category = JSON.parse(q.category.replace(/'/g, '"')); }
-                    catch (e) { q.category = [q.category]; }
-                } else if (typeof q.category === 'string') {
-                    q.category = [q.category];
-                }
-                return q;
-            });
-
-            const newData = {
-                questions: processedQuestions,
-                report: data.report || [],
-                structure: data.structure || [],
-                category: data.category || [],
-                votes: data.votes || [],
-                logs: data.logs || [],
-                admins: data.admins || [],
-                announcements: data.announcements || []
-            };
-
-            // บันทึกลง Cache (IndexedDB) ทันที
-            await setCacheDB(cacheKey, newData);
-            await setCacheDB(verKey, serverVersion);
+        // บันทึกลง Cache (IndexedDB) ทันที
+        await setCacheDB(cacheKey, newData);
+        await setCacheDB(verKey, serverVersion);
 
             // 3. ตรวจสอบว่าแอดมินกำลังยุ่งอยู่หรือไม่ (เปิด Modal ใดๆ อยู่)
             const isUserBusy = $('.modal.show').length > 0 ||
