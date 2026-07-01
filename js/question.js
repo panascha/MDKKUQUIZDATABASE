@@ -122,8 +122,8 @@ async function saveQuestionChanges() {
         globalData.questions[qIndex].category = categories;
         globalData.questions[qIndex].img = uniqueMainImages.join('///');
 
-        // บันทึกลง IndexedDB เบื้องต้น
-        await setCacheDB('global_admin_data', globalData);
+        // บันทึกลง IndexedDB เบื้องต้น (ปล่อยให้บันทึกเป็นเบื้องหลัง เพื่อไม่ให้บล็อก UI การทำงาน)
+        setCacheDB('global_admin_data', globalData).catch(e => console.warn("Cache write failed:", e));
         refreshTables(true); // รีเฟรชตารางทันทีด้วยข้อมูลใหม่
         updateDashboard();
     }
