@@ -134,7 +134,7 @@ async function saveQuestionChanges() {
     // สร้าง Toast แจ้งเตือนสถานะเบื้องหลัง
     const bgToast = Swal.mixin({
         toast: true,
-        position: 'bottom-end',
+        position: 'bottom-start',
         showConfirmButton: false,
         timerProgressBar: true
     });
