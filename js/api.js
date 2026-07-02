@@ -65,7 +65,7 @@ async function sendAdminAction(actionName, dataObj, skipReload = false) {
 
                 // ถ้า skipReload เป็น false (ค่าเริ่มต้น) ให้แอบ Fetch ข้อมูลใหม่มาเช็คความแม่นยำ
                 if (!skipReload) {
-                    fetchData(true, true); // forceRefresh=true, isAutoPoll=true (เงียบๆ)
+                    fetchData(false, true); // version-gated, isAutoPoll=true (เงียบๆ) — optimistic update already applied locally
                 }
 
                 // แจ้งเตือนความสำเร็จแบบ Toast มุมจอ

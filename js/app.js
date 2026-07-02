@@ -581,7 +581,6 @@ async function fetchData(forceRefresh = false, isAutoPoll = false) {
             isFetching = false;
             $('#loading-overlay').hide(); // เผื่อกรณีค้าง
         }
-        finalizeDataLoading();
     }
 
 function handleDeferredUpdate() {

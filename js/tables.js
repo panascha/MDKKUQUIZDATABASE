@@ -2,6 +2,9 @@
 // JS/TABLES.JS
 // ─────────────────────────────────────────────────────
 
+// Set ของ questionId ที่มี Report ค้างอยู่ — สร้างใหม่ก่อน draw ทุกครั้ง (ดูใน preDrawCallback ของ initAdminTable)
+let _reportedQIds = new Set();
+
 function setTableView(tableId, mode, btn) {
         const $table = $('#' + tableId);
 
@@ -107,15 +110,20 @@ function initAdminTable() {
             stateSave: true,
             deferRender: true,
             data: globalData.questions,
+            preDrawCallback: function () {
+                // สร้าง Set ของ questionId ที่มี Report ค้างอยู่ก่อน draw ทุกครั้ง (แทนการ .some() ต่อแถว)
+                _reportedQIds = new Set(
+                    (globalData.report || [])
+                        .filter(r => !r.Done || String(r.Done).toUpperCase() === 'FALSE')
+                        .map(r => r.QuestionID)
+                );
+            },
             columns: [
                 {
                     data: null,
                     render: function (data, type, row) {
                         // --- เพิ่มส่วนเช็ค Report ค้าง ---
-                        const hasReport = (globalData.report || []).some(r =>
-                            r.QuestionID === row.questionId &&
-                            (String(r.Done).toUpperCase() === 'FALSE' || !r.Done)
-                        );
+                        const hasReport = _reportedQIds.has(row.questionId);
 
                         const reportBadge = hasReport
                             ? `<span class="badge bg-danger pulse-animation" title="มีรายงานปัญหาค้างอยู่"><i class="fas fa-exclamation-circle"></i> REPORT</span> `

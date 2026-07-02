@@ -1,18 +1,19 @@
 // ─────────────────────────────────────────────────────
-// JS/QUEUE.JS  — Concurrent image upload queue
+// JS/QUEUE.JS  — Batched image upload queue
 // ─────────────────────────────────────────────────────
 
-// Upload a single base64 image to GAS uploadImage action
-// Returns {result, fileId, url} on success
-async function uploadOnce(base64) {
+// Upload a chunk of images (≤10) to GAS uploadImagesBatch action
+// items: array of {entry, rowIndex, imgIndex}
+// Returns parsed JSON response
+async function uploadBatch(items) {
     const response = await fetch(APPSCRIPT_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
-            action: 'uploadImage',
+            action: 'uploadImagesBatch',
             username: currentUser.username,
             adminPass: adminPass,
-            data: { base64 }
+            images: items.map(item => ({ base64: item.entry.base64 }))
         }),
         redirect: 'follow'
     });
@@ -20,8 +21,8 @@ async function uploadOnce(base64) {
     return response.json();
 }
 
-// Upload all images assigned via imgAssignments (concurrency=2, retry×3, backoff)
-// imgEntries: array of {rowIndex, entry} where entry = {base64, fileId, status, page}
+// Upload all images assigned via imgAssignments (batch ≤10 per request, retry×3, backoff)
+// imgAssignments: Map<rowIndex, [{base64, fileId, url, status, page}]>
 async function startUploadQueue() {
     const toUpload = [];
     imgAssignments.forEach((entries, rowIndex) => {
@@ -34,47 +35,56 @@ async function startUploadQueue() {
 
     if (toUpload.length === 0) return;
 
-    const CONCURRENCY = 2;
+    const BATCH_SIZE = 10;
     const MAX_RETRY = 3;
-    const pending = [...toUpload];
-    const active = [];
 
-    async function runOne(item) {
-        const { rowIndex, entry } = item;
+    // Process chunks sequentially (one batch request in flight at a time)
+    for (let i = 0; i < toUpload.length; i += BATCH_SIZE) {
+        const chunk = toUpload.slice(i, i + BATCH_SIZE);
+
+        // Mark all items in this chunk as Uploading
+        chunk.forEach(({ entry }) => { entry.status = 'Uploading'; });
+        renderImageTray();
+
+        let chunkDone = false;
         for (let attempt = 0; attempt < MAX_RETRY; attempt++) {
             try {
-                entry.status = 'Uploading';
-                renderImageTray();
-                const res = await uploadOnce(entry.base64);
-                if (res.result === 'success' || res.fileId) {
-                    entry.fileId = res.fileId;
-                    entry.url = res.url || '';
-                    entry.status = 'Ready';
-                    saveCheckpoint();
+                const res = await uploadBatch(chunk);
+                if (res.result === 'success') {
+                    // Walk urls array in input order; a failed item is an object {error}
+                    (res.urls || []).forEach((urlResult, idx) => {
+                        const { entry, rowIndex } = chunk[idx];
+                        if (typeof urlResult === 'string') {
+                            entry.url = urlResult;
+                            entry.status = 'Ready';
+                            saveCheckpoint();
+                        } else {
+                            // {error: "..."} — mark failed, no per-item retry
+                            console.warn(`uploadImagesBatch: item failed for row ${rowIndex}:`, urlResult && urlResult.error);
+                            entry.status = 'Failed';
+                        }
+                    });
                     renderImageTray();
-                    return;
+                    chunkDone = true;
+                    break;
                 }
+                // result:'error' (auth/validation failure) → retry whole chunk
+                throw new Error(res.message || 'uploadImagesBatch: result error');
             } catch (e) {
-                console.warn(`upload attempt ${attempt + 1} failed for row ${rowIndex}:`, e);
-            }
-            if (attempt < MAX_RETRY - 1) {
-                await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
+                console.warn(`upload chunk attempt ${attempt + 1} failed:`, e);
+                if (attempt < MAX_RETRY - 1) {
+                    await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
+                }
             }
         }
-        entry.status = 'Failed';
-        renderImageTray();
-    }
 
-    while (pending.length || active.length) {
-        while (active.length < CONCURRENCY && pending.length) {
-            const task = runOne(pending.shift());
-            active.push(task);
-            task.finally(() => {
-                const idx = active.indexOf(task);
-                if (idx !== -1) active.splice(idx, 1);
+        if (!chunkDone) {
+            // All retries exhausted — mark remaining Uploading items in chunk as Failed
+            chunk.forEach(({ entry }) => {
+                if (entry.status === 'Uploading') entry.status = 'Failed';
             });
+            renderImageTray();
         }
-        if (active.length > 0) await Promise.race(active);
     }
 
     updateSaveButtonState();
