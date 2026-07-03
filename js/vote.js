@@ -184,5 +184,9 @@ function fetchPendingVotes(questionId) {
                     });
                     $container.append($badge);
                 });
+            })
+            .catch(err => {
+                console.warn('fetchPendingVotes failed:', err);
+                $container.html('<span class="empty-state-text">- โหลดไม่สำเร็จ -</span>');
             });
     }
