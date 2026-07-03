@@ -141,8 +141,7 @@ function fetchPendingVotes(questionId) {
         const $container = $('#suggested-category-container');
         $container.html('<span class="empty-state-text"><i class="fas fa-spinner fa-spin"></i> กำลังโหลด...</span>');
 
-        fetch(`${APPSCRIPT_URL}?action=getPendingVotes&qid=${questionId}`)
-            .then(response => response.json())
+        fetchGAS(() => `${APPSCRIPT_URL}?action=getPendingVotes&qid=${questionId}&_=${Date.now()}`)
             .then(data => {
                 $container.empty();
                 const votes = data.votes || [];

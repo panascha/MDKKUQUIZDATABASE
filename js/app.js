@@ -490,9 +490,8 @@ async function fetchData(forceRefresh = false, isAutoPoll = false) {
 
     try {
         // --- ตรรกะบีบอัด Round-trip: เรียกข้อมูลชุดเดียวแบบผูกตรวจเช็คเวอร์ชัน (ลดเวลาโหลดลง 50%) ---
-        const url = `${APPSCRIPT_URL}?action=getAllData${(!forceRefresh && localData && localVer) ? `&clientVer=${localVer}` : ''}`;
-        const response = await fetch(url);
-        const resJson = await response.json();
+        const urlBuilder = () => `${APPSCRIPT_URL}?action=getAllData${(!forceRefresh && localData && localVer) ? `&clientVer=${localVer}` : ''}&_=${Date.now()}`;
+        const resJson = await fetchGAS(urlBuilder);
 
         // --- กรณีที่ 1: เวอร์ชันตรงกัน (เซิร์ฟเวอร์ดีด NOT_MODIFIED ทันทีโดยไม่ประมวลผลต่อ) ---
         if (resJson.status === 'NOT_MODIFIED') {

@@ -2,13 +2,59 @@
 // JS/API.JS
 // ─────────────────────────────────────────────────────
 
+async function fetchGAS(buildUrl, retries = 3) {
+    const BASE_MS = 1500;
+    const CAP_MS = 12000;
+
+    for (let i = 0; i < retries; i++) {
+        const url = typeof buildUrl === 'function' ? buildUrl() : buildUrl;
+        let response;
+        try {
+            response = await fetch(url, { redirect: 'follow' });
+        } catch (netErr) {
+            if (i === retries - 1) throw netErr;
+            const nd = Math.random() * Math.min(BASE_MS * Math.pow(2, i), CAP_MS);
+            console.warn('[fetchGAS] Network error attempt ' + (i + 1) + '. Retry in ' + Math.round(nd) + 'ms');
+            await new Promise(r => setTimeout(r, nd));
+            continue;
+        }
+
+        if (!response.ok) {
+            if (i === retries - 1) throw new Error('[fetchGAS] HTTP ' + response.status + ' after ' + retries + ' attempts');
+            const hd = Math.random() * Math.min(BASE_MS * Math.pow(2, i), CAP_MS);
+            console.warn('[fetchGAS] HTTP ' + response.status + ' attempt ' + (i + 1) + '. Retry in ' + Math.round(hd) + 'ms');
+            await new Promise(r => setTimeout(r, hd));
+            continue;
+        }
+
+        let text;
+        try {
+            text = await response.text();
+        } catch (readErr) {
+            if (i === retries - 1) throw readErr;
+            continue;
+        }
+
+        if (!text || text.trimStart().startsWith('<')) {
+            if (i === retries - 1) throw new SyntaxError('[fetchGAS] Got HTML instead of JSON after ' + retries + ' attempts');
+            const pd = Math.random() * Math.min(BASE_MS * Math.pow(2, i), CAP_MS);
+            console.warn('[fetchGAS] Got HTML body attempt ' + (i + 1) + '. Retry in ' + Math.round(pd) + 'ms');
+            await new Promise(r => setTimeout(r, pd));
+            continue;
+        }
+
+        return JSON.parse(text);
+    }
+}
+
 async function sendWithRetry(payload, retries = 3) {
         for (let i = 0; i < retries; i++) {
             try {
                 const response = await fetch(APPSCRIPT_URL, {
                     method: 'POST',
                     headers: { "Content-Type": "text/plain;charset=utf-8" },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify(payload),
+                    redirect: 'follow'
                 });
                 if (!response.ok) throw new Error('Server Busy');
                 return await response.json();
