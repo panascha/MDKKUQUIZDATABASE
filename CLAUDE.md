@@ -70,4 +70,4 @@ Image URLs from Google Drive are transformed via `window.transformUrl()` to use 
 - 🔴 Backend's `getAllData` (called by this dashboard) is served unauthenticated by GAS — verify session-gating expectations before relying on it for anything sensitive.
 - 🟡 `js/api.js` missing `redirect:'follow'` — cosmetic only, `fetch` follows redirects by default.
 
-Full cross-repo issue list: parent `Idea/code-review-2026-06-14.md` or `/issuelist`. Converter-specific planning docs: parent `Idea/DATABASE/combined-converter-plan.md`.
+Full cross-repo issue list: parent `Idea/active/code-review-2026-06-14.md` or `/issuelist`. Converter-specific planning docs: parent `Idea/DATABASE/combined-converter-plan.md`.

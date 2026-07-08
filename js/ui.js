@@ -460,7 +460,7 @@ function confirmAdmin() {
 
 function showSection(sectionId) {
 
-        const adminSections = ['report-inbox', 'database', 'structure', 'converter', 'logs', 'admin-manager', 'announcements'];
+        const adminSections = ['report-inbox', 'database', 'structure', 'converter', 'logs', 'admin-manager', 'announcements', 'ai-generate'];
 
         if (adminSections.includes(sectionId) && !isAdmin) {
             checkAuthBeforeAction(() => showSection(sectionId));
@@ -488,6 +488,8 @@ function showSection(sectionId) {
             }
         } else if (sectionId === 'announcements') {
             renderAnnouncementsList();
+        } else if (sectionId === 'ai-generate') {
+            renderAiGeneratePanel();
         }
 
         $('#page-title').text(sectionId.charAt(0).toUpperCase() + sectionId.slice(1).replace('-', ' '));
