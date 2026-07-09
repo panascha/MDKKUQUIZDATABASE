@@ -871,6 +871,47 @@
                         <div id="ai-gen-status" class="small text-muted">พร้อมใช้งาน — เลือกวิชาแล้วกดปุ่ม</div>
                     </div>
                 </div>
+                <!-- CARD: AI Categorize (แยกหัวข้อเลคเชอร์) -->
+                <div class="card card-dashboard mt-3">
+                    <div class="card-header-custom">
+                        <span><i class="fas fa-tags me-2"></i> AI แยกหัวข้อเลคเชอร์ (Batch Categorize)</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info small">
+                            <i class="fas fa-info-circle me-1"></i>
+                            แทนที่ระบบบังคับโหวตใน REAL — AI เสนอหัวข้อ LEC ให้ข้อที่ยังไม่มีเลคเชอร์
+                            (category ≤ 1, ไม่นับกลุ่ม LEC / BY AI / Extracted / MODULE / COMMED)
+                            → ตรวจในตาราง → Apply ทีเดียว (append หัวข้อ ไม่ลบของเดิม)
+                        </div>
+                        <div class="row g-3 align-items-end mb-3">
+                            <div class="col-md-3">
+                                <label for="cat-ai-subject" class="form-label fw-bold">วิชา (Subject)</label>
+                                <select id="cat-ai-subject" class="form-select"></select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="cat-ai-model" class="form-label fw-bold">Model</label>
+                                <select id="cat-ai-model" class="form-select">
+                                    <option value="gemini-3.5-flash" selected>gemini-3.5-flash (recommended)</option>
+                                    <option value="gemini-3.1-pro">gemini-3.1-pro</option>
+                                    <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="cat-ai-key" class="form-label fw-bold">Gemini API Key</label>
+                                <input type="password" id="cat-ai-key" class="form-control"
+                                    placeholder="key เดียวกับหน้า Converter" onchange="catAiSaveKey()">
+                            </div>
+                            <div class="col-md-2">
+                                <button class="btn btn-warning w-100 cat-ai-btn" onclick="runCatAiClassify()">
+                                    <i class="fas fa-wand-magic-sparkles me-1"></i> จำแนก <span
+                                        class="badge bg-danger">LLM</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="cat-ai-status" class="small text-muted mb-2">เลือกวิชา + ใส่ key แล้วกดจำแนก</div>
+                        <div id="cat-ai-review"></div>
+                    </div>
+                </div>
             </div>
         </div> <!-- /container-fluid -->
     </div> <!-- /#page-content-wrapper -->
@@ -1598,6 +1639,7 @@
 <script src="js/converter.js"></script>
 <script src="js/announcements.js"></script>
 <script src="js/admin-tools.js"></script>
+<script src="js/categorizer.js"></script>
 <script src="js/app.js"></script>
 <script>
     // PDF.js worker (must be set after pdf.min.js loads)
