@@ -187,42 +187,61 @@ async function processReport(reportTime, action) {
         });
 
         if (result.isConfirmed) {
-            // ---------------------------------------------------------
-            // STEP 1: OPTIMISTIC UPDATE - ลบออกจากหน้าจอทันที
-            // ---------------------------------------------------------
-
-            // 1.1 เฟดการ์ดทิ้งทันที
-            $(`button[onclick*="${reportTime}"]`).closest('.card').fadeOut(300, function () {
-                $(this).remove();
-                if ($('#report-list-container .card').length === 0) renderReportList();
-            });
-
-            // 1.2 อัปเดตข้อมูลในตัวแปร Local ทันที
             const newStatus = action === 'REJECT' ? 'Rejected' : 'Resolved';
-            globalData.report[rIndex].Status = newStatus;
-            globalData.report[rIndex].AdminNote = note;
-            globalData.report[rIndex].Done = 'TRUE';
+            const targetQid = String(r['QuestionID'] || "").trim();
 
-            // 1.3 อัปเดตตัวเลขแจ้งเตือน (Sidebar Badge / Dashboard) ทันที
+            // Find ALL sibling reports with same QuestionID
+            const siblingIndices = [];
+            if (targetQid) {
+                globalData.report.forEach((rep, idx) => {
+                    if (String(rep['QuestionID'] || "").trim() === targetQid) {
+                        siblingIndices.push(idx);
+                    }
+                });
+            } else {
+                // Fallback: no QuestionID, match by timestamp only
+                siblingIndices.push(rIndex);
+            }
+
+            // STEP 1: Optimistic UI — fade ALL sibling cards
+            siblingIndices.forEach(idx => {
+                const rep = globalData.report[idx];
+                const repTime = String(rep.Time);
+                $(`button[onclick*="${repTime}"]`).closest('.card').fadeOut(300, function () {
+                    $(this).remove();
+                });
+            });
+            // Check if container empty after all fades complete
+            setTimeout(() => {
+                if ($('#report-list-container .card').length === 0) renderReportList();
+            }, 350);
+
+            // STEP 2: Update local state for ALL siblings
+            siblingIndices.forEach(idx => {
+                globalData.report[idx].Status = newStatus;
+                globalData.report[idx].AdminNote = note;
+                globalData.report[idx].Done = 'TRUE';
+            });
             updateDashboard();
 
-            // ---------------------------------------------------------
-            // STEP 2: BACKGROUND PROCESSING - บันทึกเบื้องหลัง
-            // ---------------------------------------------------------
+            // STEP 3: Background — send to backend with questionId to batch-update all
             (async () => {
                 try {
-                    await sendAdminAction('updateReportStatus', {
-                        timestamp: r['Time'],
+                    const payload = {
                         adminNote: note,
                         status: newStatus,
                         done: 'TRUE'
-                    }, true);
+                    };
+                    if (targetQid) {
+                        payload.questionId = targetQid;
+                    } else {
+                        payload.timestamp = r['Time'];
+                    }
+                    await sendAdminAction('updateReportStatus', payload, true);
 
-                    // บันทึก Cache ลงเครื่อง
                     await setCacheDB('global_admin_data', globalData);
                 } catch (e) {
                     console.error("Report Background Update Failed:", e);
-                    // แจ้งเตือนกรณีบันทึกไม่สำเร็จจริงๆ
                     Swal.fire({
                         icon: 'error',
                         title: 'บันทึกสถานะ Report ไม่สำเร็จ',
@@ -257,6 +276,7 @@ function openEditReportModal(reportTime) {
         // เก็บข้อมูลไว้ทำ Auto-Resolve ตอน Save
         $('#editQuestionModal').data('reportData', {
             timestamp: r['Time'],
+            questionId: rQid,
             adminNote: note
         });
 

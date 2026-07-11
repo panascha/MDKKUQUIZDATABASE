@@ -290,34 +290,34 @@ async function saveQuestionChanges() {
                 data: savePayload
             });
 
-            // 3.4 จัดการ Report (ถ้ามี)
+            // 3.4 จัดการ Report (ถ้ามี) — อัปเดตทุก report ของ questionId นี้
             const reportData = $('#editQuestionModal').data('reportData');
             if (reportData) {
-                await sendWithRetry({
-                    action: 'updateReportStatus',
-                    username: currentUser.username, adminPass: adminPass,
-                    data: {
-                        timestamp: reportData.timestamp,
-                        adminNote: reportData.adminNote || "แก้ไขเรียบร้อยแล้ว",
-                        status: 'Resolved', done: 'TRUE'
+                const targetQid = reportData.questionId || qId;
+                const adminNote = reportData.adminNote || 'แก้ไขเรียบร้อยแล้ว';
+
+                // ใช้ sendAdminAction เพื่อให้ optimistic update + cache + refresh ทำงาน
+                await sendAdminAction('updateReportStatus', {
+                    questionId: targetQid,
+                    adminNote: adminNote,
+                    status: 'Resolved',
+                    done: 'TRUE'
+                }, true);
+
+                // ลบ Report Cards ทั้งหมดของ questionId นี้ออกจากหน้าจอ (Optimistic UI)
+                globalData.report.forEach(rep => {
+                    if (String(rep['QuestionID'] || "").trim() === targetQid) {
+                        const repTime = String(rep.Time);
+                        $(`button[onclick*="${repTime}"]`).closest('.card').fadeOut(300, function () {
+                            $(this).remove();
+                        });
                     }
                 });
-
-                // ลบ Report Card ออกจากหน้าจอทันที (Optimistic UI)
-                $(`button[onclick*="${reportData.timestamp}"]`).closest('.card').fadeOut(300, function () {
-                    $(this).remove();
+                setTimeout(() => {
                     if ($('#report-list-container .card').length === 0) renderReportList();
-                });
+                }, 350);
 
-                // อัปเดตข้อมูลใน Global State
-                const rIndex = globalData.report.findIndex(r => String(r.Time) === String(reportData.timestamp));
-                if (rIndex !== -1) {
-                    globalData.report[rIndex].Status = 'Resolved';
-                    globalData.report[rIndex].AdminNote = reportData.adminNote || 'แก้ไขเรียบร้อยแล้ว';
-                    globalData.report[rIndex].Done = 'TRUE';
-                }
                 updateDashboard();
-
                 $('#editQuestionModal').removeData('reportData');
             }
 

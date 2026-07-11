@@ -73,11 +73,23 @@ async function sendAdminAction(actionName, dataObj, skipReload = false) {
             globalData.questions = globalData.questions.filter(q => q.questionId !== dataObj.id);
         }
         else if (actionName === 'updateReportStatus') {
-            const rIdx = globalData.report.findIndex(r => String(r.Time) === String(dataObj.timestamp));
-            if (rIdx !== -1) {
-                globalData.report[rIdx].Status = dataObj.status;
-                globalData.report[rIdx].AdminNote = dataObj.adminNote;
-                globalData.report[rIdx].Done = dataObj.done;
+            if (dataObj.questionId) {
+                // Batch: update all reports with same QuestionID
+                const targetQid = String(dataObj.questionId).trim();
+                globalData.report.forEach(r => {
+                    if (String(r['QuestionID'] || "").trim() === targetQid) {
+                        r.Status = dataObj.status;
+                        r.AdminNote = dataObj.adminNote;
+                        r.Done = dataObj.done;
+                    }
+                });
+            } else {
+                const rIdx = globalData.report.findIndex(r => String(r.Time) === String(dataObj.timestamp));
+                if (rIdx !== -1) {
+                    globalData.report[rIdx].Status = dataObj.status;
+                    globalData.report[rIdx].AdminNote = dataObj.adminNote;
+                    globalData.report[rIdx].Done = dataObj.done;
+                }
             }
         }
         else if (actionName === 'deleteCategory') {
