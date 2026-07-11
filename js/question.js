@@ -302,6 +302,22 @@ async function saveQuestionChanges() {
                         status: 'Resolved', done: 'TRUE'
                     }
                 });
+
+                // ลบ Report Card ออกจากหน้าจอทันที (Optimistic UI)
+                $(`button[onclick*="${reportData.timestamp}"]`).closest('.card').fadeOut(300, function () {
+                    $(this).remove();
+                    if ($('#report-list-container .card').length === 0) renderReportList();
+                });
+
+                // อัปเดตข้อมูลใน Global State
+                const rIndex = globalData.report.findIndex(r => String(r.Time) === String(reportData.timestamp));
+                if (rIndex !== -1) {
+                    globalData.report[rIndex].Status = 'Resolved';
+                    globalData.report[rIndex].AdminNote = reportData.adminNote || 'แก้ไขเรียบร้อยแล้ว';
+                    globalData.report[rIndex].Done = 'TRUE';
+                }
+                updateDashboard();
+
                 $('#editQuestionModal').removeData('reportData');
             }
 
