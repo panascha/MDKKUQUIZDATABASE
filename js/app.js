@@ -432,7 +432,7 @@ $(document).ready(function () {
             if (resJson.result === 'success') {
                 Swal.fire('สำเร็จ', 'ขอบคุณที่แจ้งปัญหา! ข้อมูลจะถูกส่งให้ทีมงานตรวจสอบ', 'success');
                 $('#report-card').fadeOut();
-                fetchData();
+                scheduleSync(); // report slice มากับ delta sync ทั้งก้อน
             } else {
                 throw new Error(resJson.error || 'Server reported error');
             }
@@ -543,6 +543,8 @@ async function fetchData(forceRefresh = false, isAutoPoll = false) {
         // บันทึกลง Cache (IndexedDB) ทันที
         await setCacheDB(cacheKey, newData);
         await setCacheDB(verKey, serverVersion);
+        // seed จุดอ้างอิงเวลาสำหรับ getAdminSync delta (serverTime จาก cache อาจเก่าได้สูงสุด 30 นาที — ปลอดภัย: over-fetch ทิศทางเดียว)
+        await setCacheDB('global_admin_sync_ts', data.serverTime || Date.now());
 
             // 3. ตรวจสอบว่าแอดมินกำลังยุ่งอยู่หรือไม่ (เปิด Modal ใดๆ อยู่)
             const isUserBusy = $('.modal.show').length > 0 ||
@@ -609,6 +611,109 @@ function finalizeDataLoading() {
         }
     }
 
+// ─── Delta sync (getAdminSync) — ดึง small slices + question delta แทนโหลด getAllData เต็ม 24MB ───
+let _syncDebounceTimer = null;
+
+// Debounced sync หลัง admin action — burst หลาย action ติดกัน ⇒ sync เดียวหลัง action สุดท้าย ~3 วิ
+function scheduleSync(delayMs = 3000) {
+    if (_syncDebounceTimer) clearTimeout(_syncDebounceTimer);
+    _syncDebounceTimer = setTimeout(() => {
+        _syncDebounceTimer = null;
+        syncData();
+    }, delayMs);
+}
+
+async function syncData() {
+    if (isFetching) return;
+
+    const localVer = await getCacheDB('global_admin_ver');
+    const lastSyncTs = await getCacheDB('global_admin_sync_ts');
+    const hasAuth = !!(currentUser && currentUser.username && adminPass);
+
+    // ไม่มี local copy / ไม่มีจุดอ้างอิงเวลา / ยังไม่ล็อกอิน → เส้นทาง getAllData เดิม (version-gated GET)
+    if (!globalData.questions.length || !localVer || !lastSyncTs || !hasAuth) {
+        return fetchData(false, true);
+    }
+
+    isFetching = true;
+    try {
+        const resJson = await sendWithRetry({
+            action: 'getAdminSync',
+            username: currentUser.username,
+            adminPass: adminPass,
+            clientVer: localVer,
+            since: lastSyncTs
+        });
+
+        if (resJson.status === 'NOT_MODIFIED') {
+            // เวอร์ชันตรง = ไม่มีการเขียนใดๆ จนถึง serverTime — เลื่อนจุดอ้างอิงได้ปลอดภัย
+            await setCacheDB('global_admin_sync_ts', resJson.serverTime || Date.now());
+            return;
+        }
+        if (resJson.result !== 'success') throw new Error(resJson.message || 'getAdminSync error');
+
+        // 1. merge question delta ตาม questionId (ประมวลผล category แบบเดียวกับ fetchData)
+        const changed = (resJson.changedQuestions || []).map(q => {
+            if (typeof q.category === 'string' && q.category.startsWith('[')) {
+                try { q.category = JSON.parse(q.category.replace(/'/g, '"')); }
+                catch (e) { q.category = [q.category]; }
+            } else if (typeof q.category === 'string') {
+                q.category = [q.category];
+            }
+            return q;
+        });
+        const changedMap = new Map(changed.map(q => [String(q.questionId).trim(), q]));
+        const changedIdSet = new Set((resJson.changedIds || []).map(id => String(id).trim()));
+
+        const merged = [];
+        for (const q of globalData.questions) {
+            const qid = String(q.questionId).trim();
+            if (changedMap.has(qid)) {
+                merged.push(changedMap.get(qid)); // แถวใหม่จาก server ทับของเดิม
+                changedMap.delete(qid);
+            } else if (changedIdSet.has(qid)) {
+                // log บอกว่าเปลี่ยน แต่ server ไม่ส่งแถวกลับมา ⇒ ถูกลบแล้ว — drop
+            } else {
+                merged.push(q);
+            }
+        }
+        // ข้อใหม่ที่ local ยังไม่มี (เพิ่ม/import ใหม่)
+        for (const q of changedMap.values()) merged.push(q);
+
+        // 2. replace small slices ทั้งก้อน
+        const newData = {
+            questions: merged,
+            report: resJson.report || [],
+            structure: resJson.structure || [],
+            category: resJson.category || [],
+            votes: resJson.votes || [],
+            logs: resJson.logs || [],
+            admins: resJson.admins || [],
+            announcements: resJson.announcements || []
+        };
+
+        await setCacheDB('global_admin_data', newData);
+        await setCacheDB('global_admin_ver', resJson.v);
+        await setCacheDB('global_admin_sync_ts', resJson.serverTime || Date.now());
+
+        globalData = newData;
+
+        const isUserBusy = $('.modal.show').length > 0 ||
+            $('#report-card').is(':visible') ||
+            $('#vote-category-modal').is(':visible');
+
+        if (isUserBusy) {
+            console.log('[syncData] Delta merged (' + changed.length + ' changed). UI update deferred.');
+        } else {
+            finalizeDataLoading();
+        }
+    } catch (error) {
+        console.error('[syncData] Error:', error);
+    } finally {
+        isFetching = false;
+    }
+}
+
 window.versionCheckInterval = null;
 window._idleTimeout = null;
 window._currentPollingMode = 'ACTIVE';
@@ -646,7 +751,7 @@ function startVersionPolling() {
         if (versionCheckInterval) clearInterval(versionCheckInterval);
         versionCheckInterval = setInterval(function () {
             console.log("Auto-checking for data updates...");
-            fetchData(false, true);
+            syncData();
         }, INTERVALS[targetMode]);
     }
 
@@ -671,7 +776,7 @@ function startVersionPolling() {
     document.addEventListener('visibilitychange', function () {
         if (!document.hidden) {
             // Force instant version check when window comes back in focus
-            fetchData(false, true);
+            syncData();
             resetIdleTimer();
         }
         reschedulePolling();

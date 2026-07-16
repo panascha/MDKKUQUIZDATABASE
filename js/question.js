@@ -341,12 +341,8 @@ async function saveQuestionChanges() {
                 });
             }
 
-            // ✅ ทำงานเบื้องหลัง (ไม่ใช้ await เพื่อให้จบฟังก์ชันทันที)
-            (async () => {
-                await clearAdminCache();
-                await fetchData(true, true);
-                console.log("Background Data Sync Completed.");
-            })();
+            // ✅ นัด delta sync เบื้องหลัง (แทนการ wipe cache + โหลดเต็ม 24MB แบบเดิม)
+            scheduleSync();
 
         } catch (error) {
             console.error("Sync Error:", error);
@@ -1256,7 +1252,7 @@ async function promptRestoreImage() {
                 } else {
                     Swal.fire('สำเร็จ', 'กู้คืนรูปภาพเรียบร้อย', 'success');
                 }
-                fetchData(true);
+                scheduleSync();
             } else { throw new Error(res.message); }
         } catch (e) { Swal.fire('Error', e.message, 'error'); }
         finally { $('#loading-overlay').hide(); }

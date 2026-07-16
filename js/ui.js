@@ -54,7 +54,7 @@ async function updateUserProfile() {
 
                 Swal.fire('สำเร็จ', 'อัปเดตข้อมูลโปรไฟล์เรียบร้อยแล้ว', 'success');
                 $('#editProfileModal').modal('hide');
-                await fetchData(); // โหลดข้อมูลใหม่ (เพื่อให้ได้ URL รูปจริงจาก Drive)
+                scheduleSync(); // delta sync — admins slice มาทั้งก้อน (ได้ URL รูปจริงจาก Drive เหมือนเดิม)
             } else {
                 Swal.fire('Error', res.message || 'ไม่สามารถอัปเดตข้อมูลได้', 'error');
             }

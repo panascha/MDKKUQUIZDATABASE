@@ -118,12 +118,10 @@ async function sendAdminAction(actionName, dataObj, skipReload = false) {
             const resJson = await sendWithRetry(payload);
 
             if (resJson.result === 'success') {
-                // ล้าง Cache ฝั่ง Server เมื่อสำเร็จ (ถ้ามีระบบ Cache ฝั่ง Apps Script)
-                await clearAdminCache();
-
-                // ถ้า skipReload เป็น false (ค่าเริ่มต้น) ให้แอบ Fetch ข้อมูลใหม่มาเช็คความแม่นยำ
+                // ไม่ล้าง IndexedDB อีกต่อไป — delta sync เขียนทับข้อมูลถูกต้องเองอยู่แล้ว (การ wipe ทำให้ต้องโหลด 24MB ใหม่ทุกครั้ง)
+                // ถ้า skipReload เป็น false (ค่าเริ่มต้น) นัด delta sync แบบ debounce — action ติดกันหลายครั้ง ⇒ sync เดียว
                 if (!skipReload) {
-                    fetchData(false, true); // version-gated, isAutoPoll=true (เงียบๆ) — optimistic update already applied locally
+                    scheduleSync();
                 }
 
                 // แจ้งเตือนความสำเร็จแบบ Toast มุมจอ

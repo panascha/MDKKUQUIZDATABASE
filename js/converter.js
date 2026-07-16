@@ -1107,7 +1107,7 @@ function handleSaveResult(resJson) {
             </div>`,
             icon: 'success'
         });
-        fetchData(true);
+        scheduleSync(); // adminImport เขียนแถว QUESTION/IMPORT ลง Logs แล้ว — delta sync เห็นข้อที่ import ครบ
 
     } else if (resJson.result === 'partial' || resJson.result === 'error') {
         const failedIds = new Set((resJson.failedList || []).map(f => f.questionId));
