@@ -86,6 +86,9 @@
                 <a href="#" class="list-group-item list-group-item-action" onclick="showSection('ai-generate')">
                     <i class="fas fa-wand-magic-sparkles"></i> AI Generate
                 </a>
+                <a href="#" class="list-group-item list-group-item-action" onclick="showSection('feedback')">
+                    <i class="fas fa-comment-dots"></i> App Feedback
+                </a>
                 <a href="#" class="list-group-item list-group-item-action developer-only" onclick="showSection('logs')">
                     <i class="fas fa-list-ul"></i> Activity Logs
                 </a>
@@ -822,6 +825,40 @@
                                     </tr>
                                 </thead>
                                 <tbody id="announcements-list-body">
+                                    <!-- Populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- SECTION: App Feedback (Admin, read-only v1 — js/feedback-admin.js) -->
+            <div id="sec-feedback" class="content-section hidden">
+                <div class="card card-dashboard">
+                    <div class="card-header-custom">
+                        <span><i class="fas fa-comment-dots me-2"></i> App Feedback (แจ้งปัญหา/เสนอฟีเจอร์จากผู้ใช้)</span>
+                        <button class="btn btn-outline-primary btn-sm shadow-sm" onclick="loadFeedbackSection()">
+                            <i class="fas fa-sync-alt"></i> รีเฟรช
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <p class="small text-muted mb-2"><i class="fas fa-info-circle"></i>
+                            v1 อ่านอย่างเดียว — แก้คอลัมน์ Status (New/Ack/Done/Rejected) และ AdminNote ในชีต
+                            <b>Feedback</b> ของ Google Sheet โดยตรง</p>
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-striped align-middle" style="width:100%" id="feedbackTable">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 140px;">เวลา</th>
+                                        <th style="width: 90px;">ประเภท</th>
+                                        <th>รายละเอียด</th>
+                                        <th style="width: 180px;">อีเมล</th>
+                                        <th style="width: 170px;">Context</th>
+                                        <th style="width: 140px;">รูป</th>
+                                        <th style="width: 120px;">สถานะ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="feedback-list-body">
                                     <!-- Populated by JS -->
                                 </tbody>
                             </table>
@@ -1638,6 +1675,7 @@
 <script src="js/queue.js"></script>
 <script src="js/converter.js"></script>
 <script src="js/announcements.js"></script>
+<script src="js/feedback-admin.js"></script>
 <script src="js/admin-tools.js"></script>
 <script src="js/categorizer.js"></script>
 <script src="js/app.js"></script>
