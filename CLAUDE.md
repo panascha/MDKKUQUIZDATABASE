@@ -44,6 +44,9 @@ Single `index.html` with sidebar navigation. CSS is split into modular files und
 | `js/queue.js` | Concurrent image upload queue — uploads extracted base64 images to GAS `uploadImage` action with concurrency=2, retry×3, exponential backoff; tracks status per `imgAssignments` entry |
 | `js/converter.js` | Legacy data import/conversion tools; orchestrates the full PDF→Gemini→upload→save pipeline |
 | `js/announcements.js` | Dynamic banner CRUD UI — add/edit/delete rows against the `Announcements` sheet via `addAnnouncement`/`editAnnouncement`/`deleteAnnouncement` GAS actions; consumed by REAL's `window.renderAnnouncementsUI()` |
+| `js/admin-tools.js` | Admin Tools panel — `renderAiGeneratePanel()`, `aiGenSubjectCounts()` — triggers `run*BatchManual` maintenance actions against the backend |
+| `js/categorizer.js` | AI-assisted bulk re-categorization — `renderCatAiPanel()`, `scanCatAiTargets()`, `renderCatAiReview()` — batches questions to Gemini (`CAT_AI_GEMINI_CHUNK`=30) and applies category updates in chunks (`CAT_AI_APPLY_CHUNK`=40, backend cap 100) |
+| `js/feedback-admin.js` | Admin view for in-app feature/bug reports submitted via REAL's `js/app-feedback.js` — `renderFeedbackRows()` |
 
 **External CDN dependencies**: jQuery, Bootstrap 5.3, Font Awesome 6.4, DataTables 1.13, pdf.js 3.11 (loaded in `<head>` for extractor).
 
