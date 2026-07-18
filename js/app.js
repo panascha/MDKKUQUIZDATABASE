@@ -1001,6 +1001,7 @@ function populateFilters() {
         });
         $('#subjectIdList').html(uniqueSubjects.map(s => `<option value="${s.SubjectID}">`).join(''));
         $('#subjectNameList').html(uniqueSubjects.map(s => `<option value="${s.SubjectName}">`).join(''));
+        populateConverterSubjectPicker(); // edit 2: year→subject cascade ในหน้า Converter
 
         // --- 6. ซิงค์ค่าที่ Filter ในตาราง (ถ้ามี) กับ Dropdown ตามที่ User เคยเลือกไว้ก่อนหน้า ---
         const syncTableFilterToDropdown = (tableId, subjSelectId, catSelectId) => {

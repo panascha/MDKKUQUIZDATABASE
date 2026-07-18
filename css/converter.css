@@ -274,6 +274,14 @@
             display: block;
         }
 
+        /* Flash the PDF page synced to the focused question card */
+        .pdf-page-active {
+            outline: 3px solid #0d6efd;
+            outline-offset: -1px;
+            box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.25);
+            transition: box-shadow .3s, outline-color .3s;
+        }
+
         .converter-right-pane {
             flex: 1 1 0;
             min-width: 0;
@@ -382,4 +390,113 @@
             background: #198754;
             color: #fff;
             font-weight: 600;
+        }
+
+        /* Edit 3: exam-group chips */
+        .conv-chip {
+            border: 1px solid #ced4da;
+            background: #fff;
+            color: #495057;
+            border-radius: 16px;
+            padding: 3px 14px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.12s;
+        }
+
+        .conv-chip:hover {
+            border-color: #0d6efd;
+            color: #0d6efd;
+        }
+
+        .conv-chip.active {
+            background: #0d6efd;
+            border-color: #0d6efd;
+            color: #fff;
+        }
+
+        .conv-chip.active.suggested {
+            background: #0dcaf0;
+            border-color: #0dcaf0;
+            color: #083344;
+        }
+
+        .conv-round-select {
+            width: auto;
+            max-width: 130px;
+        }
+
+        /* Edit 5: decorative-image tray (duplicates across pages) */
+        .decor-tray {
+            width: 100%;
+            margin-top: 8px;
+            border-top: 1px dashed #adb5bd;
+            padding-top: 6px;
+        }
+
+        .decor-tray summary {
+            font-size: 0.78rem;
+            color: #6c757d;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .decor-tray-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+            opacity: 0.75;
+        }
+
+        /* Edit 1: process blurb card */
+        .conv-blurb-card {
+            background: #eef5ff;
+            border: 1px solid #cfe2ff;
+            border-radius: 8px;
+            padding: 10px 14px;
+        }
+
+        .conv-blurb-steps {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px 18px;
+            font-size: 0.82rem;
+        }
+
+        .conv-blurb-step {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+        .conv-blurb-num {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #0d6efd;
+            color: #fff;
+            font-size: 0.68rem;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        /* Edit 6: explanation on question card */
+        .conv-explain {
+            font-size: 0.78rem;
+            line-height: 1.35;
+            white-space: pre-wrap;
+            margin-bottom: 4px;
+        }
+
+        .conv-explain-toggle {
+            font-size: 0.75rem;
+            text-decoration: none;
+            margin-left: 4px;
+            white-space: nowrap;
         }

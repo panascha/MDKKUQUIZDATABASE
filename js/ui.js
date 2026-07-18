@@ -502,3 +502,20 @@ function showSection(sectionId) {
             $("#wrapper").removeClass("toggled");
         }
     }
+
+// ล้างแคช IndexedDB ของแอดมินแล้วโหลดข้อมูลใหม่ (แก้ปัญหาข้อมูลค้าง/ไม่อัปเดต)
+// DATABASE ไม่มี service worker → ล้าง store เดียวก็เคลียร์แคชครบ
+function clearAdminCacheAndReload() {
+    Swal.fire({
+        title: 'ล้างแคชและโหลดใหม่?',
+        text: 'ข้อมูลที่ยังไม่ได้บันทึก (เช่น งานแปลง PDF ที่ค้างอยู่) จะหายไป',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'ล้างแคช',
+        cancelButtonText: 'ยกเลิก'
+    }).then(async (r) => {
+        if (!r.isConfirmed) return;
+        try { await clearAdminCache(); } catch (e) { /* เคลียร์ไม่ได้ก็ยัง reload ต่อ */ }
+        location.reload();
+    });
+}

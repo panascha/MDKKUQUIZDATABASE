@@ -34,6 +34,20 @@ function resetConverter() {
                 $('#subjName').val('');
                 $('#arrayCategoryID').val('');
 
+                // รีเซ็ต cascade picker (edit 2)
+                $('#conv-year-select').val('');
+                $('#conv-subject-select').html('<option value="">— เลือกชั้นปีก่อน —</option>').prop('disabled', true);
+                $('#conv-custom-subject').addClass('d-none');
+
+                // รีเซ็ต exam-group picker (edit 3)
+                _convGroupType = '';
+                $('#conv-group-picker .conv-chip').removeClass('active suggested');
+                $('#conv-group-custom').addClass('d-none').val('');
+                $('#conv-group-round').val('');
+                $('#conv-group-hint').addClass('d-none');
+                $('#conv-group-readout').addClass('d-none').empty();
+                $('#btn-convert-pdf').removeAttr('data-filename');
+
                 // ล้างข้อมูลใน Storage ชั่วคราว
                 converterStorage.struct = [];
                 converterStorage.category = [];
@@ -181,6 +195,7 @@ function switchTab(sheet) {
             // รีเซ็ตปุ่มคัดกรองให้กลับมา "แสดงทั้งหมด"
             $('#converter-filter-bar .btn').removeClass('active');
             $('#converter-filter-bar .btn').first().addClass('active');
+            _convStatusFilter = 'ALL';
 
             renderPreview();
         }
@@ -464,11 +479,17 @@ function renderPreview() {
 
     let seenKeys = new Set();
     let counts = { ALL: 0, NEW: 0, UPDATED: 0, DUPLICATE: 0, EXISTING: 0 };
+    const searchIndex = [];
 
     const cardsHtml = data.map((row, i) => {
         const status = evaluateRowStatusInBatch(row, i, currentSheet, seenKeys);
         counts.ALL++;
         counts[status] = (counts[status] || 0) + 1;
+
+        // full-text haystack from the underlying row (NOT the truncated DOM text)
+        searchIndex.push((currentSheet === 'ques'
+            ? `${row[1] || ''} ${row[3] || ''} ${row[4] || ''} ${row[6] || ''}`
+            : row.join(' ')).toLowerCase());
 
         const color  = colorMap[status] || 'secondary';
         const border = borderMap[status] || '';
@@ -510,6 +531,20 @@ function renderPreview() {
                 `<div class="text-muted" style="font-size:0.78rem">${String.fromCharCode(65 + ci)}. ${c}</div>`
             ).join('');
 
+            // คำอธิบาย (row[5]) — ตัดที่ ~200 ตัวอักษร + ปุ่มดูเพิ่ม, escape กัน HTML แตก
+            const explainRaw = String(row[5] || '').trim();
+            let explainHtml = '';
+            if (explainRaw) {
+                const CAP = 200;
+                explainHtml = explainRaw.length > CAP
+                    ? `<div class="conv-explain text-muted">
+                         <span class="conv-explain-short">${_convEsc(explainRaw.substring(0, CAP))}…</span>
+                         <span class="conv-explain-full d-none">${_convEsc(explainRaw)}</span>
+                         <a href="javascript:void(0)" class="conv-explain-toggle" onclick="event.stopPropagation();toggleConvExplain(this)">ดูเพิ่ม</a>
+                       </div>`
+                    : `<div class="conv-explain text-muted">${_convEsc(explainRaw)}</div>`;
+            }
+
             let imgArea = '';
             if (requireImg) {
                 const assignedHtml = assignments.map((a, ai) =>
@@ -538,11 +573,13 @@ function renderPreview() {
                 <span class="badge bg-${color}">${textMap[status]}</span><br>
                 <span class="badge bg-secondary">#${i + 1}</span>
                 ${requireImg ? '<br><span class="badge bg-warning text-dark mt-1" style="font-size:0.6em">รูปภาพ</span>' : ''}
+                <br><button class="btn btn-xs btn-outline-primary mt-1 py-0 px-1" onclick="openConverterEditModal(${i})" title="แก้ไขข้อสอบ"><i class="fas fa-pen"></i></button>
               </div>
               <div class="flex-grow-1 min-w-0">
                 <p class="mb-1" style="font-size:0.82rem">${String(row[1] || '').substring(0, 300)}</p>
                 <div class="mb-1">${choices}</div>
                 <div class="mb-1 small text-success fw-semibold">✓ ${row[4] || ''}</div>
+                ${explainHtml}
                 <div>${catBadges}</div>
                 ${imgArea}
               </div>
@@ -553,13 +590,14 @@ function renderPreview() {
                      data-status="${status}"
                      data-require-img="${requireImg}"
                      tabindex="${currentSheet === 'ques' ? '0' : '-1'}"
-                     ${currentSheet === 'ques' ? `onfocus="focusedRowIndex=${i}"` : ''}
+                     ${currentSheet === 'ques' ? `onfocus="onConverterCardFocus(${i})" onclick="onConverterCardFocus(${i})"` : ''}
                      ${hidden ? 'style="display:none"' : ''}>
           <div class="card-body py-2 px-3">${cardInner}</div>
         </div>`;
     }).join('');
 
     body.innerHTML = cardsHtml || '<p class="text-muted small text-center p-3 mb-0">ยังไม่มีข้อมูล</p>';
+    _convCardSearch = searchIndex;
 
     $('#count-all').text(counts.ALL);
     $('#count-new').text(counts.NEW);
@@ -568,15 +606,74 @@ function renderPreview() {
     $('#count-existing').text(counts.EXISTING);
 
     document.getElementById('previewText').innerText = `มีข้อมูลทั้งหมด ${data.length} แถว`;
+
+    applyConverterFilters(); // single source of truth for card visibility (status + require_img + search)
 }
 
 function filterConverterTable(status, btn) {
     $('#converter-filter-bar .btn').removeClass('active');
     $(btn).addClass('active');
-    document.querySelectorAll('#cardsBody .conv-card').forEach(card => {
-        const s = card.getAttribute('data-status');
-        card.style.display = (status === 'ALL' || s === status) ? '' : 'none';
+    _convStatusFilter = status;
+    applyConverterFilters();
+}
+
+// Live search box handler
+function onConverterSearch(val) {
+    _convSearchText = val;
+    applyConverterFilters();
+}
+
+// Single source of truth for card visibility: status filter + require_img filter + text search
+function applyConverterFilters() {
+    const search = (_convSearchText || '').trim().toLowerCase();
+    const onQues = converterStorage.current === 'ques';
+    let visible = 0;
+    document.querySelectorAll('#cardsBody .conv-card').forEach((card, idx) => {
+        const statusOk = _convStatusFilter === 'ALL' || card.getAttribute('data-status') === _convStatusFilter;
+        const imgOk = !(_filterRequireImg && onQues) || card.getAttribute('data-require-img') === 'true';
+        const hay = _convCardSearch[idx] != null ? _convCardSearch[idx] : card.textContent.toLowerCase();
+        const searchOk = !search || hay.includes(search);
+        const show = statusOk && imgOk && searchOk;
+        card.style.display = show ? '' : 'none';
+        if (show) visible++;
     });
+    const countEl = document.getElementById('converter-search-count');
+    if (countEl) countEl.textContent =
+        (search || _filterRequireImg || _convStatusFilter !== 'ALL') ? `${visible} ข้อ` : '';
+}
+
+// สลับดูคำอธิบายเต็ม/ย่อ บนการ์ดข้อสอบ (edit 6)
+function toggleConvExplain(link) {
+    const wrap = link.closest('.conv-explain');
+    if (!wrap) return;
+    const fullHidden = wrap.querySelector('.conv-explain-full').classList.toggle('d-none');
+    wrap.querySelector('.conv-explain-short').classList.toggle('d-none', !fullHidden);
+    link.textContent = fullHidden ? 'ดูเพิ่ม' : 'ย่อ';
+}
+
+// Focus/click a question card → scroll the left PDF pane to its source page (pageHint)
+function onConverterCardFocus(i) {
+    focusedRowIndex = i;
+    scrollPdfToQuestion(i);
+}
+
+function scrollPdfToQuestion(rowIndex) {
+    const page = pageHintMap.get(rowIndex);
+    if (!page) return; // manual import / no pageHint → nothing to scroll
+    const container = document.getElementById('pdf-pages-container');
+    const panel = document.querySelector('.pdf-viewer-panel');
+    if (!container || !panel) return;
+    const canvas = container.children[page - 1]; // canvases are ordered 1:1 with PDF pages
+    if (!canvas) return; // hallucinated page number — bail safely
+
+    const header = panel.querySelector('.pdf-viewer-header');
+    const headerH = header ? header.offsetHeight : 0;
+    const delta = canvas.getBoundingClientRect().top - panel.getBoundingClientRect().top;
+    panel.scrollTo({ top: panel.scrollTop + delta - headerH - 6, behavior: 'smooth' });
+
+    canvas.classList.add('pdf-page-active');
+    clearTimeout(_pdfHlTimer);
+    _pdfHlTimer = setTimeout(() => canvas.classList.remove('pdf-page-active'), 1500);
 }
 
 function copyCurrentSheet() {
@@ -698,6 +795,160 @@ let currentPdfDoc = null;       // loaded pdfjsLib document
 let pageHintMap = new Map();    // key: rowIndex, value: pageHint from Gemini (avoids polluting row array)
 let _filterRequireImg = false;  // filter state for card view
 let _pickerTargetRow = null;    // which question the image picker modal is targeting
+let _convStatusFilter = 'ALL';  // active status filter (ALL/NEW/UPDATED/DUPLICATE/EXISTING)
+let _convSearchText = '';       // live search text over the card list
+let _convCardSearch = [];       // per-card full-text haystack (aligned to card DOM order — full row, not truncated)
+let _pdfHlTimer = null;         // highlight-flash timer for the synced PDF page
+
+// ─── Edit 2: Year→Subject cascade picker ──────────────────────────────────
+// เขียนค่าลงช่องเดิม #yearVal/#subjID/#subjName เสมอ — pipeline (processAll/runGeminiConversion) ไม่ต้องแก้
+
+function setConvSubjectMirror(year, id, name) {
+    document.getElementById('yearVal').value = year;
+    document.getElementById('subjID').value = id;
+    document.getElementById('subjName').value = name;
+    if (typeof updateConvGroupReadout === 'function') updateConvGroupReadout();
+}
+
+// เรียกจาก app.js หลังโหลด globalData.structure เสร็จ
+function populateConverterSubjectPicker() {
+    const yearSel = document.getElementById('conv-year-select');
+    if (!yearSel || typeof globalData !== 'object' || !Array.isArray(globalData.structure)) return;
+    const prev = yearSel.value;
+    const years = [...new Set(globalData.structure.map(s => String(s.Year).trim()).filter(y => y !== ''))]
+        .sort((a, b) => Number(a) - Number(b));
+    yearSel.innerHTML = '<option value="">— เลือกชั้นปี —</option>' +
+        years.map(y => `<option value="${_convEsc(y)}">ปี ${_convEsc(y)}</option>`).join('') +
+        '<option value="__other__">อื่นๆ (พิมพ์เอง)</option>';
+    if (prev && [...yearSel.options].some(o => o.value === prev)) yearSel.value = prev;
+}
+
+function onConvYearChange(year) {
+    const subjSel = document.getElementById('conv-subject-select');
+    const customDiv = document.getElementById('conv-custom-subject');
+    if (year === '__other__') {
+        subjSel.innerHTML = '<option value="">—</option>';
+        subjSel.disabled = true;
+        customDiv.classList.remove('d-none'); // ช่องเดิมโชว์ค่าปัจจุบัน — ผู้ใช้พิมพ์ทับเองได้
+        return;
+    }
+    customDiv.classList.add('d-none');
+    if (!year) {
+        subjSel.innerHTML = '<option value="">— เลือกชั้นปีก่อน —</option>';
+        subjSel.disabled = true;
+        setConvSubjectMirror('', '', '');
+        return;
+    }
+    const seen = new Set();
+    const subjects = globalData.structure.filter(s =>
+        String(s.Year).trim() === year && !seen.has(s.SubjectID) && !!seen.add(s.SubjectID));
+    subjSel.innerHTML = '<option value="">— เลือกวิชา —</option>' +
+        subjects.map(s =>
+            `<option value="${_convEsc(s.SubjectID)}" data-name="${_convEsc(s.SubjectName)}" data-year="${_convEsc(String(s.Year).trim())}">${_convEsc(s.SubjectID)} — ${_convEsc(s.SubjectName)}</option>`
+        ).join('') +
+        '<option value="__other__">อื่นๆ (พิมพ์เอง)</option>';
+    subjSel.disabled = false;
+    setConvSubjectMirror('', '', ''); // เปลี่ยนปี → ล้างวิชาเก่าที่ mirror ค้าง
+}
+
+function onConvSubjectChange(val) {
+    const subjSel = document.getElementById('conv-subject-select');
+    const customDiv = document.getElementById('conv-custom-subject');
+    if (val === '__other__') {
+        customDiv.classList.remove('d-none');
+        return;
+    }
+    customDiv.classList.add('d-none');
+    if (!val) { setConvSubjectMirror('', '', ''); return; }
+    const opt = subjSel.options[subjSel.selectedIndex];
+    setConvSubjectMirror(opt.dataset.year || '', val, opt.dataset.name || '');
+}
+
+// ─── Edit 3: Exam-group picker (chips + round + auto-detect) ───────────────
+
+let _convGroupType = ''; // '', 'MCQ'/'FMT'/'QUIZ'/'LAB', หรือ '__custom__'
+
+function pickConvGroup(btn) {
+    const group = btn.dataset.group;
+    const wasActive = btn.classList.contains('active');
+    document.querySelectorAll('#conv-group-picker .conv-chip').forEach(b => b.classList.remove('active', 'suggested'));
+    const customInput = document.getElementById('conv-group-custom');
+    const hintEl = document.getElementById('conv-group-hint');
+    if (hintEl) hintEl.classList.add('d-none'); // ผู้ใช้เลือกเอง → เคลียร์คำใบ้ auto-detect
+
+    if (wasActive) { // กดซ้ำ = ยกเลิก → กลับไปเดาจากชื่อไฟล์
+        _convGroupType = '';
+        customInput.classList.add('d-none');
+        return;
+    }
+    btn.classList.add('active');
+    _convGroupType = group;
+    customInput.classList.toggle('d-none', group !== '__custom__');
+    if (group === '__custom__') customInput.focus();
+    updateConvGroupReadout();
+}
+
+// แสดงให้ผู้ใช้เห็นชื่อไฟล์ + กลุ่มข้อสอบที่จะบันทึกจริง รูปแบบ <subjectid>_<exam><ครั้ง>
+// subjectid มาจาก #conv-subject-select (mirror ลง #subjID); กลุ่ม = ชิปที่เลือก/ตรวจพบ ไม่งั้นเดาจากชื่อไฟล์
+function updateConvGroupReadout() {
+    const el = document.getElementById('conv-group-readout');
+    if (!el) return;
+    const filename = (document.getElementById('btn-convert-pdf').dataset.filename || '').trim();
+    if (!filename) { el.classList.add('d-none'); el.textContent = ''; return; }
+
+    const subjId = (document.getElementById('subjID').value || '').trim().toUpperCase();
+    const picked = (typeof getPickedExamGroup === 'function') ? getPickedExamGroup() : '';
+    let group, src;
+    if (picked) { group = picked; src = 'เลือก/ตรวจพบ'; }
+    else { group = parseFilenameMetadata(filename).examGroup; src = 'เดาจากชื่อไฟล์'; }
+
+    const catId = subjId ? `${subjId}_${group}` : group;
+    const warn = subjId ? '' : ' <span class="text-warning">— เลือกวิชาก่อนเพื่อได้รหัสเต็ม</span>';
+    el.innerHTML = `<i class="fas fa-tag me-1"></i>ไฟล์: <b>${_convEsc(filename)}</b> · กลุ่มที่จะบันทึก: <b>${_convEsc(catId)}</b> <span class="text-muted">(${src})</span>${warn}`;
+    el.classList.remove('d-none');
+}
+
+// คืน examGroup ที่ผู้ใช้เลือก เช่น "MCQ2" — '' ถ้าไม่ได้เลือก (ให้เดาจากชื่อไฟล์แทน)
+function getPickedExamGroup() {
+    if (_convGroupType === '__custom__') {
+        const v = document.getElementById('conv-group-custom').value.trim().replace(/\s+/g, '');
+        return v ? v.toUpperCase() : '';
+    }
+    if (!_convGroupType) return '';
+    const round = document.getElementById('conv-group-round').value;
+    return _convGroupType + (round || '');
+}
+
+// Auto-detect TYPE จากข้อความ ~2 หน้าแรก (suggest-only) — ไม่มี text layer = ไม่เดา, round ไม่เดาเสมอ
+async function detectExamGroupType(pdfDoc) {
+    try {
+        let text = '';
+        const maxPage = Math.min(2, pdfDoc.numPages);
+        for (let p = 1; p <= maxPage; p++) {
+            const tc = await (await pdfDoc.getPage(p)).getTextContent();
+            text += tc.items.map(it => it.str).join(' ') + ' ';
+        }
+        if (!text.trim()) return null;
+        if (/formative|\bFMT\b/i.test(text)) return 'FMT';
+        if (/laborator|\blab\b|ปฏิบัติการ/i.test(text)) return 'LAB';
+        if (/multiple\s*choice|\bMCQ\b|ปรนัย/i.test(text)) return 'MCQ';
+        return null;
+    } catch (e) {
+        return null; // detect พังต้องไม่ล้มการโหลด PDF
+    }
+}
+
+function applyDetectedGroup(type) {
+    if (_convGroupType) return; // ผู้ใช้เลือกไว้แล้ว — ห้ามทับ
+    const btn = document.querySelector(`#conv-group-picker .conv-chip[data-group="${type}"]`);
+    if (!btn) return;
+    document.querySelectorAll('#conv-group-picker .conv-chip').forEach(b => b.classList.remove('active', 'suggested'));
+    btn.classList.add('active', 'suggested');
+    _convGroupType = type;
+    const hintEl = document.getElementById('conv-group-hint');
+    if (hintEl) { hintEl.textContent = `ตรวจพบ: ${type} (แก้ได้ — กดชิปเพื่อเปลี่ยน/ยกเลิก)`; hintEl.classList.remove('d-none'); }
+    updateConvGroupReadout();
+}
 
 // ─── PDF drop/file handling ────────────────────────────────────────────────
 
@@ -710,26 +961,73 @@ function handlePDFDrop(event) {
 async function handlePDFFile(file) {
     if (!file) return;
     const btn = document.getElementById('btn-convert-pdf');
+    const statusEl = document.getElementById('pdf-status');
     btn.disabled = true;
-    document.getElementById('pdf-status').textContent = `โหลด PDF: ${file.name}…`;
 
-    const arrayBuffer = await file.arrayBuffer();
-    currentPdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    // Edit 4: 50MB hard cap
+    if (file.size > 50 * 1024 * 1024) {
+        statusEl.textContent = '';
+        Swal.fire('ไฟล์ใหญ่เกินไป',
+            `PDF ขนาด ${(file.size / 1024 / 1024).toFixed(1)}MB — ระบบรับได้สูงสุด 50MB กรุณาแบ่งไฟล์ก่อน`, 'error');
+        return;
+    }
+
+    statusEl.textContent = `โหลด PDF: ${file.name}…`;
+
+    // Edit 4: กัน PDF เสีย/ใส่รหัสผ่าน/ไม่ใช่ PDF จริง
+    try {
+        const arrayBuffer = await file.arrayBuffer();
+        currentPdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    } catch (e) {
+        currentPdfDoc = null;
+        statusEl.textContent = '';
+        const msg = (e && e.name === 'PasswordException')
+            ? 'PDF นี้ถูกใส่รหัสผ่านไว้ — กรุณาปลดรหัสผ่านก่อนอัปโหลด'
+            : 'ไฟล์อาจเสียหายหรือไม่ใช่ PDF จริง — ลองเปิดไฟล์ในเครื่องตรวจดูก่อน';
+        Swal.fire('เปิด PDF ไม่สำเร็จ', msg, 'error');
+        return;
+    }
+
+    if (!currentPdfDoc.numPages) {
+        currentPdfDoc = null;
+        statusEl.textContent = '';
+        Swal.fire('PDF ว่างเปล่า', 'ไฟล์นี้ไม่มีหน้าเอกสารเลย', 'error');
+        return;
+    }
+    if (currentPdfDoc.numPages > 80) {
+        const n = currentPdfDoc.numPages;
+        currentPdfDoc = null;
+        statusEl.textContent = '';
+        Swal.fire('PDF ยาวเกินไป', `${n} หน้า — ระบบรับได้สูงสุด 80 หน้า กรุณาแบ่งไฟล์ก่อน`, 'error');
+        return;
+    }
+
     window._pdfFile = file; // preserve raw File for inline-PDF Gemini call
-
-    document.getElementById('pdf-status').textContent =
-        `PDF โหลดแล้ว — ${currentPdfDoc.numPages} หน้า — กำลังเตรียมภาพ…`;
     btn.dataset.filename = file.name;
+    updateConvGroupReadout(); // แสดงชื่อไฟล์ + กลุ่มที่เดาไว้ทันที (แม้ detect จะยังไม่เสร็จ/ล้มเหลว)
+
+    // Edit 3: auto-detect กลุ่มข้อสอบจากข้อความหน้าแรกๆ (suggest-only, ไม่บล็อกการโหลด)
+    detectExamGroupType(currentPdfDoc).then(t => { if (t) applyDetectedGroup(t); });
+
+    statusEl.textContent = `PDF โหลดแล้ว — ${currentPdfDoc.numPages} หน้า — กำลังเตรียมภาพ…`;
 
     // Show split layout and render PDF in left pane
     document.getElementById('converter-split').classList.remove('d-none');
-    await renderPDFViewer();
 
-    // Await extraction too — button enables only after images are ready for autoMatch.
-    // Must be sequential: concurrent page.render() + getOperatorList() on the same
-    // pdf.js page object transfers/detaches shared ImageBitmap resources.
-    await extractImagesFromPDF(currentPdfDoc);
-    btn.disabled = false;
+    // Edit 4: render/extract ล้ม → ไม่ block การแปลง (รูปเป็น optional) แต่บอกผู้ใช้
+    try {
+        await renderPDFViewer();
+
+        // Await extraction too — button enables only after images are ready for autoMatch.
+        // Must be sequential: concurrent page.render() + getOperatorList() on the same
+        // pdf.js page object transfers/detaches shared ImageBitmap resources.
+        await extractImagesFromPDF(currentPdfDoc);
+    } catch (e) {
+        console.warn('handlePDFFile: render/extract failed', e);
+        statusEl.textContent = '⚠️ เตรียมภาพไม่สำเร็จบางส่วน — ยังกดแปลงต่อได้ (รูปภาพอาจต้องอัปโหลดเอง)';
+    } finally {
+        btn.disabled = false;
+    }
 }
 
 async function renderPDFViewer() {
@@ -778,42 +1076,91 @@ async function renderPDFViewer() {
     if (progressEl) progressEl.classList.add('d-none');
 }
 
-async function askAddTopicsFirst() {
-    const subjectName = document.getElementById('subjName')?.value ||
-                        document.getElementById('subjID')?.value || 'วิชานี้';
-    const result = await Swal.fire({
-        title: 'เพิ่มหัวข้อบรรยายก่อนหรือไม่?',
-        html: `วิชา <strong>${subjectName}</strong><br>
-               หากยังไม่มีหัวข้อย่อย (บรรยาย/หัวข้อ) ควรเพิ่มก่อน<br>
-               เพื่อให้ Gemini จัดหมวดหมู่ได้ถูกต้อง`,
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: '<i class="fas fa-sitemap me-1"></i> ไปเพิ่มหัวข้อก่อน',
-        cancelButtonText: '<i class="fas fa-robot me-1"></i> แปลงเลย',
-        confirmButtonColor: '#0d6efd',
-        cancelButtonColor: '#6c757d'
-    });
-    if (result.isConfirmed) {
-        showSection('structure');
-        return false;
+// ─── Feature A: หน้าทบทวนหัวข้อบรรยายก่อนแปลง (แยกตามกลุ่มวิชา + คำอธิบาย) ──────
+// แสดงหัวข้อ e-learning จริงของวิชานี้ให้ผู้ใช้ตรวจก่อน AI จัดหมวด — คืน true = แปลงต่อ
+async function reviewCategoriesBeforeConvert(subjId) {
+    const allowedCats = getExistingCategoriesForSubject(subjId);
+
+    // ไม่มีหัวข้อเลย → เตือนแบบเดิม (เสนอไปเพิ่มหัวข้อก่อน)
+    if (allowedCats.length === 0) {
+        const r = await Swal.fire({
+            icon: 'warning',
+            title: `ไม่พบหัวข้อบรรยายของวิชา "${_convEsc(subjId)}"`,
+            html: `<div class="text-start small">ยังไม่มีหัวข้อบรรยาย (category) ของวิชานี้ในระบบ<br>
+                   ถ้าแปลงเลย AI จะ<strong>สร้างชื่อหมวดหมู่ขึ้นเอง</strong> ซึ่งอาจไม่ตรงกับหลักสูตร<br>
+                   แนะนำให้เพิ่มหัวข้อก่อน หรือตรวจสอบว่า Subject ID ถูกต้อง</div>`,
+            showCancelButton: true,
+            showDenyButton: true,
+            confirmButtonText: '<i class="fas fa-robot me-1"></i> แปลงเลย (AI จัดเอง)',
+            denyButtonText: '<i class="fas fa-sitemap me-1"></i> ไปเพิ่มหัวข้อก่อน',
+            cancelButtonText: 'ยกเลิก',
+            confirmButtonColor: '#6c757d', denyButtonColor: '#0d6efd'
+        });
+        if (r.isDenied) { showSection('structure'); return false; }
+        return r.isConfirmed;
     }
-    return true;
+
+    // จัดกลุ่มตามกลุ่มวิชา (discipline) โดยสแกน CategoryID — รองรับทั้ง RS_ANA_ และ RS_by AI_ANA_
+    const groups = {};
+    allowedCats.forEach(c => {
+        const g = disciplineHeaderFromCategoryId(c.CategoryID);
+        (groups[g] = groups[g] || []).push(c);
+    });
+
+    const groupsHtml = Object.keys(groups).sort().map(g => {
+        const items = groups[g].map(c =>
+            `<li><span class="fw-semibold">${_convEsc(c.CategoryName || c.CategoryID)}</span>
+             <span class="text-muted" style="font-size:0.72rem">${_convEsc(c.CategoryID)}</span></li>`
+        ).join('');
+        return `<div class="mb-2">
+                  <div class="badge bg-primary mb-1">${_convEsc(g)} <span class="opacity-75">(${groups[g].length})</span></div>
+                  <ul class="mb-0 ps-3" style="font-size:0.82rem">${items}</ul>
+                </div>`;
+    }).join('');
+
+    const r = await Swal.fire({
+        title: `หัวข้อบรรยายของวิชา ${_convEsc(subjId)}`,
+        html: `<div class="text-start">
+                 <p class="small text-muted mb-2">
+                   พบ <strong>${allowedCats.length}</strong> หัวข้อ — AI จะ<strong>บังคับจัด category[1] ลงหัวข้อเหล่านี้เท่านั้น</strong>
+                   (คัดลอก CategoryID มาตรงเป๊ะ ไม่สร้างหัวข้อใหม่). ตรวจให้ครบก่อนแปลง — ถ้ายังขาดหัวข้อ กด "ไปเพิ่มหัวข้อ"
+                 </p>
+                 <div style="max-height:45vh;overflow-y:auto" class="border rounded p-2">${groupsHtml}</div>
+               </div>`,
+        width: '42rem',
+        showCancelButton: true,
+        showDenyButton: true,
+        confirmButtonText: '<i class="fas fa-check me-1"></i> ยืนยัน แปลงเลย',
+        denyButtonText: '<i class="fas fa-sitemap me-1"></i> ไปเพิ่มหัวข้อ',
+        cancelButtonText: 'ยกเลิก',
+        confirmButtonColor: '#198754', denyButtonColor: '#0d6efd'
+    });
+    if (r.isDenied) { showSection('structure'); return false; }
+    return r.isConfirmed;
 }
 
 async function startPDFConversion() {
     if (!currentPdfDoc) { Swal.fire('error', 'กรุณาเลือก PDF ก่อน', 'error'); return; }
-    const key = getGeminiKey();
-    if (!key) { Swal.fire('แจ้งเตือน', 'กรุณากรอก Gemini API Key', 'warning'); return; }
-
-    const proceed = await askAddTopicsFirst();
-    if (!proceed) return;
+    // Phase 1: ใช้ Gemini key กลางผ่าน backend — ต้องล็อกอินก่อน (backend มี auth gate)
+    if (!(currentUser && currentUser.username && adminPass)) {
+        Swal.fire('แจ้งเตือน', 'กรุณาเข้าสู่ระบบก่อนใช้งานตัวแปลง PDF', 'warning');
+        return;
+    }
 
     const filename = document.getElementById('btn-convert-pdf').dataset.filename || 'quiz.pdf';
+    // subjId สำหรับหน้าทบทวน: ช่อง Subject ID > เดาจากชื่อไฟล์ (ตรงกับที่ runGeminiConversion ใช้)
+    const subjId = (document.getElementById('subjID').value.trim() ||
+        parseFilenameMetadata(filename).subjectCode).trim();
+
+    const proceed = await reviewCategoriesBeforeConvert(subjId);
+    if (!proceed) return;
+
     document.getElementById('btn-convert-pdf').disabled = true;
     try {
         await runGeminiConversion(window._pdfFile, filename);
         autoMatchByPage();
         saveCheckpoint();
+        await offerFillEmptyChoices(); // Feature B: เสนอเติมตัวเลือกที่ว่าง
     } catch (e) {
         Swal.fire('Gemini Error', e.message, 'error');
     } finally {
@@ -821,14 +1168,151 @@ async function startPDFConversion() {
     }
 }
 
+// ─── Feature B: ตรวจหาข้อที่ตัวเลือกว่าง + เติมทั้งหมดด้วย AI (1 POST) ──────────
+// นับตัวเลือกจริง (ไม่ว่าง) จาก row[3] — ข้อที่มี < 2 ตัวเลือก ถือว่า "ว่าง/ไม่ครบ"
+function detectEmptyChoiceRows() {
+    const rows = converterStorage.ques || [];
+    const targets = [];
+    rows.forEach((row, i) => {
+        const choices = String(row[3] || '').split('///').map(c => c.trim()).filter(c => c !== '');
+        if (choices.length < 2) targets.push(i);
+    });
+    return targets;
+}
+
+// เสนอเติมตัวเลือก — เรียกหลังแปลงเสร็จ
+async function offerFillEmptyChoices() {
+    const targets = detectEmptyChoiceRows();
+    if (targets.length === 0) return;
+
+    const r = await Swal.fire({
+        icon: 'question',
+        title: `พบ ${targets.length} ข้อที่ตัวเลือกว่าง/ไม่ครบ`,
+        html: `<div class="small text-muted">ต้องการให้ AI เติมตัวเลือกให้ครบ 5 ข้อ (อ้างอิงจาก PDF ต้นฉบับ) ไหม?<br>
+               คำตอบเดิมจะถูกคงไว้ และคุณตรวจแก้ได้อีกครั้งผ่านปุ่ม ✎</div>`,
+        showCancelButton: true,
+        confirmButtonText: '<i class="fas fa-robot me-1"></i> เติมตัวเลือกทั้งหมดด้วย AI',
+        cancelButtonText: 'ไว้ทีหลัง'
+    });
+    if (!r.isConfirmed) return;
+    await bulkFillEmptyChoices(targets);
+}
+
+async function bulkFillEmptyChoices(targets) {
+    const file = window._pdfFile;
+    if (!file) {
+        Swal.fire('ทำไม่ได้', 'ไม่พบไฟล์ PDF ต้นฉบับในเซสชันนี้ — กรุณาเติมตัวเลือกเองผ่านปุ่ม ✎', 'info');
+        return;
+    }
+    // Edit 4: >14MB ส่ง native ไม่ได้ — ส่งเป็นภาพเฉพาะหน้าที่ข้อเหล่านั้นอยู่ (pageHint) แทน
+    const useNativePdf = file.size <= 14 * 1024 * 1024;
+    let hintPages = [];
+    if (!useNativePdf) {
+        hintPages = [...new Set(targets.map(i => pageHintMap.get(i)).filter(p => p != null))]
+            .sort((a, b) => a - b).slice(0, 20);
+        if (hintPages.length === 0 || !currentPdfDoc) {
+            Swal.fire('ไฟล์ใหญ่เกินไป',
+                `PDF ${(file.size / 1024 / 1024).toFixed(1)}MB และไม่ทราบหน้าอ้างอิงของข้อที่ว่าง — เติมตัวเลือกเองผ่านปุ่ม ✎`, 'info');
+            return;
+        }
+    }
+
+    // เตรียมรายการข้อ (id = rowIndex) + คำตอบ/ตัวเลือกเดิม (ถ้ามี)
+    const items = targets.map(i => {
+        const row = converterStorage.ques[i];
+        return {
+            id: i,
+            problem: String(row[1] || '').trim(),
+            answer: String(row[4] || '').trim(),
+            existingChoices: String(row[3] || '').split('///').map(c => c.trim()).filter(c => c !== '')
+        };
+    }).filter(t => t.problem !== '');
+
+    if (items.length === 0) { Swal.fire('ข้ามให้', 'ข้อที่ตัวเลือกว่างไม่มีโจทย์ให้อ้างอิง', 'info'); return; }
+
+    const statusEl = document.getElementById('pdf-status');
+    $('#loading-overlay').fadeIn(150).css('display', 'flex').find('h5').text('AI กำลังเติมตัวเลือก…');
+    try {
+        let payloadExtra;
+        if (useNativePdf) {
+            const pdfB64 = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+            payloadExtra = { pdfB64 };
+        } else {
+            const imgs = [];
+            for (const p of hintPages) {
+                const pages = await renderPagesAsBase64(currentPdfDoc, { start: p, end: p });
+                if (pages[0]) imgs.push(pages[0].dataUrl);
+            }
+            payloadExtra = { images: imgs };
+        }
+        const fills = await fillEmptyChoicesViaGAS(items, payloadExtra);
+        const filled = applyChoiceFills(fills);
+        $('#loading-overlay').hide();
+
+        renderPreview();
+        saveCheckpoint();
+        if (statusEl) statusEl.textContent = `✅ AI เติมตัวเลือกแล้ว ${filled} ข้อ`;
+        Swal.fire({
+            toast: true, icon: filled > 0 ? 'success' : 'warning', position: 'top-end',
+            title: filled > 0 ? `เติมตัวเลือกสำเร็จ ${filled} ข้อ — โปรดตรวจทานผ่านปุ่ม ✎`
+                              : 'AI ไม่ได้เติมข้อใด — ลองใหม่หรือเติมเองผ่านปุ่ม ✎',
+            timer: 4500, showConfirmButton: false
+        });
+    } catch (e) {
+        // RECITATION / network / quota — ข้อที่แปลงมาแล้วยังอยู่ครบ (เขียนทับเฉพาะตอนสำเร็จ)
+        $('#loading-overlay').hide();
+        Swal.fire('เติมตัวเลือกไม่สำเร็จ', `${e.message}<br><span class="small text-muted">ลองกดแปลงใหม่ หรือเติมเองผ่านปุ่ม ✎ ในแต่ละข้อ</span>`, 'warning');
+    }
+}
+
+// เขียนตัวเลือกที่ AI เติมกลับลงแถว — บังคับ answer ∈ choices เหมือน edit modal (advisor must-fix)
+// คืนจำนวนข้อที่เติมสำเร็จ
+function applyChoiceFills(fills) {
+    let filled = 0;
+    (fills || []).forEach(f => {
+        const id = Number(f.id);
+        if (!Number.isInteger(id) || !converterStorage.ques[id]) return; // id เพี้ยน/ไม่มีแถว → ข้าม
+        const choices = String(f.choices || '').split('///').map(c => c.trim()).filter(c => c !== '');
+        if (choices.length < 2) return; // เติมไม่ได้จริง
+
+        const row = converterStorage.ques[id];
+        let answer = String(f.answer || '').trim();
+        const prevAnswer = String(row[4] || '').trim();
+
+        // คงคำตอบเดิมถ้ายังอยู่ในตัวเลือกใหม่
+        if (prevAnswer && choices.includes(prevAnswer)) {
+            answer = prevAnswer;
+        } else if (!answer || !choices.includes(answer)) {
+            // answer ที่ AI ให้มาไม่ตรงตัวเลือก → ซ่อม: ใส่คำตอบเดิมเข้าไป หรือเลือกตัวแรก
+            if (prevAnswer) { choices.unshift(prevAnswer); answer = prevAnswer; }
+            else answer = choices[0];
+        }
+
+        row[3] = choices.join('///');
+        row[4] = answer;
+        filled++;
+    });
+    return filled;
+}
+
 // ─── Image Tray ───────────────────────────────────────────────────────────
 
 function renderImageTray() {
     const container = document.getElementById('image-tray-container');
     if (!container) return;
-    document.getElementById('tray-count').textContent = extractedImages.length;
 
-    container.innerHTML = extractedImages.map((img, i) => {
+    // Edit 5: แยกรูปประดับ (โผล่ ≥2 หน้า) ออกจากถาดหลัก — index i ต้องเป็น index จริงใน extractedImages
+    const mainImgs = [];
+    const decoImgs = [];
+    extractedImages.forEach((img, i) => (img.decorative ? decoImgs : mainImgs).push({ img, i }));
+    document.getElementById('tray-count').textContent = mainImgs.length;
+
+    const itemHtml = ({ img, i }) => {
         const isSelected = selectedTrayIndex === i;
         const assignedRow = img.assignedTo != null ? img.assignedTo : null;
         const rowEntries = assignedRow != null ? (imgAssignments.get(assignedRow) || []) : [];
@@ -840,7 +1324,16 @@ function renderImageTray() {
             <img src="${img.base64}" alt="img ${i}">
             <div class="tray-badges">${sourceBadge}${assignedBadge}${statusBadge}</div>
         </div>`;
-    }).join('');
+    };
+
+    let html = mainImgs.map(itemHtml).join('');
+    if (decoImgs.length > 0) {
+        html += `<details class="decor-tray">
+            <summary>รูปประดับ (คาดว่าไม่ใช่รูปข้อสอบ) — ${decoImgs.length} รูป</summary>
+            <div class="decor-tray-items">${decoImgs.map(itemHtml).join('')}</div>
+        </details>`;
+    }
+    container.innerHTML = html;
 }
 
 function selectTrayImage(index) {
@@ -893,7 +1386,13 @@ function renderImgPickerGrid() {
         grid.innerHTML = '<p class="text-muted text-center p-5 w-100">ยังไม่มีรูปภาพที่แยกได้จาก PDF</p>';
         return;
     }
-    grid.innerHTML = extractedImages.map((img, i) => {
+
+    // Edit 5: แยกรูปประดับออกจาก grid หลัก — index i ต้องเป็น index จริงใน extractedImages
+    const mainImgs = [];
+    const decoImgs = [];
+    extractedImages.forEach((img, i) => (img.decorative ? decoImgs : mainImgs).push({ img, i }));
+
+    const pickerItemHtml = ({ img, i }) => {
         const assignedRow = img.assignedTo != null ? img.assignedTo : null;
         const pickerRowEntries = assignedRow != null ? (imgAssignments.get(assignedRow) || []) : [];
         const assignedBadge = assignedRow != null
@@ -908,7 +1407,16 @@ function renderImgPickerGrid() {
                 ${assignedBadge}${statusBadge}
             </div>
         </div>`;
-    }).join('');
+    };
+
+    let html = mainImgs.map(pickerItemHtml).join('');
+    if (decoImgs.length > 0) {
+        html += `<details class="decor-tray w-100">
+            <summary>รูปประดับ (คาดว่าไม่ใช่รูปข้อสอบ) — ${decoImgs.length} รูป</summary>
+            <div class="decor-tray-items">${decoImgs.map(pickerItemHtml).join('')}</div>
+        </details>`;
+    }
+    grid.innerHTML = html;
 }
 
 function pickImageFromModal(trayIndex) {
@@ -1003,7 +1511,8 @@ function autoMatchByPage() {
 
     requireImgRows.forEach(q => {
         if (imgAssignments.has(q.rowIndex)) return; // already assigned
-        const unassigned = extractedImages.filter(img => img.assignedTo == null);
+        // Edit 5: รูปประดับ (โผล่หลายหน้า) ไม่ถูก auto-match — ผู้ใช้ยังเลือกเองได้จากถาดรูปประดับ
+        const unassigned = extractedImages.filter(img => img.assignedTo == null && !img.decorative);
         if (unassigned.length === 0) return;
 
         let match = unassigned.find(img => img.page === q.pageHint);
@@ -1157,4 +1666,60 @@ function switchConverterMode(mode) {
 function initPDFConverter() {
     restoreCheckpoint();
     updateSaveButtonState();
+}
+
+// ─── บริจาค Gemini API Key เข้า pool กลาง (พร้อมคู่มือขอ key ฟรี) ───────────
+// ส่ง action:'seedGeminiKey' ให้ backend validate (tri-state) แล้ว append ลง AI_Config
+function openGeminiDonateModal() {
+    Swal.fire({
+        title: 'บริจาค Gemini API Key',
+        html: `
+          <div style="text-align:left;font-size:0.9rem;line-height:1.55">
+            <p class="mb-1">ช่วยแบ่งปันโควต้าให้เพื่อนๆ แปลง PDF ได้มากขึ้น — ขอ Key <b>ฟรี</b> ง่ายๆ:</p>
+            <ol style="padding-left:1.15rem;margin-bottom:.6rem">
+              <li>เปิด <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a></li>
+              <li>ลงชื่อเข้าใช้ด้วยบัญชี Google</li>
+              <li>กดปุ่ม <b>Create API key</b> แล้ว <b>Copy</b></li>
+              <li>วาง Key ด้านล่าง แล้วกด "บริจาค"</li>
+            </ol>
+            <input id="gd-key" class="swal2-input" placeholder="วาง API Key ที่นี่" style="margin:.25rem 0;width:92%">
+            <input id="gd-name" class="swal2-input" placeholder="ชื่อผู้บริจาค (ไม่บังคับ)" style="margin:.25rem 0;width:92%">
+            <div class="small text-muted mt-1">Key จะถูกตรวจสอบก่อนบันทึก และใช้ร่วมกันในระบบเท่านั้น</div>
+          </div>`,
+        showCancelButton: true,
+        confirmButtonText: 'บริจาค',
+        cancelButtonText: 'ยกเลิก',
+        focusConfirm: false,
+        preConfirm: () => {
+            const key = (document.getElementById('gd-key').value || '').trim();
+            const name = (document.getElementById('gd-name').value || '').trim();
+            if (!key) { Swal.showValidationMessage('กรุณาวาง API Key'); return false; }
+            return { key, name };
+        }
+    }).then(async (r) => {
+        if (!r.isConfirmed) return;
+        Swal.fire({ title: 'กำลังตรวจสอบ Key…', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        try {
+            const res = await fetch(APPSCRIPT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({
+                    action: 'seedGeminiKey',
+                    apiKey: r.value.key,
+                    donorName: r.value.name,
+                    clientId: getConverterClientId(),
+                    username: (typeof currentUser === 'object' && currentUser && currentUser.username) || ''
+                }),
+                redirect: 'follow'
+            });
+            const json = await res.json();
+            if (json.result === 'success') {
+                Swal.fire('ขอบคุณครับ! 🎉', json.message || 'บริจาคสำเร็จ', 'success');
+            } else {
+                Swal.fire('ไม่สำเร็จ', json.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่', 'error');
+            }
+        } catch (e) {
+            Swal.fire('เชื่อมต่อไม่ได้', 'เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง', 'error');
+        }
+    });
 }

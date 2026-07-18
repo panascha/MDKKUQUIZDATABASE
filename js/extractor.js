@@ -91,7 +91,8 @@ async function renderPageAsFallback(pdfPage, pageNum) {
 // Updates extractedImages global and calls renderImageTray() when done
 async function extractImagesFromPDF(pdfDoc) {
     extractedImages = [];
-    const seenFingerprints = new Set();
+    // Dedup ข้ามหน้า + นับจำนวนหน้าที่รูปเดียวกันโผล่ — โผล่ ≥2 หน้า = รูปประดับ (โลโก้/หัวกระดาษ)
+    const fpMap = new Map(); // _fp → { img, pages: Set }
     const statusEl = document.getElementById('pdf-status');
     const total = pdfDoc.numPages;
 
@@ -110,22 +111,29 @@ async function extractImagesFromPDF(pdfDoc) {
                 console.warn(`extractor: page ${p} object extraction failed:`, e);
             }
 
-            // Dedup across pages using stored _fp (computed synchronously in extractObjectsFromPage)
-            const uniqueObjs = pageObjs.filter(img => {
+            // Keep first occurrence; later occurrences only bump the page count
+            pageObjs.forEach(img => {
                 const fp = img._fp;
-                if (!fp || seenFingerprints.has(fp)) return false;
-                seenFingerprints.add(fp);
-                return true;
+                if (!fp) return;
+                const entry = fpMap.get(fp);
+                if (entry) { entry.pages.add(img.page); return; }
+                fpMap.set(fp, { img, pages: new Set([img.page]) });
+                extractedImages.push(img);
             });
-
-            if (uniqueObjs.length > 0) {
-                extractedImages.push(...uniqueObjs);
-            }
             // Pages with no embedded XObjects are skipped — admin uses "อัปโหลดรูป" for scanned PDFs.
         }
     } finally {
         if (progressEl) progressEl.classList.add('d-none');
     }
-    statusEl.textContent = `✅ ดึงภาพสำเร็จ ${extractedImages.length} รูป`;
+
+    // ≥2 หน้า = decorative suspect — แยกไปถาด "รูปประดับ" (soft-separate, ยังเลือกกลับมาใช้ได้)
+    fpMap.forEach(({ img, pages }) => {
+        img.decorative = pages.size >= 2;
+        img.pageCount = pages.size;
+    });
+
+    const decoCount = extractedImages.filter(i => i.decorative).length;
+    statusEl.textContent = `✅ ดึงภาพสำเร็จ ${extractedImages.length - decoCount} รูป` +
+        (decoCount > 0 ? ` (แยกรูปประดับ ${decoCount} รูป)` : '');
     renderPreviewCards();
 }

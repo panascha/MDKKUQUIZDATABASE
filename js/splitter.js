@@ -8,7 +8,8 @@
 //   "ส่งทีละชุด" (batched) or "ส่งทั้งหมด" (single call).
 // Resolves with the chosen batch array.
 async function checkAndSplitPDF(pdfDoc) {
-    const batchLimit = parseInt(document.getElementById('batch-limit').value) || 15;
+    const batchLimitEl = document.getElementById('batch-limit'); // ยังไม่มีใน UI — ใช้ default 15
+    const batchLimit = parseInt(batchLimitEl && batchLimitEl.value) || 15;
     const total = pdfDoc.numPages;
 
     if (total <= batchLimit) {

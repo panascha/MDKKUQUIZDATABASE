@@ -134,6 +134,10 @@
                     <span class="mr-2 d-none d-lg-inline text-gray-600 small me-2" id="topbar-user">Guest</span>
                     <img id="topbar-avatar" class="img-profile rounded-circle me-2" style="width: 32px; height: 32px;"
                         src="">
+                    <button class="btn btn-sm btn-light text-primary rounded-circle me-2" onclick="clearAdminCacheAndReload()"
+                        title="ล้างแคชและโหลดข้อมูลใหม่">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
                     <button class="btn btn-sm btn-light text-danger rounded-circle" onclick="logoutAdmin()"
                         title="Logout">
                         <i class="fas fa-sign-out-alt"></i>
@@ -473,23 +477,21 @@
                         </button>
                     </div>
 
-                    <!-- SHARED: Subject/Year fields (used by processAll in both modes) -->
-                    <div class="row g-2 mb-3">
+                    <!-- SHARED: Year→Subject cascade (edit 2) — เขียนค่าลง #yearVal/#subjID/#subjName ที่ pipeline อ่านอยู่ -->
+                    <div class="row g-2 mb-2" id="conv-picker-row">
                         <div class="col-md-3">
                             <label class="small">ชั้นปี (Year)</label>
-                            <input type="number" id="yearVal" class="form-control form-control-sm" placeholder="1,2,3">
+                            <select id="conv-year-select" class="form-select form-select-sm" onchange="onConvYearChange(this.value)">
+                                <option value="">— เลือกชั้นปี —</option>
+                            </select>
                         </div>
-                        <div class="col-md-3">
-                            <label class="small">รหัสวิชา (Subject ID)</label>
-                            <input type="text" id="subjID" list="subjectIdList" class="form-control form-control-sm" placeholder="GI, NS">
-                            <datalist id="subjectIdList"></datalist>
+                        <div class="col-md-5">
+                            <label class="small">วิชา (Subject)</label>
+                            <select id="conv-subject-select" class="form-select form-select-sm" disabled onchange="onConvSubjectChange(this.value)">
+                                <option value="">— เลือกชั้นปีก่อน —</option>
+                            </select>
                         </div>
-                        <div class="col-md-3">
-                            <label class="small">ชื่อวิชา</label>
-                            <input type="text" id="subjName" list="subjectNameList" class="form-control form-control-sm" placeholder="Full Name">
-                            <datalist id="subjectNameList"></datalist>
-                        </div>
-                        <div class="col-md-3">
+                        <div class="col-md-4">
                             <label class="small">กลุ่มคำย่อ (Group Keywords)</label>
                             <input type="text" id="groupKeys" class="form-control form-control-sm"
                                 value="MCQ1,MCQ2,MCQ3,MCQ4,FMT1,FMT2,by AI"
@@ -497,38 +499,84 @@
                         </div>
                     </div>
 
+                    <!-- "อื่นๆ (พิมพ์เอง)" — ช่องกรอกเดิม (id เดิม, pipeline อ่านช่องพวกนี้เสมอ) ซ่อนไว้จนกว่าจะเลือกอื่นๆ -->
+                    <div class="row g-2 mb-3 d-none" id="conv-custom-subject">
+                        <div class="col-md-3">
+                            <label class="small">ชั้นปี (Year)</label>
+                            <input type="number" id="yearVal" class="form-control form-control-sm" placeholder="1,2,3">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="small">รหัสวิชา (Subject ID)</label>
+                            <input type="text" id="subjID" list="subjectIdList" class="form-control form-control-sm" placeholder="GI, NS">
+                            <datalist id="subjectIdList"></datalist>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="small">ชื่อวิชา</label>
+                            <input type="text" id="subjName" list="subjectNameList" class="form-control form-control-sm" placeholder="Full Name">
+                            <datalist id="subjectNameList"></datalist>
+                        </div>
+                    </div>
+
                     <!-- AI PANEL -->
                     <div id="converter-ai-panel">
+                        <!-- Edit 1: process blurb — 4 ขั้นตอนสำหรับผู้ใช้ทั่วไป -->
+                        <div class="conv-blurb-card mb-3" id="conv-blurb">
+                            <div class="conv-blurb-steps">
+                                <span class="conv-blurb-step"><span class="conv-blurb-num">1</span> เลือกปี → วิชา → กลุ่มข้อสอบ</span>
+                                <span class="conv-blurb-step"><span class="conv-blurb-num">2</span> วางไฟล์ PDF (ไม่เกิน 50MB)</span>
+                                <span class="conv-blurb-step"><span class="conv-blurb-num">3</span> AI แปลงเป็นข้อสอบอัตโนมัติ</span>
+                                <span class="conv-blurb-step"><span class="conv-blurb-num">4</span> ตรวจ / แก้ไข / บันทึกเข้าระบบ</span>
+                            </div>
+                            <div class="small text-muted mt-1">
+                                <i class="fas fa-key me-1"></i> ใช้ระบบกลาง ไม่ต้องใช้ API key ของตัวเอง
+                            </div>
+                            <div class="d-flex flex-wrap gap-2 mt-2">
+                                <button type="button" class="btn btn-sm btn-outline-warning" onclick="openGeminiDonateModal()">
+                                    <i class="fas fa-hand-holding-heart me-1"></i> บริจาค Gemini Key
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearAdminCacheAndReload()">
+                                    <i class="fas fa-sync-alt me-1"></i> ล้างแคช / โหลดใหม่
+                                </button>
+                            </div>
+                        </div>
+
                         <div class="card mb-3" id="pdf-import-card">
                             <div class="card-header-custom">
                                 <span><i class="fas fa-file-pdf me-2 text-danger"></i> PDF → AI Convert</span>
                             </div>
                             <div class="card-body">
-                                <div class="mb-2 d-flex gap-2 align-items-center">
-                                    <input type="password" id="gemini-api-key" class="form-control form-control-sm"
-                                           placeholder="Gemini API Key (เก็บใน sessionStorage เท่านั้น)"
-                                           oninput="sessionStorage.setItem('mdkku_gemini_key', this.value)">
-                                    <button class="btn btn-sm btn-outline-secondary" onclick="toggleGeminiKeyVis()">👁</button>
-                                </div>
-                                <div class="mb-2 d-flex gap-2 align-items-center">
-                                    <label class="small text-muted mb-0 flex-shrink-0">Model:</label>
-                                    <select id="gemini-model-select" class="form-select form-select-sm">
-                                        <option value="gemini-3.5-flash" selected>gemini-3.5-flash (fastest · Pro capabilities · recommended)</option>
-                                        <option value="gemini-3.1-pro">gemini-3.1-pro (in-depth analysis and advanced coding)</option>
-                                        <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (Cost-effective and fast processing)</option>
-                                        <option value="gemini-2.5-pro">gemini-2.5-pro (Pro-level model, high stability)</option>
-                                        <option value="gemini-2.5-flash">gemini-2.5-flash (General model, high stability)</option>
-                                    </select>
-                                </div>
-                                <small class="text-muted d-block mb-3">Key จะถูกลบเมื่อปิด Tab — รับ API Key ฟรีที่
-                                    <a href="https://aistudio.google.com/" target="_blank" rel="noopener">Google AI Studio</a>
+                                <small class="text-muted d-block mb-3">
+                                    <i class="fas fa-key me-1"></i> ใช้ Gemini key กลางของระบบอัตโนมัติ — ไม่ต้องกรอก API Key
                                 </small>
+
+                                <!-- Edit 3: exam-group picker — เลือกแล้วชนะการเดาจากชื่อไฟล์ -->
+                                <div class="mb-3" id="conv-group-picker">
+                                    <label class="small text-muted d-block mb-1">กลุ่มข้อสอบ (ถ้าไม่เลือก ระบบเดาจากชื่อไฟล์)</label>
+                                    <div class="d-flex flex-wrap gap-1 align-items-center">
+                                        <button type="button" class="conv-chip" data-group="MCQ" onclick="pickConvGroup(this)">MCQ</button>
+                                        <button type="button" class="conv-chip" data-group="FMT" onclick="pickConvGroup(this)">FMT</button>
+                                        <button type="button" class="conv-chip" data-group="QUIZ" onclick="pickConvGroup(this)">QUIZ</button>
+                                        <button type="button" class="conv-chip" data-group="LAB" onclick="pickConvGroup(this)">LAB</button>
+                                        <button type="button" class="conv-chip" data-group="__custom__" onclick="pickConvGroup(this)">อื่นๆ</button>
+                                        <select id="conv-group-round" class="form-select form-select-sm conv-round-select" title="ครั้งที่" onchange="updateConvGroupReadout()">
+                                            <option value="">ไม่ระบุครั้ง</option>
+                                            <option value="1">ครั้งที่ 1</option>
+                                            <option value="2">ครั้งที่ 2</option>
+                                            <option value="3">ครั้งที่ 3</option>
+                                            <option value="4">ครั้งที่ 4</option>
+                                        </select>
+                                        <input type="text" id="conv-group-custom" class="form-control form-control-sm d-none"
+                                               style="max-width:150px" placeholder="พิมพ์เอง เช่น OSCE1" oninput="updateConvGroupReadout()">
+                                    </div>
+                                    <div id="conv-group-hint" class="small text-info mt-1 d-none"></div>
+                                    <div id="conv-group-readout" class="small mt-1 d-none"></div>
+                                </div>
 
                                 <div id="pdf-drop-zone" class="pdf-drop-zone"
                                      onclick="document.getElementById('pdf-file-input').click()"
                                      ondrop="handlePDFDrop(event)" ondragover="event.preventDefault()">
                                     <i class="fas fa-cloud-upload-alt fa-2x text-muted mb-2"></i>
-                                    <p class="mb-0 text-muted">ลากไฟล์ PDF มาวาง หรือคลิกเพื่อเลือก (สูงสุด 14MB)</p>
+                                    <p class="mb-0 text-muted">ลากไฟล์ PDF มาวาง หรือคลิกเพื่อเลือก (สูงสุด 50MB / 80 หน้า)</p>
                                     <div id="pdf-status" class="small mt-2 text-primary"></div>
                                     <progress id="pdf-progress" class="d-none" style="width:100%;height:6px" max="100" value="0"></progress>
                                 </div>
@@ -698,6 +746,13 @@
                             </div>
 
                             <div class="border rounded bg-light p-2">
+                                <div class="input-group input-group-sm mb-2">
+                                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                    <input type="text" id="converter-search" class="form-control"
+                                        placeholder="ค้นหาโจทย์ / ตัวเลือก / คำตอบ / หัวข้อ…"
+                                        oninput="onConverterSearch(this.value)">
+                                    <span class="input-group-text text-muted small" id="converter-search-count"></span>
+                                </div>
                                 <div class="d-flex gap-1 mb-2 flex-wrap" id="converter-filter-bar"
                                     style="background: #f1f3f9; padding: 8px; border-radius: 8px; border: 1px solid #e3e6f0;">
                                     <button class="btn btn-sm btn-outline-secondary active"
@@ -745,6 +800,59 @@
                     </button>
                 </div>
                 <div id="img-picker-grid" class="img-picker-grid"></div>
+            </div>
+
+            <!-- Converter Edit Modal — แก้ไขข้อสอบที่แปลงมาก่อนบันทึก -->
+            <div class="modal fade" id="converterEditModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title"><i class="fas fa-pen me-2 text-primary"></i>แก้ไขข้อสอบก่อนบันทึก</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold small mb-1">โจทย์ (Problem)</label>
+                                <textarea id="conv-edit-problem" class="form-control" rows="4"></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold small mb-1">
+                                    ตัวเลือก (Choices) — ติ๊กวงกลมหน้าข้อที่เป็น<b>คำตอบที่ถูก</b>
+                                </label>
+                                <div id="conv-edit-choices"></div>
+                                <button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="convEditAddChoice('', false)">
+                                    <i class="fas fa-plus me-1"></i>เพิ่มตัวเลือก
+                                </button>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold small mb-1">คำอธิบาย (Explanation)</label>
+                                <textarea id="conv-edit-explain" class="form-control" rows="3"></textarea>
+                            </div>
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-5">
+                                    <label class="form-label fw-semibold small mb-1">หมวดกลุ่มข้อสอบ (category[0])</label>
+                                    <input id="conv-edit-cat0" class="form-control form-control-sm" placeholder="เช่น CVS_51MCQ1">
+                                </div>
+                                <div class="col-md-7">
+                                    <label class="form-label fw-semibold small mb-1">หัวข้อบรรยาย (category[1])</label>
+                                    <select id="conv-edit-cat1-select" class="form-select form-select-sm" onchange="convEditCat1Changed()"></select>
+                                    <input id="conv-edit-cat1-custom" class="form-control form-control-sm mt-1 d-none" placeholder="พิมพ์ CategoryID เอง">
+                                </div>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="conv-edit-requireimg">
+                                <label class="form-check-label small" for="conv-edit-requireimg">ข้อนี้ต้องใช้รูปภาพ (require_img)</label>
+                                <div id="conv-edit-requireimg-note" class="text-muted small d-none">มีรูปภาพแล้ว — จัดการรูปที่การ์ดตัวอย่าง</div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                            <button type="button" class="btn btn-primary" onclick="saveConverterEdit()">
+                                <i class="fas fa-check me-1"></i>บันทึกการแก้ไข
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- SECTION: Logs (Admin) -->
@@ -1674,6 +1782,7 @@
 <script src="js/extractor.js"></script>
 <script src="js/queue.js"></script>
 <script src="js/converter.js"></script>
+<script src="js/converter-edit.js"></script>
 <script src="js/announcements.js"></script>
 <script src="js/feedback-admin.js"></script>
 <script src="js/admin-tools.js"></script>
