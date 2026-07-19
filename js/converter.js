@@ -899,17 +899,15 @@ function updateConvGroupReadout() {
     if (!filename) { el.classList.add('d-none'); el.textContent = ''; return; }
 
     const subjId = (document.getElementById('subjID').value || '').trim().toUpperCase();
+    const eff = getEffectiveExamGroup(filename);
     const picked = (typeof getPickedExamGroup === 'function') ? getPickedExamGroup() : '';
-    let group, src;
-    if (picked) { group = picked; src = 'เลือก/ตรวจพบ'; }
-    else { group = parseFilenameMetadata(filename).examGroup; src = 'เดาจากชื่อไฟล์'; }
+    const group = eff.group;
+    const src = picked ? 'เลือก/ตรวจพบ' : (eff.forced ? 'ชื่อไฟล์ + รุ่นที่กรอก' : 'เดาจากชื่อไฟล์');
 
     const catId = subjId ? `${subjId}_${group}` : group;
     let warn = subjId ? '' : ' <span class="text-warning">— เลือกวิชาก่อนเพื่อได้รหัสเต็ม</span>';
     // ไม่มีเลขรุ่นนำหน้ากลุ่ม = ข้อสอบคนละปีจะไปกองรวมกัน
     if (group && !/^\d/.test(group)) warn += ' <span class="text-warning">— ยังไม่ได้ใส่รุ่น/ปีข้อสอบ</span>';
-    // เลขรุ่นจะถูกบันทึกก็ต่อเมื่อเลือกกลุ่มข้อสอบด้วย (getPickedExamGroup คืน '' ถ้าไม่มีชิป)
-    if (!picked && getConvBatch()) warn += ' <span class="text-warning">— กดเลือกกลุ่มข้อสอบด้วย ไม่งั้นเลขรุ่นจะไม่ถูกบันทึก</span>';
     el.innerHTML = `<i class="fas fa-tag me-1"></i>ไฟล์: <b>${_convEsc(filename)}</b> · กลุ่มที่จะบันทึก: <b>${_convEsc(catId)}</b> <span class="text-muted">(${src})</span>${warn}`;
     el.classList.remove('d-none');
 }
@@ -971,6 +969,20 @@ function guessBatchFromFilename(filename) {
     if (typeof parseFilenameMetadata !== 'function') return null;
     const g = (parseFilenameMetadata(filename).examGroup || '').match(/^(\d{2})(?!\d)/);
     return g ? g[1] : null;
+}
+
+// กลุ่มข้อสอบที่จะบันทึกจริง: ชิปที่เลือกมาก่อน ถ้าไม่ได้เลือกก็เดาจากชื่อไฟล์ แล้วเติมเลขรุ่นให้ถ้ายังไม่มี
+// คืน { group, forced } — forced=true คือให้ทับ category[0] ที่ Gemini เขียนมา
+function getEffectiveExamGroup(filename) {
+    const picked = (typeof getPickedExamGroup === 'function') ? getPickedExamGroup() : '';
+    if (picked) return { group: picked, forced: true };
+
+    const guessed = (typeof parseFilenameMetadata === 'function' && filename)
+        ? (parseFilenameMetadata(filename).examGroup || '') : '';
+    const batch = getConvBatch();
+    // มีเลขรุ่นแต่ชื่อไฟล์ไม่มีปีนำหน้า → เติมให้ ไม่งั้นปีข้อสอบจะหายไปจาก category
+    if (guessed && batch && !/^\d/.test(guessed)) return { group: batch + guessed, forced: true };
+    return { group: guessed, forced: false };
 }
 
 // Auto-detect TYPE + รุ่น จากข้อความ ~2 หน้าแรก (suggest-only) — ไม่มี text layer = ไม่เดา, round ไม่เดาเสมอ

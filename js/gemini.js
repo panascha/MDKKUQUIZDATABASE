@@ -412,9 +412,10 @@ async function runGeminiConversion(file, filename) {
     // หัวข้อบรรยายจริงของวิชานี้ (จากชีต) → บังคับ Gemini จัดหมวดลงหัวข้อ e-learning จริง
     const subjId = (document.getElementById('subjID').value || subjectCode).trim();
 
-    // Edit 3: กลุ่มข้อสอบที่ผู้ใช้เลือกจากชิป — ถ้าเลือก ชนะการเดาจากชื่อไฟล์ + บังคับ category[0]
-    const pickedGroup = (typeof getPickedExamGroup === 'function') ? getPickedExamGroup() : '';
-    const forcedCat0 = pickedGroup ? `${subjId.toUpperCase()}_${pickedGroup}` : '';
+    // Edit 3: กลุ่มข้อสอบที่จะบันทึก — ชิปที่เลือก หรือชื่อไฟล์ที่เติมเลขรุ่นให้แล้ว → บังคับ category[0]
+    const effGroup = (typeof getEffectiveExamGroup === 'function')
+        ? getEffectiveExamGroup(filename) : { group: '', forced: false };
+    const forcedCat0 = effGroup.forced ? `${subjId.toUpperCase()}_${effGroup.group}` : '';
     const fileStem = forcedCat0 || `${subjectCode}_${examGroup}`;
     // หัวข้อที่ผู้ใช้ทบทวน/ยืนยันแล้วในหน้าทบทวน (reviewCategoriesBeforeConvert) — ไม่ต้อง toast ซ้ำ
     const allowedCats = getExistingCategoriesForSubject(subjId);
