@@ -41,10 +41,12 @@ function resetConverter() {
 
                 // รีเซ็ต exam-group picker (edit 3)
                 _convGroupType = '';
+                $('#conv-group-batch').val('');
                 $('#conv-group-picker .conv-chip').removeClass('active suggested');
                 $('#conv-group-custom').addClass('d-none').val('');
                 $('#conv-group-round').val('');
                 $('#conv-group-hint').addClass('d-none');
+                $('#conv-batch-hint').addClass('d-none').empty();
                 $('#conv-group-readout').addClass('d-none').empty();
                 $('#btn-convert-pdf').removeAttr('data-filename');
 
@@ -903,39 +905,101 @@ function updateConvGroupReadout() {
     else { group = parseFilenameMetadata(filename).examGroup; src = 'เดาจากชื่อไฟล์'; }
 
     const catId = subjId ? `${subjId}_${group}` : group;
-    const warn = subjId ? '' : ' <span class="text-warning">— เลือกวิชาก่อนเพื่อได้รหัสเต็ม</span>';
+    let warn = subjId ? '' : ' <span class="text-warning">— เลือกวิชาก่อนเพื่อได้รหัสเต็ม</span>';
+    // ไม่มีเลขรุ่นนำหน้ากลุ่ม = ข้อสอบคนละปีจะไปกองรวมกัน
+    if (group && !/^\d/.test(group)) warn += ' <span class="text-warning">— ยังไม่ได้ใส่รุ่น/ปีข้อสอบ</span>';
+    // เลขรุ่นจะถูกบันทึกก็ต่อเมื่อเลือกกลุ่มข้อสอบด้วย (getPickedExamGroup คืน '' ถ้าไม่มีชิป)
+    if (!picked && getConvBatch()) warn += ' <span class="text-warning">— กดเลือกกลุ่มข้อสอบด้วย ไม่งั้นเลขรุ่นจะไม่ถูกบันทึก</span>';
     el.innerHTML = `<i class="fas fa-tag me-1"></i>ไฟล์: <b>${_convEsc(filename)}</b> · กลุ่มที่จะบันทึก: <b>${_convEsc(catId)}</b> <span class="text-muted">(${src})</span>${warn}`;
     el.classList.remove('d-none');
 }
 
-// คืน examGroup ที่ผู้ใช้เลือก เช่น "MCQ2" — '' ถ้าไม่ได้เลือก (ให้เดาจากชื่อไฟล์แทน)
+// รุ่น/ปีข้อสอบที่ผู้ใช้กรอก เช่น "52" — '' ถ้าเว้นว่าง (ไม่บังคับ)
+function getConvBatch() {
+    const el = document.getElementById('conv-group-batch');
+    return el ? el.value.replace(/\D/g, '') : '';
+}
+
+// ผู้ใช้พิมพ์เอง = hint ที่ตรวจพบล้าสมัยแล้ว ซ่อนทิ้ง
+function onConvBatchInput() {
+    const hintEl = document.getElementById('conv-batch-hint');
+    if (hintEl) { hintEl.classList.add('d-none'); hintEl.textContent = ''; }
+    updateConvGroupReadout();
+}
+
+// คืน examGroup ที่ผู้ใช้เลือก เช่น "52MCQ2" — '' ถ้าไม่ได้เลือก (ให้เดาจากชื่อไฟล์แทน)
 function getPickedExamGroup() {
+    const batch = getConvBatch();
     if (_convGroupType === '__custom__') {
         const v = document.getElementById('conv-group-custom').value.trim().replace(/\s+/g, '');
-        return v ? v.toUpperCase() : '';
+        return v ? batch + v.toUpperCase() : '';
     }
     if (!_convGroupType) return '';
     const round = document.getElementById('conv-group-round').value;
-    return _convGroupType + (round || '');
+    return batch + _convGroupType + (round || '');
 }
 
-// Auto-detect TYPE จากข้อความ ~2 หน้าแรก (suggest-only) — ไม่มี text layer = ไม่เดา, round ไม่เดาเสมอ
-async function detectExamGroupType(pdfDoc) {
-    try {
-        let text = '';
-        const maxPage = Math.min(2, pdfDoc.numPages);
-        for (let p = 1; p <= maxPage; p++) {
-            const tc = await (await pdfDoc.getPage(p)).getTextContent();
-            text += tc.items.map(it => it.str).join(' ') + ' ';
-        }
-        if (!text.trim()) return null;
-        if (/formative|\bFMT\b/i.test(text)) return 'FMT';
-        if (/laborator|\blab\b|ปฏิบัติการ/i.test(text)) return 'LAB';
-        if (/multiple\s*choice|\bMCQ\b|ปรนัย/i.test(text)) return 'MCQ';
-        return null;
-    } catch (e) {
-        return null; // detect พังต้องไม่ล้มการโหลด PDF
+// อ่านข้อความ ~2 หน้าแรกครั้งเดียว ใช้ร่วมกันทั้ง detect TYPE และ detect รุ่น
+async function _readPdfHeadText(pdfDoc) {
+    let text = '';
+    const maxPage = Math.min(2, pdfDoc.numPages);
+    for (let p = 1; p <= maxPage; p++) {
+        const tc = await (await pdfDoc.getPage(p)).getTextContent();
+        text += tc.items.map(it => it.str).join(' ') + ' ';
     }
+    return text;
+}
+
+function classifyExamType(text) {
+    if (/formative|\bFMT\b/i.test(text)) return 'FMT';
+    if (/laborator|\blab\b|ปฏิบัติการ/i.test(text)) return 'LAB';
+    if (/multiple\s*choice|\bMCQ\b|ปรนัย/i.test(text)) return 'MCQ';
+    return null;
+}
+
+// เดาเลขรุ่นจากข้อความ: "รุ่น 52", "แพทย์รุ่นที่ 52", "MD52" — ไม่แปลงปี พ.ศ./ค.ศ. เป็นรุ่น
+function classifyExamBatch(text) {
+    const m = text.match(/(?:รุ่น\s*(?:ที่\s*)?|\bMD\s*)(\d{2})(?!\d)/i);
+    return m ? m[1] : null;
+}
+
+// เดาเลขรุ่นจากชื่อไฟล์: "(MD49) …" หรือส่วนกลุ่มข้อสอบที่ขึ้นต้นด้วยเลข เช่น CVS_51MCQ1.pdf
+function guessBatchFromFilename(filename) {
+    if (!filename) return null;
+    const md = filename.match(/\(\s*MD\s*(\d{2})\s*\)/i);
+    if (md) return md[1];
+    if (typeof parseFilenameMetadata !== 'function') return null;
+    const g = (parseFilenameMetadata(filename).examGroup || '').match(/^(\d{2})(?!\d)/);
+    return g ? g[1] : null;
+}
+
+// Auto-detect TYPE + รุ่น จากข้อความ ~2 หน้าแรก (suggest-only) — ไม่มี text layer = ไม่เดา, round ไม่เดาเสมอ
+async function detectExamMeta(pdfDoc) {
+    try {
+        const text = await _readPdfHeadText(pdfDoc);
+        if (!text.trim()) return { type: null, batch: null };
+        return { type: classifyExamType(text), batch: classifyExamBatch(text) };
+    } catch (e) {
+        return { type: null, batch: null }; // detect พังต้องไม่ล้มการโหลด PDF
+    }
+}
+
+async function detectExamGroupType(pdfDoc) {
+    return (await detectExamMeta(pdfDoc)).type;
+}
+
+// เติมเลขรุ่นให้อัตโนมัติ — เติมเฉพาะตอนช่องยังว่าง (ห้ามทับสิ่งที่ผู้ใช้พิมพ์เอง)
+function applyDetectedBatch(batch, src) {
+    if (!batch) return;
+    const el = document.getElementById('conv-group-batch');
+    if (!el || el.value.trim()) return;
+    el.value = batch;
+    const hintEl = document.getElementById('conv-batch-hint'); // แยกจาก #conv-group-hint กันเขียนทับกัน
+    if (hintEl) {
+        hintEl.textContent = `ตรวจพบรุ่น: ${batch} (จาก${src} — แก้ได้)`;
+        hintEl.classList.remove('d-none');
+    }
+    updateConvGroupReadout();
 }
 
 function applyDetectedGroup(type) {
@@ -1004,10 +1068,14 @@ async function handlePDFFile(file) {
 
     window._pdfFile = file; // preserve raw File for inline-PDF Gemini call
     btn.dataset.filename = file.name;
+    applyDetectedBatch(guessBatchFromFilename(file.name), 'ชื่อไฟล์'); // เดารุ่นจากชื่อไฟล์ทันที
     updateConvGroupReadout(); // แสดงชื่อไฟล์ + กลุ่มที่เดาไว้ทันที (แม้ detect จะยังไม่เสร็จ/ล้มเหลว)
 
-    // Edit 3: auto-detect กลุ่มข้อสอบจากข้อความหน้าแรกๆ (suggest-only, ไม่บล็อกการโหลด)
-    detectExamGroupType(currentPdfDoc).then(t => { if (t) applyDetectedGroup(t); });
+    // Edit 3: auto-detect กลุ่มข้อสอบ + รุ่น จากข้อความหน้าแรกๆ (suggest-only, ไม่บล็อกการโหลด)
+    detectExamMeta(currentPdfDoc).then(meta => {
+        if (meta.type) applyDetectedGroup(meta.type);
+        applyDetectedBatch(meta.batch, 'เนื้อหาในไฟล์'); // ช่องว่างอยู่เท่านั้นถึงจะเติม
+    });
 
     statusEl.textContent = `PDF โหลดแล้ว — ${currentPdfDoc.numPages} หน้า — กำลังเตรียมภาพ…`;
 

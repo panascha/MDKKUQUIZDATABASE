@@ -554,6 +554,9 @@
                                 <div class="mb-3" id="conv-group-picker">
                                     <label class="small text-muted d-block mb-1">กลุ่มข้อสอบ (ถ้าไม่เลือก ระบบเดาจากชื่อไฟล์)</label>
                                     <div class="d-flex flex-wrap gap-1 align-items-center">
+                                        <input type="text" id="conv-group-batch" class="form-control form-control-sm"
+                                                placeholder="รุ่น/ปีข้อสอบ เช่น 52" title="รุ่น/ปีข้อสอบ"
+                                               oninput="onConvBatchInput()">
                                         <button type="button" class="conv-chip" data-group="MCQ" onclick="pickConvGroup(this)">MCQ</button>
                                         <button type="button" class="conv-chip" data-group="FMT" onclick="pickConvGroup(this)">FMT</button>
                                         <button type="button" class="conv-chip" data-group="QUIZ" onclick="pickConvGroup(this)">QUIZ</button>
@@ -570,6 +573,7 @@
                                                style="max-width:150px" placeholder="พิมพ์เอง เช่น OSCE1" oninput="updateConvGroupReadout()">
                                     </div>
                                     <div id="conv-group-hint" class="small text-info mt-1 d-none"></div>
+                                    <div id="conv-batch-hint" class="small text-info mt-1 d-none"></div>
                                     <div id="conv-group-readout" class="small mt-1 d-none"></div>
                                 </div>
 
