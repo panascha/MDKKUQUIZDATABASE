@@ -104,6 +104,14 @@ function checkAuthBeforeAction(callbackAction) {
             return true;
         }
 
+        // ล็อกอิน Google แล้วแต่เป็นระดับนักศึกษา (ไม่อยู่ใน whitelist แอดมิน)
+        if (currentUser && currentUser.role === 'Student') {
+            Swal.fire('สิทธิ์ไม่เพียงพอ',
+                'บัญชีของคุณเป็นระดับนักศึกษา — การจัดการข้อสอบต้องเป็นแอดมิน (whitelist) ติดต่อแอดมินเพื่อขอสิทธิ์',
+                'info');
+            return false;
+        }
+
         // ถ้ายังไม่ได้ล็อกอิน ให้ถามด้วย SweetAlert
         Swal.fire({
             title: 'ต้องเข้าสู่ระบบก่อนดำเนินการ',
@@ -368,6 +376,7 @@ async function performLogin() {
                 currentUser = data.user;
                 isAdmin = true;
                 adminPass = password; // Store for session actions
+                sessionToken = ''; // ล็อกอินแบบรหัสผ่าน — เลิกใช้ Google token เดิม (กัน token ตายไปทับ adminPass)
 
                 localStorage.setItem('mdkku_admin_user', JSON.stringify(currentUser));
                 localStorage.setItem('mdkku_admin_pass', adminPass);
@@ -396,11 +405,28 @@ function logoutAdmin() {
 
         localStorage.removeItem('mdkku_admin_user');
         localStorage.removeItem('mdkku_admin_pass');
+        // Google SSO: เพิกถอน session ร่วม — มีผลกับหน้า MDKKUQUIZ ด้วย (บัญชีเดียวกัน)
+        const tokenToDelete = sessionToken;
+        if (tokenToDelete) {
+            localStorage.removeItem(SHARED_TOKEN_KEY);
+            sendWithRetry({ action: 'deleteSession', sessionToken: tokenToDelete }).catch(() => { });
+            try { google.accounts.id.disableAutoSelect(); } catch (e) { }
+        }
+        sessionToken = '';
         isAdmin = false;
         adminPass = '';
         currentUser = { displayName: 'Guest', avatar: '', username: '', role: '' };
         updateAuthUI(false);
         showSection('dashboard');
+        if (tokenToDelete) {
+            Swal.fire({
+                icon: 'success',
+                title: 'ออกจากระบบแล้ว',
+                text: 'มีผลกับหน้าคลังข้อสอบ MDKKUQUIZ ด้วย (บัญชีเดียวกัน)',
+                timer: 2500,
+                showConfirmButton: false
+            });
+        }
     }
 
 function updateAuthUI(isLoggedIn) {
@@ -416,17 +442,28 @@ function updateAuthUI(isLoggedIn) {
             let avatarSrc = currentUser.avatar ? transformUrl(currentUser.avatar) : 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
             $('#topbar-avatar').attr('src', avatarSrc);
 
-            // 3. จัดการ Sidebar
-            $('.admin-only').fadeIn();
-            $('#user-status-display').html(`Logged in as:<br><b>${currentUser.displayName}</b>`).css('color', '#fff');
+            // 3. จัดการ Sidebar — role Student (Google SSO, ไม่อยู่ใน whitelist) ไม่เห็นเมนูแอดมิน
+            const isStudentRole = (currentUser.role === 'Student');
+            if (isStudentRole) {
+                $('.admin-only').hide();
+                $('.developer-only').hide();
+                $('#user-status-display').html(`Logged in as:<br><b>${currentUser.displayName}</b><br><small style="opacity:.75">นักศึกษา (Student)</small>`).css('color', '#fff');
+            } else {
+                $('.admin-only').fadeIn();
+                $('#user-status-display').html(`Logged in as:<br><b>${currentUser.displayName}</b>`).css('color', '#fff');
 
-            // 4. สิทธิ์ Developer
-            if (currentUser.role === 'DEVELOPER') {
-                $('.developer-only').show();
+                // 4. สิทธิ์ Developer
+                if (currentUser.role === 'DEVELOPER') {
+                    $('.developer-only').show();
+                }
             }
 
-            // คลิกที่รูปหรือชื่อเพื่อเปิดโปรไฟล์
-            $('#topbar-user, #topbar-avatar').off('click').on('click', openEditProfile);
+            // คลิกที่รูปหรือชื่อเพื่อเปิดโปรไฟล์ (เฉพาะบัญชีในชีต Admins — Student ไม่มีโปรไฟล์ให้แก้)
+            if (isStudentRole) {
+                $('#topbar-user, #topbar-avatar').off('click');
+            } else {
+                $('#topbar-user, #topbar-avatar').off('click').on('click', openEditProfile);
+            }
 
         } else {
             // กรณี Logout หรือยังไม่ล็อกอิน
@@ -502,6 +539,27 @@ function showSection(sectionId) {
             $("#wrapper").removeClass("toggled");
         }
     }
+
+// ปุ่มลัด topbar "เพิ่ม/แก้ไขข้อสอบ" — แก้ไขข้อเดิมที่ "จัดการ Database", เพิ่มข้อใหม่ผ่าน Converter (PDF→AI)
+function openManageQuestionsMenu() {
+    Swal.fire({
+        title: 'จัดการข้อสอบ',
+        icon: 'question',
+        showCancelButton: true,
+        showDenyButton: true,
+        confirmButtonText: '<i class="fas fa-edit"></i> แก้ไขข้อสอบเดิม',
+        denyButtonText: '<i class="fas fa-file-import"></i> เพิ่มข้อสอบใหม่ (PDF→AI)',
+        cancelButtonText: 'ปิด',
+        confirmButtonColor: '#4e73df',
+        denyButtonColor: '#1cc88a'
+    }).then((r) => {
+        if (r.isConfirmed) {
+            showSection('database');
+        } else if (r.isDenied) {
+            showSection('converter');
+        }
+    });
+}
 
 // ล้างแคช IndexedDB ของแอดมินแล้วโหลดข้อมูลใหม่ (แก้ปัญหาข้อมูลค้าง/ไม่อัปเดต)
 // DATABASE ไม่มี service worker → ล้าง store เดียวก็เคลียร์แคชครบ

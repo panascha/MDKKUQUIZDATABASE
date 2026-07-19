@@ -28,7 +28,8 @@ Single `index.html` with sidebar navigation. CSS is split into modular files und
 
 | File | Role & Key Functions |
 |------|----------------------|
-| `js/config.js` | `window.APPSCRIPT_URL`, `window.globalData`, admin session vars |
+| `js/config.js` | `window.APPSCRIPT_URL`, `window.globalData`, admin session vars, `window.sessionToken` + `window.GOOGLE_CLIENT_ID` + `window.SHARED_TOKEN_KEY` (Google SSO) |
+| `js/auth-google.js` | Google SSO shared with MDKKUQUIZREAL — `resumeSharedGoogleSession()` (auto-login from shared `localStorage['mdkku_session_token']`, same origin on GitHub Pages), `handleGoogleCredentialDb()` (checkGoogleAuth → role-aware welcome), `applyGoogleSessionDb()`; GIS button rendered into login modal on `shown.bs.modal` |
 | `js/db.js` | IndexedDB admin cache (same pattern as REAL) |
 | `js/api.js` | `sendWithRetry()` — data fetching from GAS (questions, structure, votes, reports, logs); missing `redirect:'follow'` at line ~8 — harmless in-browser since `fetch` follows redirects by default, add only for consistency |
 | `js/app.js` | `initApp()`, `finalizeDataLoading()` (called twice by design — once for stale-cache display, once after fresh fetch — not a bug), admin login (username+password), idle timer, paste handler for image upload |
@@ -65,7 +66,7 @@ Image URLs from Google Drive are transformed via `window.transformUrl()` to use 
 
 - **Functions here are NOT on `window.*`** — the opposite convention from REAL. Don't assume cross-file access works the same way; check script load order in `index.html` when wiring new modules.
 - **`///` is the data delimiter** for multi-value fields — never use commas or pipes inside question data.
-- **Session token**: admin edit-modal calls send GAS-issued `sessionToken`, matching REAL's 30-day session system.
+- **Session token / Google SSO**: `sendWithRetry` auto-attaches `window.sessionToken` to every POST payload when set (backend checks `sessionToken` BEFORE `username+adminPass`). Token lives in the **shared** `localStorage['mdkku_session_token']` — same key and same origin as MDKKUQUIZREAL, so login/logout on one app affects the other. Password login (`performLogin`) clears the runtime `sessionToken` so a stale token can't shadow valid `adminPass`. Google login with a non-whitelist KKU account yields `role:'Student'` (no `username`, no admin UI — `updateAuthUI`/`checkAuthBeforeAction` have Student branches).
 - Converter pipeline state (batch assignments, image dedup hashes, upload queue status) lives across `splitter.js`/`extractor.js`/`queue.js`/`converter.js` — changes to one often require checking the others for consistency.
 
 ## Known Open Issues (this repo)

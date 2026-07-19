@@ -13,6 +13,7 @@ async function uploadBatch(items) {
             action: 'uploadImagesBatch',
             username: currentUser.username,
             adminPass: adminPass,
+            sessionToken: (typeof sessionToken === 'string' && sessionToken) || undefined,
             images: items.map(item => ({ base64: item.entry.base64 }))
         }),
         redirect: 'follow'

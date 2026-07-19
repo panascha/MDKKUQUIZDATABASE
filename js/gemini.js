@@ -174,7 +174,8 @@ async function convertBatchViaGAS(prompt, payloadExtra) {
         prompt: prompt,
         clientId: getConverterClientId(),
         username: (typeof currentUser === 'object' && currentUser.username) || '',
-        adminPass: (typeof adminPass === 'string' && adminPass) || ''
+        adminPass: (typeof adminPass === 'string' && adminPass) || '',
+        sessionToken: (typeof sessionToken === 'string' && sessionToken) || ''
     }, payloadExtra);
 
     const res = await fetch(APPSCRIPT_URL, {

@@ -20,6 +20,13 @@ window.isAdmin = false;
 
 window.adminPass = '';
 
+// Google SSO — session token ใช้ร่วมกับ MDKKUQUIZREAL (localStorage key เดียวกัน, origin เดียวกันบน GitHub Pages)
+window.sessionToken = '';
+
+window.GOOGLE_CLIENT_ID = "409421225331-envq9b2dg6d2tbq2681c097j4h1qinv4.apps.googleusercontent.com";
+
+window.SHARED_TOKEN_KEY = 'mdkku_session_token';
+
 window.current_question = {};
 
 window.editImageArray = [];

@@ -125,12 +125,13 @@
                     <button class="btn btn-outline-primary btn-sm rounded-pill px-3" onclick="openLoginModal()">
                         <i class="fas fa-sign-in-alt me-1"></i> Login
                     </button>
-                    <button class="btn btn-primary btn-sm rounded-pill px-3" onclick="openRegisterModal()">
-                        <i class="fas fa-user-plus me-1"></i> Register
-                    </button>
                 </div>
 
                 <div id="auth-user-view" class="align-items-center hidden">
+                    <button id="btn-manage-questions" class="btn btn-sm btn-primary rounded-pill px-3 me-2 admin-only"
+                        onclick="openManageQuestionsMenu()" title="เพิ่มหรือแก้ไขข้อสอบในระบบ">
+                        <i class="fas fa-edit me-1"></i><span class="d-none d-md-inline">เพิ่ม/แก้ไขข้อสอบ</span>
+                    </button>
                     <span class="mr-2 d-none d-lg-inline text-gray-600 small me-2" id="topbar-user">Guest</span>
                     <img id="topbar-avatar" class="img-profile rounded-circle me-2" style="width: 32px; height: 32px;"
                         src="">
@@ -1167,21 +1168,20 @@
     <div class="modal-dialog modal-sm">
         <div class="modal-content modal-auth-content">
             <div class="modal-header-auth">
-                <h5 class="m-0 fw-bold"><i class="fas fa-user-lock"></i> Admin Login</h5>
+                <h5 class="m-0 fw-bold"><i class="fas fa-user-lock"></i> เข้าสู่ระบบ</h5>
             </div>
             <div class="modal-body p-4">
-                <div class="mb-3">
-                    <label class="form-label small fw-bold">Username</label>
-                    <input type="text" id="login-username" class="form-control" placeholder="Enter username">
+                <!-- Google SSO — บัญชีเดียวกับหน้าคลังข้อสอบ MDKKUQUIZ (ล็อกอินครั้งเดียวใช้ได้สองระบบ) -->
+                <div class="text-center mb-2">
+                    <div class="small fw-bold mb-2">ล็อกอินด้วยบัญชี Google KKU (แนะนำ)</div>
+                    <div id="google-signin-btn-db" class="d-flex justify-content-center" style="min-height: 44px;"></div>
                 </div>
-                <div class="mb-3">
-                    <label class="form-label small fw-bold">Password</label>
-                    <input type="password" id="login-password" class="form-control" placeholder="Enter password">
-                </div>
-                <button class="btn btn-primary w-100 mb-2" onclick="performLogin()">Login</button>
-                <div class="text-center">
-                    <a href="#" class="small text-muted text-decoration-none" onclick="openResetModal()">ลืมรหัสผ่าน /
-                        เปลี่ยนรหัสผ่าน?</a>
+                <div class="text-muted mb-3" style="font-size: 0.78rem; line-height: 1.6;">
+                    ใช้บัญชี <b>@kkumail.com</b> หรือ <b>@kku.ac.th</b> — ล็อกอินครั้งเดียว
+                    ใช้ได้ทั้งหน้านี้และหน้าคลังข้อสอบ <b>MDKKUQUIZ</b> โดยไม่ต้องล็อกอินซ้ำ<br>
+                    <u>สิทธิ์ที่ได้รับในหน้า MDKKUQUIZ:</u><br>
+                    <i class="fas fa-cloud text-info"></i> นักศึกษา KKU ทุกคน — ซิงค์ความคืบหน้าข้ามอุปกรณ์ + AI Study Assistant<br>
+                    <i class="fas fa-edit text-primary"></i> แอดมิน (whitelist) — แก้ไข/เพิ่มข้อสอบ + Edit Mode ในหน้า quiz
                 </div>
             </div>
         </div>
@@ -1768,10 +1768,12 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <!-- 6. Modular JavaScript (เรียงตามลำดับ dependency) -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="js/config.js"></script>
 <script src="js/db.js"></script>
 <script src="js/api.js"></script>
 <script src="js/ui.js"></script>
+<script src="js/auth-google.js"></script>
 <script src="js/tables.js"></script>
 <script src="js/question.js"></script>
 <script src="js/vote.js"></script>

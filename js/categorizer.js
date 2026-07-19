@@ -304,6 +304,7 @@ async function applyCatAiProposals() {
                     body: JSON.stringify({
                         action: 'bulkAddQuestionCategories',
                         username: currentUser.username, adminPass: adminPass,
+                        sessionToken: (typeof sessionToken === 'string' && sessionToken) || undefined,
                         data: { updates: chunk }
                     })
                 });

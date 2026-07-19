@@ -97,7 +97,7 @@ async function runBatchAction(action) {
             method: 'POST',
             redirect: 'follow',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({ action: action, subject: subject, username: currentUser.username, adminPass: adminPass })
+            body: JSON.stringify({ action: action, subject: subject, username: currentUser.username, adminPass: adminPass, sessionToken: (typeof sessionToken === 'string' && sessionToken) || undefined })
         });
         const data = await resp.json();
         const secs = Math.floor((Date.now() - t0) / 1000);

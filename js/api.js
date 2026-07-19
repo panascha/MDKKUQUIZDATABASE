@@ -48,6 +48,10 @@ async function fetchGAS(buildUrl, retries = 3) {
 }
 
 async function sendWithRetry(payload, retries = 3) {
+        // Google SSO: แนบ sessionToken อัตโนมัติทุก request — backend ตรวจ sessionToken ก่อน username+adminPass เสมอ
+        if (typeof sessionToken === 'string' && sessionToken && payload && !payload.sessionToken) {
+            payload.sessionToken = sessionToken;
+        }
         for (let i = 0; i < retries; i++) {
             try {
                 const response = await fetch(APPSCRIPT_URL, {

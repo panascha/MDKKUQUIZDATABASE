@@ -1142,7 +1142,8 @@ async function reviewCategoriesBeforeConvert(subjId) {
 async function startPDFConversion() {
     if (!currentPdfDoc) { Swal.fire('error', 'กรุณาเลือก PDF ก่อน', 'error'); return; }
     // Phase 1: ใช้ Gemini key กลางผ่าน backend — ต้องล็อกอินก่อน (backend มี auth gate)
-    if (!(currentUser && currentUser.username && adminPass)) {
+    // รับทั้ง username+adminPass (แบบเดิม) และ Google sessionToken (SSO)
+    if (!(currentUser && currentUser.username && (adminPass || sessionToken))) {
         Swal.fire('แจ้งเตือน', 'กรุณาเข้าสู่ระบบก่อนใช้งานตัวแปลง PDF', 'warning');
         return;
     }
