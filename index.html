@@ -740,12 +740,10 @@
                                     <button class="btn btn-outline-primary btn-sm" onclick="copyCurrentSheet()" title="Copy to Clipboard">
                                         <i class="fas fa-copy"></i>
                                     </button>
-                                    <button class="btn btn-success btn-sm" onclick="importConvertedData()">
-                                        <i class="fas fa-cloud-upload-alt"></i> บันทึก
-                                    </button>
+                                    <!-- ปุ่มบันทึกปุ่มเดียว — ป้ายเปลี่ยนเป็น "อัปโหลดและบันทึก" + ล็อกระหว่างอัปโหลดรูป (queue.js) -->
                                     <button class="btn btn-success btn-sm" id="btn-upload-and-save"
-                                            onclick="importConvertedData()" style="display:none">
-                                        <i class="fas fa-images me-1"></i> อัปโหลดและบันทึก
+                                            onclick="importConvertedData()">
+                                        💾 บันทึก
                                     </button>
                                 </div>
                             </div>

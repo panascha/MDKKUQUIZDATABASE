@@ -96,8 +96,8 @@ function updateSaveButtonState() {
     const btn = document.getElementById('btn-upload-and-save');
     if (!btn) return;
 
-    // Show the dedicated upload-and-save button only when there are image assignments
-    btn.style.display = [...imgAssignments.values()].some(arr => arr.length > 0) ? '' : 'none';
+    // ปุ่มเดียวเสมอ — มีรูปรออัปโหลดหรือไม่ แค่เปลี่ยนป้าย/สถานะ ไม่ซ่อนปุ่ม
+    const hasImages = [...imgAssignments.values()].some(arr => arr.length > 0);
 
     let hasFailed = false;
     let hasUploading = false;
@@ -120,6 +120,6 @@ function updateSaveButtonState() {
         btn.disabled = false;
         btn.classList.add('btn-success');
         btn.classList.remove('btn-warning');
-        btn.textContent = '💾 อัปโหลดและบันทึก';
+        btn.textContent = hasImages ? '💾 อัปโหลดและบันทึก' : '💾 บันทึก';
     }
 }
