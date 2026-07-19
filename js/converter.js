@@ -695,7 +695,14 @@ async function importConvertedData() {
             });
             if (pendingUploads.length > 0) {
                 $('#loading-overlay').fadeIn(200).css('display', 'flex').find('h5').text('กำลังอัปโหลดรูปภาพ…');
-                await startUploadQueue();
+                await startUploadQueue(({ done, failed, total }) => {
+                    const finished = done + failed;
+                    const failText = failed > 0 ? ` (ล้มเหลว ${failed})` : '';
+                    $('#loading-overlay').find('h5').text(`กำลังอัปโหลดรูปภาพ… ${finished}/${total}`);
+                    $('#loading-overlay').find('p').text(`อัปโหลดสำเร็จ ${done} จาก ${total} รูป${failText}`);
+                });
+                // คืนข้อความเดิม กัน overlay รอบถัดไปโชว์ตัวเลขค้าง
+                $('#loading-overlay').find('p').text('กรุณารอสักครู่');
                 // ตรวจว่ายังมีที่ล้มเหลวอยู่ไหม
                 let failedCount = 0;
                 imgAssignments.forEach(entries => { entries.forEach(e => { if (e.status === 'Failed') failedCount++; }); });

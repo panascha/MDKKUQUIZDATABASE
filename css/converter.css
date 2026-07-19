@@ -486,6 +486,26 @@
             flex-shrink: 0;
         }
 
+        /* วิธีใช้แบบละเอียด — แสดงตลอดใน blurb card */
+        .conv-howto {
+            border-top: 1px solid #cfe2ff;
+            padding-top: 8px;
+        }
+
+        .conv-howto-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #0d6efd;
+            margin-bottom: 4px;
+        }
+
+        .conv-howto-list {
+            font-size: 0.8rem;
+            line-height: 1.5;
+            padding-left: 18px;
+            margin-top: 4px;
+        }
+
         /* Edit 6: explanation on question card */
         .conv-explain {
             font-size: 0.78rem;

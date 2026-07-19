@@ -24,7 +24,8 @@ async function uploadBatch(items) {
 
 // Upload all images assigned via imgAssignments (batch ≤10 per request, retry×3, backoff)
 // imgAssignments: Map<rowIndex, [{base64, fileId, url, status, page}]>
-async function startUploadQueue() {
+// onProgress: optional fn({done, total, failed}) — เรียกตอนเริ่มและหลังจบแต่ละ batch
+async function startUploadQueue(onProgress) {
     const toUpload = [];
     imgAssignments.forEach((entries, rowIndex) => {
         entries.forEach((entry, imgIndex) => {
@@ -38,6 +39,12 @@ async function startUploadQueue() {
 
     const BATCH_SIZE = 10;
     const MAX_RETRY = 3;
+
+    // ความคืบหน้าละเอียดได้แค่ระดับ batch — uploadBatch รอทั้งชุดก่อนตอบ
+    let done = 0;
+    let failed = 0;
+    const report = () => { if (onProgress) onProgress({ done, failed, total: toUpload.length }); };
+    report();
 
     // Process chunks sequentially (one batch request in flight at a time)
     for (let i = 0; i < toUpload.length; i += BATCH_SIZE) {
@@ -86,6 +93,12 @@ async function startUploadQueue() {
             });
             renderImageTray();
         }
+
+        chunk.forEach(({ entry }) => {
+            if (entry.status === 'Ready') done++;
+            else failed++;
+        });
+        report();
     }
 
     updateSaveButtonState();
