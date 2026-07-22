@@ -456,6 +456,9 @@ function updateAuthUI(isLoggedIn) {
                 if (currentUser.role === 'DEVELOPER') {
                     $('.developer-only').show();
                 }
+
+                // เติม badge "AI Models ต้องจัดการ" ให้แอดมิน (เฉพาะ admin ถึงจุดนี้ = gate getAIModels ไม่ให้ student ยิง GAS)
+                if (typeof refreshAiModelsBadge === 'function') refreshAiModelsBadge();
             }
 
             // คลิกที่รูปหรือชื่อเพื่อเปิดโปรไฟล์ (เฉพาะบัญชีในชีต Admins — Student ไม่มีโปรไฟล์ให้แก้)
@@ -497,7 +500,7 @@ function confirmAdmin() {
 
 function showSection(sectionId) {
 
-        const adminSections = ['report-inbox', 'database', 'structure', 'converter', 'logs', 'admin-manager', 'announcements', 'ai-generate', 'feedback'];
+        const adminSections = ['report-inbox', 'database', 'structure', 'converter', 'logs', 'admin-manager', 'announcements', 'ai-generate', 'ai-models', 'feedback'];
 
         if (adminSections.includes(sectionId) && !isAdmin) {
             checkAuthBeforeAction(() => showSection(sectionId));
@@ -527,6 +530,8 @@ function showSection(sectionId) {
             renderAnnouncementsList();
         } else if (sectionId === 'ai-generate') {
             renderAiGeneratePanel();
+        } else if (sectionId === 'ai-models') {
+            renderAiModelsPanel();
         } else if (sectionId === 'feedback') {
             loadFeedbackSection();
         }
