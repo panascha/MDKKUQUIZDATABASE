@@ -16,6 +16,45 @@ function applyGoogleSessionDb(user, token) {
     updateAuthUI(true);
 }
 
+// ยืนยันตัวตนด้วยรหัสนักศึกษา — บัญชี auto-enroll ผ่าน Google SSO ยังไม่มีรหัส นศ. → ขอกรอกหลังล็อกอิน
+// ข้ามได้ (ไม่บล็อกการใช้งาน) แต่ถามอีกครั้งในการล็อกอิน/กลับเข้าใช้ครั้งถัดไปจนกว่าจะกรอก
+function promptStudentIdDb(user) {
+    if (!user || (user.studentId && String(user.studentId).trim())) return;
+    if (!sessionToken) return;
+    // กด "ข้ามไปก่อน" แล้วพักการถาม 24 ชม. (คีย์ร่วม same-origin กับหน้า MDKKUQUIZ) — กันเด้งทุกครั้งที่รีเฟรช
+    const snoozeUntil = parseInt(localStorage.getItem('mdkku_sid_snooze_until') || '0', 10);
+    if (snoozeUntil && Date.now() < snoozeUntil) return;
+    Swal.fire({
+        title: 'ยืนยันตัวตน',
+        input: 'text',
+        inputLabel: 'กรุณากรอกรหัสนักศึกษาเพื่อยืนยันตัวตน',
+        inputPlaceholder: 'เช่น 65xxxxxxxx',
+        inputAttributes: { inputmode: 'numeric', maxlength: '12' },
+        showCancelButton: true,
+        confirmButtonText: 'บันทึก',
+        cancelButtonText: 'ข้ามไปก่อน',
+        allowOutsideClick: false,
+        inputValidator: (value) => {
+            if (!/^\d{6,12}$/.test(String(value || '').trim())) return 'รหัสนักศึกษาต้องเป็นตัวเลข 6-12 หลัก';
+        },
+        preConfirm: async (value) => {
+            try {
+                const res = await sendWithRetry({ action: 'saveStudentId', sessionToken: sessionToken, studentId: String(value).trim() });
+                if (res.result !== 'success') { Swal.showValidationMessage(res.message || 'บันทึกไม่สำเร็จ'); return false; }
+                return res.studentId;
+            } catch (e) { Swal.showValidationMessage('เชื่อมต่อระบบไม่สำเร็จ'); return false; }
+        }
+    }).then((result) => {
+        if (result.isConfirmed && result.value) {
+            if (currentUser) currentUser.studentId = result.value;
+            localStorage.removeItem('mdkku_sid_snooze_until');
+            Swal.fire({ icon: 'success', title: 'ยืนยันตัวตนสำเร็จ', timer: 1500, showConfirmButton: false });
+        } else {
+            localStorage.setItem('mdkku_sid_snooze_until', String(Date.now() + 86400000)); // ข้าม → พัก 24 ชม.
+        }
+    });
+}
+
 // กู้คืน session ร่วมจากหน้า MDKKUQUIZ (ถ้าเคยล็อกอิน Google ไว้ที่ฝั่งไหนก็ตาม)
 async function resumeSharedGoogleSession() {
     const token = localStorage.getItem(SHARED_TOKEN_KEY);
@@ -25,6 +64,7 @@ async function resumeSharedGoogleSession() {
         if (res.result === 'success') {
             applyGoogleSessionDb(res.user, token);
             console.log('🔐 Google session (ร่วมกับ MDKKUQUIZ) กู้คืนสำเร็จ: ' + res.user.displayName + ' [' + res.user.role + ']');
+            promptStudentIdDb(res.user);
         } else {
             // token หมดอายุ/ถูกเพิกถอน — ล้างทิ้งทั้งสองแอปจะได้ไม่ยิง token ตายซ้ำ
             localStorage.removeItem(SHARED_TOKEN_KEY);
@@ -68,6 +108,7 @@ async function handleGoogleCredentialDb(response) {
                 }).then(() => {
                     // โหลดข้อมูลหลังปิดป้ายต้อนรับ — fetchData ยิง toast ของตัวเองซึ่งจะแทนที่ Swal ที่ค้างอยู่
                     fetchData();
+                    setTimeout(() => promptStudentIdDb(res.user), 800);
                 });
             } else {
                 Swal.fire({
@@ -78,7 +119,7 @@ async function handleGoogleCredentialDb(response) {
                         'สิทธิ์ที่ใช้ได้ในหน้า MDKKUQUIZ: ซิงค์ความคืบหน้าข้ามอุปกรณ์ + AI Study Assistant<br>' +
                         'ต้องการสิทธิ์แก้ไขข้อสอบ ติดต่อแอดมินเพื่อขอเพิ่มชื่อใน whitelist</small>',
                     confirmButtonText: 'เข้าใจแล้ว'
-                });
+                }).then(() => promptStudentIdDb(res.user));
             }
         } else {
             Swal.fire('เข้าสู่ระบบไม่สำเร็จ', res.message || 'ไม่สามารถยืนยันบัญชีได้ กรุณาลองใหม่', 'error');
