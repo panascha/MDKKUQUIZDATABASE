@@ -2,10 +2,21 @@
 // JS/REPORT.JS
 // ─────────────────────────────────────────────────────
 
+// เก็บโจทย์+ตัวเลือกของแต่ละการ์ด ไว้ให้ปุ่ม "คัดลอกคำถาม" หยิบตอนคลิก
+// (ไม่ฝัง prompt ลงใน attribute เพราะข้อความไทย/เครื่องหมายคำพูดจะทำ HTML พัง)
+let reportCopySource = [];
+
+function copyReportQuestion(index) {
+    const src = reportCopySource[index];
+    if (!src) return;
+    window.copyQuestionPrompt(src.problem, src.choices);
+}
+
 function renderReportList() {
         // ... (โค้ด renderReportList เดิม) ...
         const container = $('#report-list-container');
         container.empty();
+        reportCopySource = [];
 
         const filterSubj = $('#report-subject-filter').val();
         const pending = globalData.report.filter(r => !r.Done || r.Done.toString().toUpperCase() === 'FALSE');
@@ -67,6 +78,14 @@ function renderReportList() {
                 imgHtml = `<div class="alert alert-warning py-1 small"><i class="fas fa-exclamation-triangle"></i> ข้อมูลรูปภาพ: ${rawImg}</div>`;
             }
 
+            // ตัวเลือกใน DB คั่นด้วย '///' ส่วนที่มากับ report คั่นด้วยขึ้นบรรทัดใหม่ — ใช้ของ DB ก่อนถ้าหาเจอ
+            reportCopySource[index] = {
+                problem: r['Question'] || dbQuestion.problem || '',
+                choices: String(dbQuestion.choices || '').trim()
+                    ? String(dbQuestion.choices).split('///')
+                    : String(r['Choices'] || '').split('\n')
+            };
+
             let card = `
             <div class="card mb-4 shadow-sm border-0 bg-white" style="border-left: 4px solid ${isAutoResolved ? '#22c55e' : '#e74a3b'} !important;">
                 <div class="card-body">
@@ -108,6 +127,10 @@ function renderReportList() {
                                     <textarea id="admin-note-${index}" class="form-control form-control-sm mb-2" rows="2"
                                         placeholder="เช่น แก้ไขแล้ว, หรือ ปฏิเสธเนื่องจาก...">${r['AdminNote'] || ''}</textarea>
     
+                                    <button class="btn btn-outline-primary btn-sm w-100 mb-2" onclick="copyReportQuestion(${index})" title="คัดลอกโจทย์และตัวเลือกไปถาม AI">
+                                        <i class="fas fa-copy"></i> คัดลอกคำถาม
+                                    </button>
+
                                     <div class="d-flex gap-2">
                                         <button class="btn btn-outline-secondary btn-sm flex-fill" onclick="processReport('${r['Time']}', 'REJECT')">
                                             <i class="fas fa-times"></i> Reject

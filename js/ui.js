@@ -582,3 +582,80 @@ function clearAdminCacheAndReload() {
         location.reload();
     });
 }
+
+// ─────────────────────────────────────────────────────
+// COPY QUESTION → AI PROMPT (ใช้ร่วมกันโดย report.js และ question.js)
+// ─────────────────────────────────────────────────────
+
+// สร้าง prompt วิเคราะห์ข้อสอบ 5 ส่วน (มาตรฐานกลาง)
+// NOTE: มีสำเนาชุดเดียวกันอยู่ที่ MDKKUQUIZREAL/js/ui.js — แก้ที่นี่แล้วต้องแก้อีกฝั่งด้วย
+// choices รับได้ทั้ง array และ string ที่คั่นด้วย '///'
+window.buildQuestionAiPrompt = function (problem, choices) {
+    const choicesArray = Array.isArray(choices) ? choices : String(choices || "").split("///");
+
+    const choicesText = choicesArray.map(c => String(c || "").trim()).filter(Boolean).map((c, i) => {
+        // ถ้าตัวเลือกมี prefix (A. / B)) มาในข้อมูลอยู่แล้ว ไม่ต้องใส่ซ้ำ
+        const prefix = /^[A-E]\s*[\.\)]/i.test(c) ? "" : `${String.fromCharCode(65 + i)}. `;
+        if (c.startsWith('<svg')) return `${prefix}[รูปภาพ SVG]`;
+        if (/^https?:\/\//i.test(c)) return `${prefix}[รูปภาพประกอบ]`;
+        return `${prefix}${c}`;
+    }).join("\n");
+
+    return `
+คุณคือผู้เชี่ยวชาญทางการแพทย์ ช่วยวิเคราะห์ข้อสอบแพทย์ข้อนี้ โดยอธิบายตามหลักการทางวิทยาศาสตร์และการแพทย์ตรงๆ ไม่ต้องใช้การเปรียบเทียบหรืออุปมา
+
+อธิบายตาม 5 ส่วนนี้:
+
+1. เฉลยและเหตุผล
+บอกคำตอบที่ถูกต้อง พร้อมเหตุผลโดยตรงว่าทำไมจึงถูก
+
+2. Mechanism / Pathophysiology
+อธิบาย causal chain ของกระบวนการที่เกิดขึ้นตามลำดับ (ใช้ → แสดงขั้นตอน) พร้อมอธิบายว่า "ทำไม" แต่ละขั้นตอนจึงเกิดขึ้น ไม่ใช่แค่บอกว่าเกิดอะไร
+
+3. ตัวเลือกที่ไม่ถูก: แต่ละอันคืออะไร และต่างจากคำตอบอย่างไร
+สำหรับแต่ละ choice ที่ไม่ใช่คำตอบ อธิบายว่ามันคืออะไร, ทำไมจึงผิดในโจทย์นี้, และในสถานการณ์ใดที่มันจะเป็นคำตอบที่ถูก
+
+4. Key Concepts ที่ต้องรู้
+สรุป high-yield points ที่ต้องจำ รวมถึง keywords อื่นๆ ในโจทย์ที่มีนัยสำคัญ
+
+5. Clinical Relevance และแหล่งอ้างอิง
+บอกว่า concept นี้เจอในคลินิกหรือข้อสอบในบริบทใด และระบุแหล่งอ้างอิง (เช่น Harrison's, Robbins, UpToDate, หรือ guideline ที่เกี่ยวข้อง) พร้อมบอกหน้า/บทถ้าทราบ
+
+---
+โจทย์: ${problem}
+
+ตัวเลือก:
+${choicesText}
+`.trim();
+};
+
+// คัดลอก prompt ลง clipboard พร้อม toast (มี fallback สำหรับเบราว์เซอร์ที่ไม่รองรับ Clipboard API)
+window.copyQuestionPrompt = function (problem, choices) {
+    if (!problem) {
+        Swal.fire('ข้อมูลไม่ครบ', 'ไม่พบโจทย์ที่จะคัดลอก', 'warning');
+        return;
+    }
+
+    const textToCopy = window.buildQuestionAiPrompt(problem, choices);
+    const ok = (suffix) => window.bgToast.fire({
+        icon: 'success',
+        title: `คัดลอกโจทย์พร้อม Prompt สำเร็จ!${suffix || ''}`,
+        timer: 2000
+    });
+
+    navigator.clipboard.writeText(textToCopy).then(() => ok()).catch(() => {
+        const tempTextarea = document.createElement('textarea');
+        tempTextarea.value = textToCopy;
+        tempTextarea.style.position = 'fixed';
+        document.body.appendChild(tempTextarea);
+        tempTextarea.select();
+        try {
+            document.execCommand('copy');
+            ok(' (Fallback)');
+        } catch (e) {
+            Swal.fire('ไม่สามารถคัดลอกได้', 'กรุณาคัดลอกข้อมูลโจทย์ด้วยตนเอง', 'error');
+        } finally {
+            document.body.removeChild(tempTextarea);
+        }
+    });
+};

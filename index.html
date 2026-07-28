@@ -1648,6 +1648,12 @@
                                         style="display:none; font-size: 0.75rem;">
                                         <i class="fas fa-bolt text-warning"></i> AI Quota: -/-
                                     </span>
+                                    <!-- ปุ่มคัดลอกโจทย์พร้อม prompt ไปถาม AI ภายนอก -->
+                                    <button type="button" class="btn btn-sm btn-outline-primary px-3 rounded-pill shadow-sm me-2"
+                                        id="btn-copy-question" onclick="copyEditFormQuestion()"
+                                        title="คัดลอกโจทย์และตัวเลือกไปถาม AI">
+                                        <i class="fas fa-copy me-1"></i> คัดลอกคำถาม
+                                    </button>
                                     <!-- ปุ่มเรียกใช้ AI -->
                                     <button type="button" class="btn btn-sm btn-dark px-3 rounded-pill shadow-sm"
                                         id="btn-ask-ai" onclick="askAIExpert()">

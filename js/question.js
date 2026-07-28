@@ -1320,6 +1320,19 @@ async function handleImageTrash(url) {
         return false; // กรณีผู้ใช้กด 'ยกเลิก'
     }
 
+// คัดลอกโจทย์+ตัวเลือกที่กำลังแก้ไขอยู่ในฟอร์ม (ไม่บังคับว่าต้องติ๊กคำตอบถูกก่อน ต่างจาก askAIExpert)
+function copyEditFormQuestion() {
+    const problem = ($('#edit-problem').val() || '').trim();
+
+    let choices = [];
+    $('#dynamic-choices-container .choice-item').each(function () {
+        const text = $(this).find('.choice-text-input').val();
+        if (text && text.trim() !== "") choices.push(text.trim());
+    });
+
+    window.copyQuestionPrompt(problem, choices);
+}
+
 async function askAIExpert() {
     // 1. ดึงข้อมูลจากฟอร์มปัจจุบัน
     const problem = $('#edit-problem').val().trim();
