@@ -450,7 +450,27 @@ $(document).ready(function () {
         //initStructureTables();
         setupConverterMultiEdit();
 
-        fetchData();
+        // Async init: hydrate + await auth → choose delta or full
+        (async function() {
+            // Stage 1: hydrate cache + paint immediately (no network)
+            await hydrateCacheAndRender();
+
+            // Stage 2: resolve auth before choosing sync path
+            await resumeSharedGoogleSession();
+
+            // Stage 3: choose path — if baseline+auth exist → delta (syncData), else → full (fetchData)
+            const localVer = await getCacheDB('global_admin_ver');
+            const lastSyncTs = await getCacheDB('global_admin_sync_ts');
+            const hasAuth = !!(currentUser && currentUser.username && (adminPass || (isAdmin && sessionToken)));
+
+            if (globalData.questions.length && localVer && lastSyncTs && hasAuth) {
+                // Returning admin with baseline → delta sync
+                syncData();
+            } else {
+                // First-time device or logged-out visitor → full fetch
+                fetchData();
+            }
+        })();
 
         startVersionPolling();
 
@@ -471,6 +491,16 @@ $('#cancel-report, #btn-close-vote-modal').on('click', function () {
         // หน่วงเวลาเล็กน้อยรอให้แอนิเมชัน FadeOut จบ
         setTimeout(handleDeferredUpdate, 400);
     });
+
+// Hydrate from IndexedDB + paint (no network) — instant first-paint before auth/sync
+async function hydrateCacheAndRender() {
+    const cacheKey = 'global_admin_data';
+    const localData = await getCacheDB(cacheKey);
+    if (localData && !globalData.questions.length) {
+        globalData = localData;
+        finalizeDataLoading();
+    }
+}
 
 async function fetchData(forceRefresh = false, isAutoPoll = false) {
     if (isFetching) return;

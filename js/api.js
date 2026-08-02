@@ -62,33 +62,84 @@ async function fetchGAS(buildUrl, retries = 3) {
     }
 }
 
-async function sendWithRetry(payload, retries = 3) {
-        // Google SSO: แนบ sessionToken อัตโนมัติทุก request — backend ตรวจ sessionToken ก่อน username+adminPass เสมอ
-        if (typeof sessionToken === 'string' && sessionToken && payload && !payload.sessionToken) {
-            payload.sessionToken = sessionToken;
+// Google SSO: แนบ sessionToken อัตโนมัติทุก request — backend ตรวจ sessionToken ก่อน username+adminPass เสมอ
+async function sendWithRetry(payload, retries = 3, signal = null) {
+    if (typeof sessionToken === 'string' && sessionToken && payload && !payload.sessionToken) {
+        payload.sessionToken = sessionToken;
+    }
+
+    const BASE_MS = 1000;
+    const CAP_MS = 10000;
+
+    for (let i = 0; i < retries; i++) {
+        if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
+        const attemptStart = Date.now();
+        let response;
+        try {
+            response = await fetch(APPSCRIPT_URL, {
+                method: 'POST',
+                redirect: 'follow',
+                headers: { "Content-Type": "text/plain;charset=utf-8" },
+                body: JSON.stringify(payload),
+                signal: signal || undefined
+            });
+        } catch (networkErr) {
+            if (networkErr && networkErr.name === 'AbortError') throw networkErr;
+            if (i === retries - 1) throw networkErr;
+            if (Date.now() - attemptStart > POST_SLOW_FAIL_MS) throw networkErr;
+            const netDelay = Math.random() * Math.min(BASE_MS * Math.pow(2, i), CAP_MS);
+            console.warn(`Attempt ${i + 1} failed (network). Retrying in ${Math.round(netDelay)}ms...`);
+            await new Promise(res => setTimeout(res, netDelay));
+            continue;
         }
-        for (let i = 0; i < retries; i++) {
-            const attemptStart = Date.now();
-            try {
-                const response = await fetch(APPSCRIPT_URL, {
-                    method: 'POST',
-                    headers: { "Content-Type": "text/plain;charset=utf-8" },
-                    body: JSON.stringify(payload),
-                    redirect: 'follow'
-                });
-                if (!response.ok) throw new Error('Server Busy');
-                return await response.json();
-            } catch (err) {
-                console.warn(`Attempt ${i + 1} failed. Retrying...`);
-                if (i === retries - 1) throw err;
-                // ล้มหลังรอนาน = GAS ยังรัน action เดิมอยู่ (เขียนสำเร็จไปแล้วก็เป็นได้)
-                // ยิงซ้ำ = execution ซ้อน + เสี่ยงเขียนซ้ำ → เลิกที่รอบนี้
-                if (Date.now() - attemptStart > POST_SLOW_FAIL_MS) throw err;
-                // หน่วงเวลาเพิ่มขึ้นเรื่อยๆ ในแต่ละรอบที่ล้มเหลว (1s, 2s, 3s)
-                await new Promise(res => setTimeout(res, 1000 * (i + 1)));
+
+        if (!response.ok) {
+            const status = response.status;
+            if (status >= 400 && status < 500 && status !== 429 && status !== 404) {
+                throw new Error('Client error ' + status);
+            }
+            if (i === retries - 1) throw new Error('Server error ' + status + ' after ' + retries + ' attempts');
+            if (status !== 429 && Date.now() - attemptStart > POST_SLOW_FAIL_MS) {
+                throw new Error('Server error ' + status + ' after ' + Math.round((Date.now() - attemptStart) / 1000) + 's — ไม่ retry (คำขอเดิมอาจยังทำงานอยู่)');
+            }
+            let retryDelay;
+            if (status === 429) {
+                const retryAfterHdr = response.headers.get('Retry-After');
+                const retryAfterSec = retryAfterHdr ? parseFloat(retryAfterHdr) : NaN;
+                retryDelay = !isNaN(retryAfterSec) && retryAfterSec > 0
+                    ? retryAfterSec * 1000
+                    : Math.random() * Math.min(BASE_MS * Math.pow(2, i), CAP_MS);
+            } else {
+                retryDelay = Math.random() * Math.min(BASE_MS * Math.pow(2, i), CAP_MS);
+            }
+            console.warn(`Attempt ${i + 1} failed (${status}). Retrying in ${Math.round(retryDelay)}ms...`);
+            await new Promise(res => setTimeout(res, retryDelay));
+            continue;
+        }
+
+        let resJson;
+        try {
+            resJson = await response.json();
+        } catch (parseErr) {
+            if (i === retries - 1) throw parseErr;
+            const parseDelay = Math.random() * Math.min(BASE_MS * Math.pow(2, i), CAP_MS);
+            console.warn(`Attempt ${i + 1} failed (bad JSON). Retrying in ${Math.round(parseDelay)}ms...`);
+            await new Promise(res => setTimeout(res, parseDelay));
+            continue;
+        }
+
+        if (resJson && resJson.result === 'error' &&
+            (resJson.message === 'token_expired' ||
+                resJson.message === 'Session หมดอายุ กรุณาล็อกอินใหม่' ||
+                (typeof resJson.message === 'string' && resJson.message.indexOf('หมดอายุ') !== -1))) {
+            if (typeof window.logoutEditModeSilent === 'function') {
+                window.logoutEditModeSilent();
             }
         }
+
+        return resJson;
     }
+}
 
 async function sendAdminAction(actionName, dataObj, skipReload = false) {
         // 1. OPTIMISTIC UPDATE: แก้ไขข้อมูลในเครื่องทันทีตามประเภท Action
