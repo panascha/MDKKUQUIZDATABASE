@@ -623,7 +623,11 @@ function scheduleSync(delayMs = 3000) {
     }, delayMs);
 }
 
-async function syncData() {
+// allowFullReload=false ⇒ ห้ามตกไปเส้นทาง getAllData (26MB / ~135s ตอน cache miss)
+//   ใช้กับ auto-poll + กลับมาโฟกัสแท็บ: ถ้าเครื่องยังไม่มี baseline การ poll จะลาก 26MB ซ้ำทุกครั้ง
+//   → execution หนักซ้อนกันจนคิวของบัญชีเจ้าของเต็ม แล้วไปตายที่เพดาน 6 นาที
+//   โหลดเต็มทำครั้งเดียวตอนเข้าหน้า (initApp → fetchData) หรือกดรีเฟรชเองเท่านั้น
+async function syncData(allowFullReload = true) {
     if (isFetching) return;
 
     const localVer = await getCacheDB('global_admin_ver');
@@ -633,6 +637,10 @@ async function syncData() {
 
     // ไม่มี local copy / ไม่มีจุดอ้างอิงเวลา / ยังไม่ล็อกอิน → เส้นทาง getAllData เดิม (version-gated GET)
     if (!globalData.questions.length || !localVer || !lastSyncTs || !hasAuth) {
+        if (!allowFullReload) {
+            console.log('[Sync] ข้ามรอบนี้ — ยังไม่มี baseline สำหรับ delta sync และ auto-poll ไม่ดึง getAllData เต็มก้อน');
+            return;
+        }
         return fetchData(false, true);
     }
 
@@ -752,7 +760,7 @@ function startVersionPolling() {
         if (versionCheckInterval) clearInterval(versionCheckInterval);
         versionCheckInterval = setInterval(function () {
             console.log("Auto-checking for data updates...");
-            syncData();
+            syncData(false); // auto-poll: delta เท่านั้น ห้ามลาก getAllData 26MB
         }, INTERVALS[targetMode]);
     }
 
@@ -777,7 +785,7 @@ function startVersionPolling() {
     document.addEventListener('visibilitychange', function () {
         if (!document.hidden) {
             // Force instant version check when window comes back in focus
-            syncData();
+            syncData(false); // สลับแท็บไปมาบ่อย — ห้ามให้แต่ละครั้งกลายเป็น getAllData 26MB
             resetIdleTimer();
         }
         reschedulePolling();

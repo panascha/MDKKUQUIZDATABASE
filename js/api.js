@@ -2,17 +2,25 @@
 // JS/API.JS
 // ─────────────────────────────────────────────────────
 
+// ⚠️ RETRY AMPLIFICATION GUARD (2026-08-02) — ดู comment เต็มใน MDKKUQUIZREAL/js/api.js
+//   getAllData = 26MB / 135s เมื่อ cache miss. retry 3 ครั้งด้วย URL ใหม่ = GAS สร้าง execution
+//   ซ้อนกัน 3 ตัว ตัวเก่าไม่หยุด → คิว execution ของบัญชีเจ้าของเต็ม → ทุกตัวไปตายที่เพดาน 6 นาที
+//   retry เฉพาะที่ล้มเร็ว (cold-start/echo key) เท่านั้น
+const GAS_SLOW_FAIL_MS = 15000;
+
 async function fetchGAS(buildUrl, retries = 3) {
     const BASE_MS = 1500;
     const CAP_MS = 12000;
 
     for (let i = 0; i < retries; i++) {
         const url = typeof buildUrl === 'function' ? buildUrl() : buildUrl;
+        const attemptStart = Date.now();
         let response;
         try {
             response = await fetch(url, { redirect: 'follow' });
         } catch (netErr) {
             if (i === retries - 1) throw netErr;
+            if (Date.now() - attemptStart > GAS_SLOW_FAIL_MS) throw netErr;
             const nd = Math.random() * Math.min(BASE_MS * Math.pow(2, i), CAP_MS);
             console.warn('[fetchGAS] Network error attempt ' + (i + 1) + '. Retry in ' + Math.round(nd) + 'ms');
             await new Promise(r => setTimeout(r, nd));
@@ -21,6 +29,10 @@ async function fetchGAS(buildUrl, retries = 3) {
 
         if (!response.ok) {
             if (i === retries - 1) throw new Error('[fetchGAS] HTTP ' + response.status + ' after ' + retries + ' attempts');
+            // ล้มช้า = เซิร์ฟเวอร์ยังประมวลผลคำขอเดิมอยู่ (เช่น getAllData 26MB) — ยิงซ้ำมีแต่ซ้อนงาน
+            if (Date.now() - attemptStart > GAS_SLOW_FAIL_MS) {
+                throw new Error('[fetchGAS] HTTP ' + response.status + ' after ' + Math.round((Date.now() - attemptStart) / 1000) + 's — ไม่ retry (เซิร์ฟเวอร์ยังประมวลผลคำขอเดิมอยู่)');
+            }
             const hd = Math.random() * Math.min(BASE_MS * Math.pow(2, i), CAP_MS);
             console.warn('[fetchGAS] HTTP ' + response.status + ' attempt ' + (i + 1) + '. Retry in ' + Math.round(hd) + 'ms');
             await new Promise(r => setTimeout(r, hd));
@@ -37,6 +49,7 @@ async function fetchGAS(buildUrl, retries = 3) {
 
         if (!text || text.trimStart().startsWith('<')) {
             if (i === retries - 1) throw new SyntaxError('[fetchGAS] Got HTML instead of JSON after ' + retries + ' attempts');
+            if (Date.now() - attemptStart > GAS_SLOW_FAIL_MS) throw new SyntaxError('[fetchGAS] Got HTML body หลังรอ ' + Math.round((Date.now() - attemptStart) / 1000) + 's — ไม่ retry');
             const pd = Math.random() * Math.min(BASE_MS * Math.pow(2, i), CAP_MS);
             console.warn('[fetchGAS] Got HTML body attempt ' + (i + 1) + '. Retry in ' + Math.round(pd) + 'ms');
             await new Promise(r => setTimeout(r, pd));
@@ -53,6 +66,7 @@ async function sendWithRetry(payload, retries = 3) {
             payload.sessionToken = sessionToken;
         }
         for (let i = 0; i < retries; i++) {
+            const attemptStart = Date.now();
             try {
                 const response = await fetch(APPSCRIPT_URL, {
                     method: 'POST',
@@ -65,6 +79,9 @@ async function sendWithRetry(payload, retries = 3) {
             } catch (err) {
                 console.warn(`Attempt ${i + 1} failed. Retrying...`);
                 if (i === retries - 1) throw err;
+                // ล้มหลังรอนาน = GAS ยังรัน action เดิมอยู่ (เขียนสำเร็จไปแล้วก็เป็นได้)
+                // ยิงซ้ำ = execution ซ้อน + เสี่ยงเขียนซ้ำ → เลิกที่รอบนี้
+                if (Date.now() - attemptStart > GAS_SLOW_FAIL_MS) throw err;
                 // หน่วงเวลาเพิ่มขึ้นเรื่อยๆ ในแต่ละรอบที่ล้มเหลว (1s, 2s, 3s)
                 await new Promise(res => setTimeout(res, 1000 * (i + 1)));
             }
