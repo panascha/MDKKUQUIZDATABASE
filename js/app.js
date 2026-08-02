@@ -506,6 +506,19 @@ async function fetchData(forceRefresh = false, isAutoPoll = false) {
             return;
         }
 
+        // เซิร์ฟเวอร์ยังคำนวณ getAllData 26MB อยู่ (inflight guard) หรือเกิน 90s timeout guard — คง globalData/cache เดิมไว้ ห้ามเขียนทับด้วย questions ว่าง
+        if (resJson.result === 'error') {
+            console.warn('[fetchData] getAllData error:', resJson.message);
+            if (!isAutoPoll) {
+                Swal.fire({
+                    icon: 'warning', title: 'โหลดข้อมูลไม่สำเร็จ', text: resJson.message,
+                    toast: true, position: 'top-end', showConfirmButton: false, timer: 4000
+                });
+            }
+            isFetching = false;
+            return;
+        }
+
         const serverVersion = resJson.v || new Date().getTime().toString();
         const data = resJson;
 
