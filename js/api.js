@@ -7,6 +7,8 @@
 //   ซ้อนกัน 3 ตัว ตัวเก่าไม่หยุด → คิว execution ของบัญชีเจ้าของเต็ม → ทุกตัวไปตายที่เพดาน 6 นาที
 //   retry เฉพาะที่ล้มเร็ว (cold-start/echo key) เท่านั้น
 const GAS_SLOW_FAIL_MS = 15000;
+// เขียน (editQuestion ฯลฯ) ใช้เวลานาน 15-25s ปกติ (Sheet sort + lock) — timeout สั้นตัด save ที่สำเร็จอยู่แล้วออกก่อนเวลา
+const POST_SLOW_FAIL_MS = 60000;
 
 async function fetchGAS(buildUrl, retries = 3) {
     const BASE_MS = 1500;
@@ -81,7 +83,7 @@ async function sendWithRetry(payload, retries = 3) {
                 if (i === retries - 1) throw err;
                 // ล้มหลังรอนาน = GAS ยังรัน action เดิมอยู่ (เขียนสำเร็จไปแล้วก็เป็นได้)
                 // ยิงซ้ำ = execution ซ้อน + เสี่ยงเขียนซ้ำ → เลิกที่รอบนี้
-                if (Date.now() - attemptStart > GAS_SLOW_FAIL_MS) throw err;
+                if (Date.now() - attemptStart > POST_SLOW_FAIL_MS) throw err;
                 // หน่วงเวลาเพิ่มขึ้นเรื่อยๆ ในแต่ละรอบที่ล้มเหลว (1s, 2s, 3s)
                 await new Promise(res => setTimeout(res, 1000 * (i + 1)));
             }
