@@ -915,7 +915,11 @@ function updateConvGroupReadout() {
     let warn = subjId ? '' : ' <span class="text-warning">— เลือกวิชาก่อนเพื่อได้รหัสเต็ม</span>';
     // ไม่มีเลขรุ่นนำหน้ากลุ่ม = ข้อสอบคนละปีจะไปกองรวมกัน
     if (group && !/^\d/.test(group)) warn += ' <span class="text-warning">— ยังไม่ได้ใส่รุ่น/ปีข้อสอบ</span>';
-    el.innerHTML = `<i class="fas fa-tag me-1"></i>ไฟล์: <b>${_convEsc(filename)}</b> · กลุ่มที่จะบันทึก: <b>${_convEsc(catId)}</b> <span class="text-muted">(${src})</span>${warn}`;
+
+    // แสดงตัวอย่างรหัสหมวดหมู่จริง
+    const examples = '<span class="text-muted small ms-2">(ตัวอย่างรหัสหมวดหมู่: GI_51MCQ1, CVS_50FMT, RESP_52QUIZ2, NS_51LAB, HEMATO_51MCQ1)</span>';
+
+    el.innerHTML = `<i class="fas fa-tag me-1"></i>ไฟล์: <b>${_convEsc(filename)}</b> · กลุ่มที่จะบันทึก: <b>${_convEsc(catId)}</b> <span class="text-muted">(${src})</span>${warn}${examples}`;
     el.classList.remove('d-none');
 }
 

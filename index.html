@@ -573,11 +573,15 @@
 
                                 <!-- Edit 3: exam-group picker — เลือกแล้วชนะการเดาจากชื่อไฟล์ -->
                                 <div class="mb-3" id="conv-group-picker">
-                                    <label class="small text-muted d-block mb-1">กลุ่มข้อสอบ (ถ้าไม่เลือก ระบบเดาจากชื่อไฟล์)</label>
+                                    <label class="small text-muted d-block mb-1">
+                                        กลุ่มข้อสอบ (ถ้าไม่เลือก ระบบเดาจากชื่อไฟล์)
+                                        <span class="text-muted" style="font-size:0.75rem;"> — ตัวอย่างที่ถูกต้อง: 51MCQ1, 50FMT, 52QUIZ2, 51LAB</span>
+                                    </label>
                                     <div class="d-flex flex-wrap gap-1 align-items-center">
                                         <input type="text" id="conv-group-batch" class="form-control form-control-sm"
                                                 placeholder="รุ่น/ปีข้อสอบ เช่น 52" title="รุ่น/ปีข้อสอบ"
-                                               oninput="onConvBatchInput()">
+                                               oninput="onConvBatchInput()"
+                                               style="max-width:120px;">
                                         <button type="button" class="conv-chip" data-group="MCQ" onclick="pickConvGroup(this)">MCQ</button>
                                         <button type="button" class="conv-chip" data-group="FMT" onclick="pickConvGroup(this)">FMT</button>
                                         <button type="button" class="conv-chip" data-group="QUIZ" onclick="pickConvGroup(this)">QUIZ</button>
@@ -592,6 +596,9 @@
                                         </select>
                                         <input type="text" id="conv-group-custom" class="form-control form-control-sm d-none"
                                                style="max-width:150px" placeholder="พิมพ์เอง เช่น OSCE1" oninput="updateConvGroupReadout()">
+                                    </div>
+                                    <div class="small text-muted mt-1" style="font-size:0.7rem;">
+                                        💡 ระบุ<b>รุ่น/ปีข้อสอบ</b> (เช่น 51, 52) + <b>กลุ่ม</b> (MCQ/FMT/QUIZ/LAB) + <b>ครั้งที่</b> (ไม่บังคับ) เพื่อจัดหมวดหมู่ที่ถูกต้อง
                                     </div>
                                     <div id="conv-group-hint" class="small text-info mt-1 d-none"></div>
                                     <div id="conv-batch-hint" class="small text-info mt-1 d-none"></div>

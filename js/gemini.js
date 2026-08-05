@@ -156,9 +156,14 @@ function buildConverterPrompt(additionalPrompt, pageNote, allowedCats, forcedCat
 กฎที่ต้องทำตามอย่างเคร่งครัด:
 1. choices ใช้ /// คั่นระหว่างตัวเลือก (5 ตัวเลือกถ้าเป็นไปได้)
 2. answer ต้องตรงกับข้อความใน choices
-3. explain เขียนเป็นภาษาไทย ผสมศัพท์การแพทย์ภาษาอังกฤษ
+3. explain ต้องเขียนเป็น "ภาษาไทยผสมศัพท์ทางการแพทย์ภาษาอังกฤษ" — ห้ามใช้ภาษาอังกฤษอย่างเดียว
+   โครงสร้าง explain ต้องเป็นย่อหน้าเดียวต่อเนื่อง (ไม่แบ่งบรรทัด) ประกอบด้วย 4 ส่วน:
+   ส่วนที่ 1: แนวคิดหลัก (Key Concept)
+   ส่วนที่ 2: เหตุผลที่คำตอบถูก — ชี้ไปที่จุดสำคัญในโจทย์หรือรูปภาพที่บ่งบอกคำตอบ
+   ส่วนที่ 3: อธิบายว่าทำไมตัวลวงอื่นถึงผิด (เช่น "ส่วนข้อ B ผิดเพราะ..." "ข้อ C ไม่ใช่เพราะ...")
+   ส่วนที่ 4: Clinical Pearl หรือ Guideline ที่เกี่ยวข้อง
 4. img ใส่ "require_img" ถ้าโจทย์มีรูปภาพ/กราฟ/ตารางที่จำเป็นต้องดูเพื่อตอบ
-5. category[0]: "ชื่อย่อวิชา_กลุ่มข้อสอบ" เช่น "CVS_51MCQ1"
+5. category[0]: "ชื่อย่อวิชา_กลุ่มข้อสอบ" รูปแบบ SubjectCode_ExamGroup เช่น "GI_51MCQ1", "CVS_50FMT", "RESP_52QUIZ2", "NS_51LAB", "HEMATO_51MCQ1"
 6. category[1]: "ชื่อย่อวิชา_กลุ่มวิชาย่อย_หัวข้อ" โดยกลุ่มวิชาย่อยต้องเป็นหนึ่งใน: ANA, BIOCHEM, PHYSIO, MICRO, PARASITO, PATHO, PHARM, RADIO, CLINICAL
 7. ไม่แปลหรือเปลี่ยนภาษาของโจทย์ — ข้อความตรงตาม PDF${forcedCat0 ? `\n\n**บังคับใช้แทนกฎข้อ 5:** category[0] ของทุกข้อต้องเป็น "${forcedCat0}" เท่านั้น — คัดลอกตรงเป๊ะ ห้ามเปลี่ยน` : ''}${buildAllowedTopicsBlock(allowedCats)}${pageNote ? '\n' + pageNote : ''}${additionalPrompt ? '\n' + additionalPrompt : ''}`;
 
@@ -276,62 +281,107 @@ function recoverQuestionsFromJSON(raw) {
 // Parse Gemini response with 4-tier fallback
 // Returns {meta?, questions: [...]}
 function parseGeminiResponse(rawText) {
+    let result = null;
+
     // Already parsed (recovery path from MAX_TOKENS handling)
-    if (typeof rawText === 'object' && rawText.questions) return rawText;
-
-    // Tier 1: direct JSON.parse
-    try {
-        const cleaned = rawText.replace(/^```json\s*/i, '').replace(/\s*```$/, '').trim();
-        const obj = JSON.parse(cleaned);
-        if (obj.questions) return obj;
-        if (Array.isArray(obj)) return { questions: obj };
-        // Handle old {CategoryID: [...]} flat format
-        const keys = Object.keys(obj);
-        if (keys.length > 0 && Array.isArray(obj[keys[0]])) {
-            const questions = [];
-            for (const [catId, qs] of Object.entries(obj)) {
-                if (Array.isArray(qs)) qs.forEach(q => {
-                    if (!q.category) q.category = [catId];
-                    questions.push(q);
-                });
+    if (typeof rawText === 'object' && rawText.questions) {
+        result = rawText;
+    } else {
+        // Tier 1: direct JSON.parse
+        try {
+            const cleaned = rawText.replace(/^```json\s*/i, '').replace(/\s*```$/, '').trim();
+            const obj = JSON.parse(cleaned);
+            if (obj.questions) {
+                result = obj;
+            } else if (Array.isArray(obj)) {
+                result = { questions: obj };
+            } else {
+                // Handle old {CategoryID: [...]} flat format
+                const keys = Object.keys(obj);
+                if (keys.length > 0 && Array.isArray(obj[keys[0]])) {
+                    const questions = [];
+                    for (const [catId, qs] of Object.entries(obj)) {
+                        if (Array.isArray(qs)) qs.forEach(q => {
+                            if (!q.category) q.category = [catId];
+                            questions.push(q);
+                        });
+                    }
+                    result = { questions };
+                }
             }
-            return { questions };
+        } catch (e) {}
+
+        // Tier 2: find outer {}
+        if (!result) {
+            const firstBrace = rawText.indexOf('{');
+            const lastBrace = rawText.lastIndexOf('}');
+            if (firstBrace !== -1 && lastBrace > firstBrace) {
+                try {
+                    const obj = JSON.parse(rawText.substring(firstBrace, lastBrace + 1));
+                    if (obj.questions) {
+                        result = obj;
+                    } else if (Array.isArray(obj)) {
+                        result = { questions: obj };
+                    }
+                } catch (e) {}
+            }
         }
-    } catch (e) {}
 
-    // Tier 2: find outer {}
-    const firstBrace = rawText.indexOf('{');
-    const lastBrace = rawText.lastIndexOf('}');
-    if (firstBrace !== -1 && lastBrace > firstBrace) {
-        try {
-            const obj = JSON.parse(rawText.substring(firstBrace, lastBrace + 1));
-            if (obj.questions) return obj;
-            if (Array.isArray(obj)) return { questions: obj };
-        } catch (e) {}
+        // Tier 3: find outer []
+        if (!result) {
+            const firstBracket = rawText.indexOf('[');
+            const lastBracket = rawText.lastIndexOf(']');
+            if (firstBracket !== -1 && lastBracket > firstBracket) {
+                try {
+                    const arr = JSON.parse(rawText.substring(firstBracket, lastBracket + 1));
+                    if (Array.isArray(arr)) result = { questions: arr };
+                } catch (e) {}
+            }
+        }
+
+        // Tier 4: brace-depth recovery
+        if (!result) {
+            const recovered = recoverQuestionsFromJSON(rawText);
+            if (recovered.length > 0) {
+                Swal.fire({
+                    toast: true, icon: 'warning', position: 'top-end',
+                    title: `JSON ไม่สมบูรณ์ — กู้คืนได้ ${recovered.length} ข้อ`,
+                    timer: 4000, showConfirmButton: false
+                });
+                result = { questions: recovered };
+            }
+        }
     }
 
-    // Tier 3: find outer []
-    const firstBracket = rawText.indexOf('[');
-    const lastBracket = rawText.lastIndexOf(']');
-    if (firstBracket !== -1 && lastBracket > firstBracket) {
-        try {
-            const arr = JSON.parse(rawText.substring(firstBracket, lastBracket + 1));
-            if (Array.isArray(arr)) return { questions: arr };
-        } catch (e) {}
+    if (!result) {
+        throw new Error('Gemini ส่ง JSON ไม่ถูกต้อง: ' + rawText.substring(0, 300));
     }
 
-    // Tier 4: brace-depth recovery
-    const recovered = recoverQuestionsFromJSON(rawText);
-    if (recovered.length > 0) {
+    // Validate category[0] format (non-blocking warning)
+    validateCategoryFormat(result.questions);
+
+    return result;
+}
+
+// Validate category[0] format post-parse — warn if malformed (non-blocking)
+// Expected: SubjectCode_YearPrefix+Group (e.g. GI_51MCQ1, CVS_50FMT, RESP_52QUIZ2)
+function validateCategoryFormat(questions) {
+    if (!Array.isArray(questions) || questions.length === 0) return;
+    const pattern = /^\w+_\d{2}[A-Z]+\d*$/; // SubjectCode_YearGroup format
+    const malformed = [];
+    questions.forEach((q, i) => {
+        if (Array.isArray(q.category) && q.category[0] && !pattern.test(q.category[0])) {
+            malformed.push(`ข้อ ${i + 1}: "${q.category[0]}"`);
+        }
+    });
+    if (malformed.length > 0) {
         Swal.fire({
-            toast: true, icon: 'warning', position: 'top-end',
-            title: `JSON ไม่สมบูรณ์ — กู้คืนได้ ${recovered.length} ข้อ`,
-            timer: 4000, showConfirmButton: false
+            icon: 'warning',
+            title: 'รหัสหมวดหมู่ไม่ตรงรูปแบบ',
+            html: `<div class="text-start"><b>${malformed.length} ข้อ</b> มีรูปแบบ category[0] ผิดปกติ:<br><small>${malformed.slice(0, 5).join('<br>')}</small>${malformed.length > 5 ? '<br>...' : ''}<br><br>รูปแบบที่ถูกต้อง: <b>SubjectCode_YearGroup</b><br>เช่น GI_51MCQ1, CVS_50FMT, RESP_52QUIZ2</div>`,
+            confirmButtonText: 'เข้าใจแล้ว'
         });
-        return { questions: recovered };
     }
-
-    throw new Error('Gemini ส่ง JSON ไม่ถูกต้อง: ' + rawText.substring(0, 300));
 }
 
 // Group questions by category[0], fill #jsonInput, call processAll(), then populate pageHintMap
