@@ -183,7 +183,7 @@ async function runCatAiClassify() {
     catAiProposals = [];
     $('#cat-ai-review').empty();
 
-    const model = $('#cat-ai-model').val() || 'gemini-3.5-flash';
+    const model = $('#cat-ai-model').val() || 'gemini-3.5-flash-lite';
     const lecById = {};
     lecCats.forEach(c => { lecById[c.CategoryID] = c; });
 
