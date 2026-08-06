@@ -2,6 +2,38 @@
 // JS/UI.JS
 // ─────────────────────────────────────────────────────
 
+// Mobile utility: add mobile-view toggle and debounce helper
+function debounce(fn, wait) {
+    let t;
+    return function () {
+        clearTimeout(t);
+        t = setTimeout(() => fn.apply(this, arguments), wait);
+    };
+}
+
+function updateMobileView() {
+    var isMobile = window.innerWidth < 768;
+    document.body.classList.toggle('mobile-view', isMobile);
+    if (isMobile) applyMobileTableViews();
+}
+
+function applyMobileTableViews() {
+    document.querySelectorAll('.content-section:not(.hidden) table').forEach(function (tbl) {
+        if (!tbl.id) return;
+        if ($.fn && $.fn.DataTable && $.fn.DataTable.isDataTable('#' + tbl.id)) {
+            var $tbl = $('#' + tbl.id);
+            if (!$tbl.hasClass('view-as-card')) {
+                try { setTableView(tbl.id, 'card', null); } catch (e) { /* ignore */ }
+            }
+        }
+    });
+}
+
+$(document).ready(function () {
+    updateMobileView();
+    $(window).on('resize', debounce(updateMobileView, 250));
+});
+
 function openResetFromProfile() {
         $('#editProfileModal').modal('hide'); // ปิดหน้าโปรไฟล์
 

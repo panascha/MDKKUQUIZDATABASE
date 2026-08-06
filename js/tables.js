@@ -9,8 +9,10 @@ function setTableView(tableId, mode, btn) {
         const $table = $('#' + tableId);
 
         // 1. จัดการ UI ของปุ่ม (Siblings คือปุ่มข้างๆ ในกลุ่มเดียวกัน)
-        $(btn).parent().find('.btn').removeClass('active');
-        $(btn).addClass('active');
+        if (btn) {
+            $(btn).parent().find('.btn').removeClass('active');
+            $(btn).addClass('active');
+        }
 
         // 2. จัดการมุมมอง
         if (mode === 'card') {
@@ -24,9 +26,14 @@ function setTableView(tableId, mode, btn) {
         }
 
         // 3. ปรับการแสดงผล DataTables (ป้องกันตารางเบี้ยว)
-        if ($.fn.DataTable.isDataTable('#' + tableId)) {
-            const dt = $('#' + tableId).DataTable();
-            dt.columns.adjust().draw(); // คำนวณความกว้างใหม่
+        try {
+            if ($.fn.DataTable.isDataTable('#' + tableId)) {
+                const dt = $('#' + tableId).DataTable();
+                dt.columns.adjust().draw(); // คำนวณความกว้างใหม่
+            }
+        } catch (e) {
+            // ignore errors when table id isn't fully initialized yet
+            console.warn('setTableView: DataTable adjust failed for', tableId, e);
         }
     }
 

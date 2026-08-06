@@ -183,3 +183,20 @@
                 text-align: center;
             }
         }
+
+/* Mobile label visibility + touch targets */
+@media (max-width: 767.98px) {
+    /* show inline labels hidden by d-none.d-md-inline on mobile */
+    .btn .d-none.d-md-inline { display: inline !important; }
+
+    /* enlarge tap targets */
+    .mobile-view .btn {
+        min-width: 44px;
+        min-height: 44px;
+        padding: 8px 12px;
+    }
+
+    /* make card action buttons full-width */
+    .view-as-card td:last-child .btn { width: 100%; margin-bottom: 6px; }
+}
+        }
