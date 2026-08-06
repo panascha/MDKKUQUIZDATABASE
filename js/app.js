@@ -461,7 +461,7 @@ $(document).ready(function () {
             // Stage 3: choose path — if baseline+auth exist → delta (syncData), else → full (fetchData)
             const localVer = await getCacheDB('global_admin_ver');
             const lastSyncTs = await getCacheDB('global_admin_sync_ts');
-            const hasAuth = !!(currentUser && currentUser.username && (adminPass || (isAdmin && sessionToken)));
+            const hasAuth = !!(currentUser && (currentUser.username || currentUser.email) && (adminPass || (isAdmin && sessionToken)));
 
             if (globalData.questions.length && localVer && lastSyncTs && hasAuth) {
                 // Returning admin with baseline → delta sync
@@ -676,7 +676,7 @@ async function syncData(allowFullReload = true) {
     const localVer = await getCacheDB('global_admin_ver');
     const lastSyncTs = await getCacheDB('global_admin_sync_ts');
     // auth ได้สองแบบ: username+adminPass (แบบเดิม) หรือ Google sessionToken (แอดมิน whitelist — token แนบอัตโนมัติใน sendWithRetry)
-    const hasAuth = !!(currentUser && currentUser.username && (adminPass || (isAdmin && sessionToken)));
+    const hasAuth = !!(currentUser && (currentUser.username || currentUser.email) && (adminPass || (isAdmin && sessionToken)));
 
     // ไม่มี local copy / ไม่มีจุดอ้างอิงเวลา / ยังไม่ล็อกอิน → เส้นทาง getAllData เดิม (version-gated GET)
     if (!globalData.questions.length || !localVer || !lastSyncTs || !hasAuth) {

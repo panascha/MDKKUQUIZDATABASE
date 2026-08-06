@@ -13,7 +13,7 @@ function openResetFromProfile() {
     }
 
 function openEditProfile() {
-        if (!currentUser.username) return;
+        if (!currentUser.username && !currentUser.email) return;
 
         $('#ep-prefix').val(currentUser.prefix || '');
         $('#ep-fullname').val(currentUser.fullName || '');
@@ -98,7 +98,7 @@ function loadAdminManager() {
     }
 
 function checkAuthBeforeAction(callbackAction) {
-        if (isAdmin && currentUser.username) {
+        if (isAdmin && (currentUser.username || currentUser.email)) {
             // ถ้าล็อกอินแล้ว ให้ทำงานนั้นๆ ต่อไปได้เลย
             if (typeof callbackAction === 'function') callbackAction();
             return true;
@@ -490,7 +490,7 @@ async function toggleLogin() {
 
 function confirmAdmin() {
         // ... (โค้ด confirmAdmin เดิม) ...
-        if (!isAdmin || !currentUser.username) {
+        if (!isAdmin || (!currentUser.username && !currentUser.email)) {
             Swal.fire('Access Denied', 'เซสชันหมดอายุหรือคุณไม่มีสิทธิ์เข้าถึง กรุณาล็อกอินใหม่', 'warning');
             return false;
         }
