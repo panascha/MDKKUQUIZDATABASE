@@ -1049,10 +1049,25 @@ async function handlePDFFile(file) {
     if (!file) return;
     const btn = document.getElementById('btn-convert-pdf');
     const statusEl = document.getElementById('pdf-status');
+
+    // Mobile warning for large PDFs
+    if (window.innerWidth < 768 && file.size > 10 * 1024 * 1024) {
+        const result = await Swal.fire({
+            icon: 'warning',
+            title: 'ไฟล์ใหญ่บนมือถือ',
+            text: `PDF ขนาด ${(file.size / 1024 / 1024).toFixed(1)}MB — บนมือถืออาจอัปโหลดไม่เสถียร แนะนำใช้คอมพิวเตอร์`,
+            confirmButtonText: 'ทำต่อ',
+            showCancelButton: true,
+            cancelButtonText: 'ยกเลิก'
+        });
+        if (!result.isConfirmed) return;
+    }
+
     btn.disabled = true;
 
     // Edit 4: 50MB hard cap
     if (file.size > 50 * 1024 * 1024) {
+        btn.disabled = false;
         statusEl.textContent = '';
         Swal.fire('ไฟล์ใหญ่เกินไป',
             `PDF ขนาด ${(file.size / 1024 / 1024).toFixed(1)}MB — ระบบรับได้สูงสุด 50MB กรุณาแบ่งไฟล์ก่อน`, 'error');
