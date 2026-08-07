@@ -5,21 +5,33 @@
 // Upload a chunk of images (≤10) to GAS uploadImagesBatch action
 // items: array of {entry, rowIndex, imgIndex}
 // Returns parsed JSON response
+const UPLOAD_BATCH_TIMEOUT_MS = 25000;
+
 async function uploadBatch(items) {
-    const response = await fetch(APPSCRIPT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({
-            action: 'uploadImagesBatch',
-            username: currentUser.username,
-            adminPass: adminPass,
-            sessionToken: (typeof sessionToken === 'string' && sessionToken) || undefined,
-            images: items.map(item => ({ base64: item.entry.base64 }))
-        }),
-        redirect: 'follow'
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return response.json();
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), UPLOAD_BATCH_TIMEOUT_MS);
+    try {
+        const response = await fetch(APPSCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+                action: 'uploadImagesBatch',
+                username: currentUser.username,
+                adminPass: adminPass,
+                sessionToken: (typeof sessionToken === 'string' && sessionToken) || undefined,
+                images: items.map(item => ({ base64: item.entry.base64 }))
+            }),
+            redirect: 'follow',
+            signal: controller.signal
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return await response.json();
+    } catch (e) {
+        if (e.name === 'AbortError') throw new Error(`uploadBatch timed out after ${UPLOAD_BATCH_TIMEOUT_MS / 1000}s`);
+        throw e;
+    } finally {
+        clearTimeout(timeoutId);
+    }
 }
 
 // Upload all images assigned via imgAssignments (batch=5, concurrency=2, retry×3, backoff)
@@ -40,6 +52,29 @@ async function startUploadQueue(onProgress) {
     const BATCH_SIZE = 5;
     const CONCURRENCY = 2;
     const MAX_RETRY = 3;
+    const HARD_TIMEOUT_MS = 60000;
+
+    let settled = false;
+    const failsafeTimer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        let forcedAny = false;
+        toUpload.forEach(({ entry }) => {
+            if (entry.status === 'Uploading' || entry.status === 'Waiting') {
+                entry.status = 'Failed';
+                forcedAny = true;
+            }
+        });
+        renderImageTray();
+        updateSaveButtonState();
+        if (forcedAny) {
+            Swal.fire({
+                icon: 'error',
+                title: 'อัปโหลดใช้เวลานานเกินไป',
+                text: `การอัปโหลดรูปภาพเกิน ${HARD_TIMEOUT_MS / 1000} วินาที ระบบยกเลิกรายการที่ค้างและตีเป็น "ล้มเหลว" — กรุณาลองอัปโหลดใหม่อีกครั้ง`
+            });
+        }
+    }, HARD_TIMEOUT_MS);
 
     // ความคืบหน้าละเอียดได้แค่ระดับ batch — uploadBatch รอทั้งชุดก่อนตอบ
     const startTime = Date.now();
@@ -125,6 +160,8 @@ async function startUploadQueue(onProgress) {
     } finally {
         // ป้องกันปุ่ม/สถานะค้าง "กำลังอัปโหลด" ถ้ามี error หลุดออกมากลางทาง (เช่น network/timeout) —
         // รายการที่ยังค้างสถานะ Uploading ถือว่าไม่จบ ให้ตีเป็น Failed แทน
+        clearTimeout(failsafeTimer);
+        settled = true;
         toUpload.forEach(({ entry }) => {
             if (entry.status === 'Uploading') entry.status = 'Failed';
         });
