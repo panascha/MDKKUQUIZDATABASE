@@ -128,10 +128,11 @@ window.getMediaType = function (url) {
     return 'image';
 };
 
-window.compressImage = async function (base64Str, maxWidth = 400, maxHeight = 400) {
+window.compressImage = async function (base64Str, maxWidth = 400, maxHeight = 400, quality = 0.7) {
         return new Promise((resolve) => {
             const img = new Image();
             img.src = base64Str;
+            img.onerror = () => resolve(base64Str); // ไฟล์เสีย/ถอดรหัสไม่ได้ — ใช้ต้นฉบับแทนแทนที่จะค้าง
             img.onload = () => {
                 const canvas = document.createElement('canvas');
                 let width = img.width;
@@ -152,7 +153,7 @@ window.compressImage = async function (base64Str, maxWidth = 400, maxHeight = 40
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, width, height);
-                resolve(canvas.toDataURL('image/jpeg', 0.7)); // บีบอัดคุณภาพเหลือ 70%
+                resolve(canvas.toDataURL('image/jpeg', quality));
             };
         });
     }

@@ -22,9 +22,9 @@ async function uploadBatch(items) {
     return response.json();
 }
 
-// Upload all images assigned via imgAssignments (batch ≤10 per request, retry×3, backoff)
+// Upload all images assigned via imgAssignments (batch=5, concurrency=2, retry×3, backoff)
 // imgAssignments: Map<rowIndex, [{base64, fileId, url, status, page}]>
-// onProgress: optional fn({done, total, failed}) — เรียกตอนเริ่มและหลังจบแต่ละ batch
+// onProgress: optional fn({done, total, failed, elapsedSec, etaSec}) — เรียกตอนเริ่มและหลังจบแต่ละ batch
 async function startUploadQueue(onProgress) {
     const toUpload = [];
     imgAssignments.forEach((entries, rowIndex) => {
@@ -37,19 +37,24 @@ async function startUploadQueue(onProgress) {
 
     if (toUpload.length === 0) return;
 
-    const BATCH_SIZE = 10;
+    const BATCH_SIZE = 5;
+    const CONCURRENCY = 2;
     const MAX_RETRY = 3;
 
     // ความคืบหน้าละเอียดได้แค่ระดับ batch — uploadBatch รอทั้งชุดก่อนตอบ
+    const startTime = Date.now();
     let done = 0;
     let failed = 0;
-    const report = () => { if (onProgress) onProgress({ done, failed, total: toUpload.length }); };
-    report();
+    const report = () => {
+        if (!onProgress) return;
+        const elapsedSec = (Date.now() - startTime) / 1000;
+        const finished = done + failed;
+        const avgSecPerImage = finished > 0 ? elapsedSec / finished : 0;
+        const etaSec = avgSecPerImage > 0 ? Math.round(avgSecPerImage * (toUpload.length - finished)) : null;
+        onProgress({ done, failed, total: toUpload.length, elapsedSec: Math.round(elapsedSec), etaSec });
+    };
 
-    // Process chunks sequentially (one batch request in flight at a time)
-    for (let i = 0; i < toUpload.length; i += BATCH_SIZE) {
-        const chunk = toUpload.slice(i, i + BATCH_SIZE);
-
+    async function processChunk(chunk) {
         // Mark all items in this chunk as Uploading
         chunk.forEach(({ entry }) => { entry.status = 'Uploading'; });
         renderImageTray();
@@ -101,7 +106,31 @@ async function startUploadQueue(onProgress) {
         report();
     }
 
-    updateSaveButtonState();
+    const chunks = [];
+    for (let i = 0; i < toUpload.length; i += BATCH_SIZE) chunks.push(toUpload.slice(i, i + BATCH_SIZE));
+
+    try {
+        // ย่อรูปฝั่ง client ก่อนอัปโหลด (ลด payload/เวลาอัปโหลด) — ข้ามรายการที่ย่อไปแล้วตอน retry
+        await Promise.all(toUpload.map(async ({ entry }) => {
+            if (entry._compressed) return;
+            entry.base64 = await compressImage(entry.base64, 1200, 1200, 0.75);
+            entry._compressed = true;
+        }));
+
+        report();
+        // Up to CONCURRENCY chunk requests in flight at once
+        for (let i = 0; i < chunks.length; i += CONCURRENCY) {
+            await Promise.all(chunks.slice(i, i + CONCURRENCY).map(processChunk));
+        }
+    } finally {
+        // ป้องกันปุ่ม/สถานะค้าง "กำลังอัปโหลด" ถ้ามี error หลุดออกมากลางทาง (เช่น network/timeout) —
+        // รายการที่ยังค้างสถานะ Uploading ถือว่าไม่จบ ให้ตีเป็น Failed แทน
+        toUpload.forEach(({ entry }) => {
+            if (entry.status === 'Uploading') entry.status = 'Failed';
+        });
+        renderImageTray();
+        updateSaveButtonState();
+    }
 }
 
 // Lock/unlock the "อัปโหลดและบันทึก" button based on upload status

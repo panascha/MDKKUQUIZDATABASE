@@ -696,12 +696,23 @@ async function importConvertedData() {
             });
             if (pendingUploads.length > 0) {
                 $('#loading-overlay').fadeIn(200).css('display', 'flex').find('h5').text('กำลังอัปโหลดรูปภาพ…');
-                await startUploadQueue(({ done, failed, total }) => {
-                    const finished = done + failed;
-                    const failText = failed > 0 ? ` (ล้มเหลว ${failed})` : '';
-                    $('#loading-overlay').find('h5').text(`กำลังอัปโหลดรูปภาพ… ${finished}/${total}`);
-                    $('#loading-overlay').find('p').text(`อัปโหลดสำเร็จ ${done} จาก ${total} รูป${failText}`);
-                });
+                const uploadBtn = document.getElementById('btn-upload-and-save');
+                try {
+                    await startUploadQueue(({ done, failed, total, etaSec }) => {
+                        const finished = done + failed;
+                        const failText = failed > 0 ? ` (ล้มเหลว ${failed})` : '';
+                        const etaText = etaSec != null ? ` (เหลือ ~${etaSec}s)` : '';
+                        $('#loading-overlay').find('h5').text(`กำลังอัปโหลดรูปภาพ… ${finished}/${total}${etaText}`);
+                        $('#loading-overlay').find('p').text(`อัปโหลดสำเร็จ ${done} จาก ${total} รูป${failText}`);
+                        if (uploadBtn) uploadBtn.textContent = `กำลังอัปโหลด... ${finished}/${total} (เหลือ ~${etaSec != null ? etaSec : '?'}s)`;
+                    });
+                } catch (e) {
+                    // network/timeout ที่หลุดจาก startUploadQueue เอง (ไม่ใช่ per-item failure ปกติ) — กัน overlay ค้าง
+                    console.warn('startUploadQueue failed:', e);
+                    $('#loading-overlay').hide();
+                    Swal.fire('อัปโหลดผิดพลาด', 'เกิดข้อผิดพลาดระหว่างอัปโหลดรูปภาพ กรุณาลองใหม่อีกครั้ง', 'error');
+                    return;
+                }
                 // คืนข้อความเดิม กัน overlay รอบถัดไปโชว์ตัวเลขค้าง
                 $('#loading-overlay').find('p').text('กรุณารอสักครู่');
                 // ตรวจว่ายังมีที่ล้มเหลวอยู่ไหม
