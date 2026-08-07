@@ -56,6 +56,7 @@ function resetConverter() {
                 converterStorage.ques = [];
                 pageHintMap.clear();
                 currentPdfDoc = null;
+                window._pdfFile = null;
                 extractedImages = [];
                 imgAssignments.clear();
 
@@ -1076,6 +1077,7 @@ function handlePDFDrop(event) {
 
 async function handlePDFFile(file) {
     if (!file) return;
+    window._pdfFile = null; // clear stale reference before reading new file
     const btn = document.getElementById('btn-convert-pdf');
     const statusEl = document.getElementById('pdf-status');
 
@@ -1286,6 +1288,8 @@ async function reviewCategoriesBeforeConvert(subjId) {
 
 async function startPDFConversion() {
     if (!currentPdfDoc) { Swal.fire('error', 'กรุณาเลือก PDF ก่อน', 'error'); return; }
+    // Sanity check: raw File and parsed pdf.js doc must be in sync (both set/cleared together in handlePDFFile/resetConverter)
+    if (!window._pdfFile) { Swal.fire('error', 'ไม่พบไฟล์ PDF ต้นฉบับ กรุณาโหลดไฟล์ใหม่', 'error'); return; }
     // Phase 1: ใช้ Gemini key กลางผ่าน backend — ต้องล็อกอินก่อน (backend มี auth gate)
     // รับทั้ง username+adminPass (แบบเดิม) และ Google sessionToken (SSO)
     if (!(currentUser && (currentUser.username || currentUser.email) && (adminPass || sessionToken))) {
