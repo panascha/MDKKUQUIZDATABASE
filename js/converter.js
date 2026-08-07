@@ -977,6 +977,8 @@ function guessBatchFromFilename(filename) {
     if (!filename) return null;
     const md = filename.match(/\(\s*MD\s*(\d{2})\s*\)/i);
     if (md) return md[1];
+    const bare = filename.match(/(?:^|_)MD\s*(\d{2})(?:_|(?=[^\d])|$)/i); // MD52_… or …_MD52_…
+    if (bare) return bare[1];
     if (typeof parseFilenameMetadata !== 'function') return null;
     const g = (parseFilenameMetadata(filename).examGroup || '').match(/^(\d{2})(?!\d)/);
     return g ? g[1] : null;
@@ -1009,6 +1011,33 @@ async function detectExamMeta(pdfDoc) {
 
 async function detectExamGroupType(pdfDoc) {
     return (await detectExamMeta(pdfDoc)).type;
+}
+
+// เติมรหัสวิชาให้อัตโนมัติจากชื่อไฟล์ (เช่น MD52_SKIN_MCQ1.pdf -> SKIN) — เติมเฉพาะตอนช่องยังว่าง
+function applyDetectedSubject(subjectCode, src) {
+    if (!subjectCode) return;
+    const el = document.getElementById('subjID');
+    if (!el || el.value.trim()) return;
+    el.value = subjectCode;
+    updateConvGroupReadout();
+}
+
+// เดากลุ่มข้อสอบ (MCQ/FMT/QUIZ/LAB) จาก examGroup ที่ parse ได้จากชื่อไฟล์ เช่น "MCQ1" -> "MCQ"
+function classifyExamGroupPrefix(examGroup) {
+    const m = String(examGroup || '').match(/([A-Za-z]+)/);
+    if (!m) return null;
+    const t = m[1].toUpperCase();
+    return ['MCQ', 'FMT', 'QUIZ', 'LAB'].includes(t) ? t : null;
+}
+
+// เติมครั้งที่สอบให้อัตโนมัติจากชื่อไฟล์ — เติมเฉพาะตอนช่องยังว่าง
+function applyDetectedRound(round) {
+    if (!round) return;
+    const el = document.getElementById('conv-group-round');
+    if (!el || el.value) return;
+    if (![...el.options].some(o => o.value === round)) return;
+    el.value = round;
+    updateConvGroupReadout();
 }
 
 // เติมเลขรุ่นให้อัตโนมัติ — เติมเฉพาะตอนช่องยังว่าง (ห้ามทับสิ่งที่ผู้ใช้พิมพ์เอง)
@@ -1107,6 +1136,16 @@ async function handlePDFFile(file) {
     window._pdfFile = file; // preserve raw File for inline-PDF Gemini call
     btn.dataset.filename = file.name;
     applyDetectedBatch(guessBatchFromFilename(file.name), 'ชื่อไฟล์'); // เดารุ่นจากชื่อไฟล์ทันที
+
+    // เดาวิชา + กลุ่มข้อสอบ + ครั้งที่ จากชื่อไฟล์ทันที เช่น MD52_SKIN_MCQ1.pdf -> SKIN / MCQ / ครั้งที่ 1
+    if (typeof parseFilenameMetadata === 'function') {
+        const meta = parseFilenameMetadata(file.name);
+        applyDetectedSubject(meta.subjectCode, 'ชื่อไฟล์');
+        const groupType = classifyExamGroupPrefix(meta.examGroup);
+        if (groupType) applyDetectedGroup(groupType);
+        applyDetectedRound(meta.round);
+    }
+
     updateConvGroupReadout(); // แสดงชื่อไฟล์ + กลุ่มที่เดาไว้ทันที (แม้ detect จะยังไม่เสร็จ/ล้มเหลว)
 
     // Edit 3: auto-detect กลุ่มข้อสอบ + รุ่น จากข้อความหน้าแรกๆ (suggest-only, ไม่บล็อกการโหลด)

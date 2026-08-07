@@ -20,11 +20,21 @@ function getConverterClientId() {
 // Port of Python parse_filename_metadata()
 function parseFilenameMetadata(filename) {
     let base = filename.replace(/\.pdf$/i, '').trim();
-    base = base.replace(/^\([^)]+\)\s*/, ''); // strip (MD49) prefix
+    // strip leading batch prefix: "(MD49) " or bare "MD52_" — both forms, batch captured separately
+    let batch = '';
+    const prefixMatch = base.match(/^(?:\(\s*MD\s*(\d+)\s*\)|MD\s*(\d+))[_\s]*/i);
+    if (prefixMatch) {
+        batch = prefixMatch[1] || prefixMatch[2] || '';
+        base = base.slice(prefixMatch[0].length);
+    }
     const parts = base.split(/[_\s]+/).filter(p => p.length > 0);
+    const examGroup = parts[1] ? parts[1].toUpperCase() : 'EXAM';
+    const roundMatch = examGroup.match(/(\d+)$/);
     return {
+        batch,
         subjectCode: parts[0] ? parts[0].toUpperCase() : 'SUBJ',
-        examGroup:   parts[1] ? parts[1].toUpperCase() : 'EXAM',
+        examGroup,
+        round:       roundMatch ? roundMatch[1] : '',
         topicLabel:  parts.slice(2).join('_').toUpperCase()
     };
 }
