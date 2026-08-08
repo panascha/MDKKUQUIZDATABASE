@@ -3,7 +3,10 @@
 // ─────────────────────────────────────────────────────
 
 // Upload a chunk of images (≤10) to GAS uploadImagesBatch action
-// items: array of {entry, rowIndex, imgIndex}
+// items: array of {entry, rowIndex, imgIndex, questionId, subject, year}
+// questionId/type ต้องส่งไปด้วย — backend ใช้ตั้งชื่อไฟล์ Q_<id>_<type>_<uniq> (ไม่งั้นได้ Q_undefined_undefined_)
+// subject/year = hint ปลายทางโฟลเดอร์ — ตอนอัปโหลดข้อยังไม่อยู่ในชีต backend จึงหาเองไม่ได้
+// (ถ้าไม่ส่ง = อ่าน Questions/Category/Structure ทั้งใบต่อรูป → ช้าจนหลุด timeout 25s และไฟล์ไปกอง YUnknown/General)
 // Returns parsed JSON response
 const UPLOAD_BATCH_TIMEOUT_MS = 25000;
 
@@ -19,7 +22,13 @@ async function uploadBatch(items) {
                 username: currentUser.username,
                 adminPass: adminPass,
                 sessionToken: (typeof sessionToken === 'string' && sessionToken) || undefined,
-                images: items.map(item => ({ base64: item.entry.base64 }))
+                images: items.map(item => ({
+                    base64: item.entry.base64,
+                    questionId: item.questionId,
+                    type: 'Main',
+                    subject: item.subject,
+                    year: item.year
+                }))
             }),
             redirect: 'follow',
             signal: controller.signal
@@ -37,12 +46,29 @@ async function uploadBatch(items) {
 // Upload all images assigned via imgAssignments (batch=5, concurrency=2, retry×3, backoff)
 // imgAssignments: Map<rowIndex, [{base64, fileId, url, status, page}]>
 // onProgress: optional fn({done, total, failed, elapsedSec, etaSec}) — เรียกตอนเริ่มและหลังจบแต่ละ batch
+// ปลายทางโฟลเดอร์ของชุดที่กำลังแปลง — จาก struct row ที่ processAll สร้างไว้ ([year, subjectID, …])
+// ไม่มี struct (เช่นโหลด checkpoint มา) → ถอยไปอ่านช่องกรอกบนหน้าจอ
+function getConverterRouteHints() {
+    const struct = (converterStorage.struct || [])[0] || [];
+    const yearEl = document.getElementById('yearVal');
+    const subjEl = document.getElementById('subjID');
+    return {
+        year: String(struct[0] || (yearEl && yearEl.value) || '').trim(),
+        subject: String(struct[1] || (subjEl && subjEl.value) || '').trim().toUpperCase()
+    };
+}
+
 async function startUploadQueue(onProgress) {
     const toUpload = [];
+    const hints = getConverterRouteHints();
     imgAssignments.forEach((entries, rowIndex) => {
+        // อ่าน QuestionID สดจากแถวตอนสร้างคิว (ไม่เก็บใน entry — entry ถูก saveCheckpoint เก็บลง localStorage
+        // ค่าเก่าจะค้างเมื่อผู้ใช้แก้หมวดหมู่แล้ว QuestionID เปลี่ยน)
+        const row = converterStorage.ques[rowIndex];
+        const questionId = row ? String(row[0] || '') : '';
         entries.forEach((entry, imgIndex) => {
             if (entry.status !== 'Ready') {
-                toUpload.push({ rowIndex, imgIndex, entry });
+                toUpload.push({ rowIndex, imgIndex, entry, questionId, subject: hints.subject, year: hints.year });
             }
         });
     });

@@ -150,7 +150,7 @@ function buildConverterPrompt(additionalPrompt, pageNote, allowedCats, forcedCat
   "meta": {"source": "ชื่อไฟล์", "converted": <จำนวนข้อ>},
   "questions": [
     {
-      "problem": "1. ข้อความโจทย์เต็ม",
+      "problem": "ข้อความโจทย์เต็ม (ไม่มีเลขข้อ ไม่มีรายการตัวเลือก)",
       "img": "" หรือ "require_img",
       "choices": "ตัวเลือก A///ตัวเลือก B///ตัวเลือก C///ตัวเลือก D///ตัวเลือก E",
       "answer": "ตัวเลือกที่ถูกต้อง",
@@ -165,6 +165,8 @@ function buildConverterPrompt(additionalPrompt, pageNote, allowedCats, forcedCat
 
 กฎที่ต้องทำตามอย่างเคร่งครัด:
 1. choices ใช้ /// คั่นระหว่างตัวเลือก (5 ตัวเลือกถ้าเป็นไปได้)
+1.1 problem ต้องมีเฉพาะข้อความโจทย์ ห้ามมีรายการตัวเลือก (A. B. C. …) ปนอยู่ — ตัวเลือกอยู่ใน choices เท่านั้น
+1.2 problem ห้ามขึ้นต้นด้วยเลขข้อ (เช่น "1.", "2)", "ข้อ 3.") — ระบบใส่ลำดับให้เองจาก QuestionID
 2. answer ต้องตรงกับข้อความใน choices
 3. explain ต้องเขียนเป็น "ภาษาไทยผสมศัพท์ทางการแพทย์ภาษาอังกฤษ" — ห้ามใช้ภาษาอังกฤษอย่างเดียว
    โครงสร้าง explain ต้องเป็นย่อหน้าเดียวต่อเนื่อง (ไม่แบ่งบรรทัด) ประกอบด้วย 4 ส่วน:
@@ -373,6 +375,48 @@ function parseGeminiResponse(rawText) {
     return result;
 }
 
+// ตัดเลขข้อนำหน้าออกจากโจทย์ — ลำดับข้อมาจาก QuestionID อยู่แล้ว (เช่น SKIN_52MCQ1_1)
+// ต้องมีเครื่องหมาย . หรือ ) คั่นเสมอ กันตัดหัวโจทย์แบบ "45 ปี ชายไทย…"
+function stripLeadingQuestionNumber(text) {
+    const raw = String(text || '').trim();
+    const out = raw.replace(/^(?:ข้อ(?:ที่)?\s*)?\d{1,3}\s*[.)]\s*/, '').trim();
+    return out || raw; // ตัดแล้วว่าง = ตัดผิด คืนของเดิม
+}
+
+// ตัดรายการตัวเลือกที่ Gemini แถมมาท้ายโจทย์ — ตัดเฉพาะจุดที่ตามด้วย choices[0] จริงเท่านั้น
+// ตรวจแบบ startsWith กับตัวเลือกแรก → ไม่ตัดโจทย์ที่มีรายการ A. B. ของตัวเอง (เช่น ค่า lab)
+function stripChoiceTail(problem, choicesRaw) {
+    const text = String(problem || '').trim();
+    const norm = s => String(s).replace(/\s+/g, ' ').trim().toLowerCase();
+    // ตัดหัวตัวอักษรออกจากตัวเลือกแรกด้วย (บางครั้ง Gemini เขียน "A. Dengue" ลง choices ทั้งดุ้น)
+    const first = norm(String(choicesRaw || '').split('///')[0]).replace(/^[a-eก-ฅ]\s*[.)]\s*/, '');
+    if (!first || !text) return text;
+
+    const marker = /(?:^|\n|\s)\s*(?:[A-Ea-eก-ฅ]|\d{1,2})\s*[.)]\s*/g;
+    let m;
+    while ((m = marker.exec(text)) !== null) {
+        if (norm(text.slice(m.index + m[0].length)).indexOf(first) === 0) {
+            const head = text.slice(0, m.index).trim();
+            return head || text; // ตัดแล้วเหลือว่าง = โจทย์เป็นตัวเลือกล้วน คืนของเดิม
+        }
+    }
+    return text;
+}
+
+// ตัด placeholder "(image required)" ที่ Gemini แถมมาในเนื้อโจทย์ — ต้องใส่ "require_img" ใน q.img แทน ไม่ใช่ปนในข้อความ
+function stripImagePlaceholder(text) {
+    const raw = String(text || '').trim();
+    const out = raw.replace(/\(\s*image\s+required\s*\)/gi, '').replace(/\s{2,}/g, ' ').trim();
+    return out || raw; // ตัดแล้วว่าง = ตัดผิด คืนของเดิม
+}
+
+// ตัดตัวอักษรตัวเลือกนำหน้า (A. / B) / …) ออกจากแต่ละ choice — เนื้อหาซ้ำกับตำแหน่งในลิสต์อยู่แล้ว
+function stripChoiceLetters(choicesRaw) {
+    const raw = String(choicesRaw || '');
+    if (!raw) return raw;
+    return raw.split('///').map(c => c.replace(/^\s*[A-Ea-e]\s*[.)]\s*/, '').trim()).join('///');
+}
+
 // Validate category[0] format post-parse — warn if malformed (non-blocking)
 // Expected: SubjectCode_YearPrefix+Group (e.g. GI_51MCQ1, CVS_50FMT, RESP_52QUIZ2)
 function validateCategoryFormat(questions) {
@@ -529,7 +573,10 @@ async function runGeminiConversion(file, filename) {
     }
 
     // Sanitize every question's category — คง CategoryID ที่ตรงกับหัวข้อจริงไว้ทั้งดุ้น
+    // จุดรวมทุกเส้นทาง (native PDF / image batches / กู้คืน MAX_TOKENS) — ล้างโจทย์ที่นี่ที่เดียว
     allQuestions.forEach(q => {
+        q.problem = stripImagePlaceholder(stripChoiceTail(stripLeadingQuestionNumber(q.problem), q.choices));
+        q.choices = stripChoiceLetters(q.choices);
         q.category = sanitizeCategory(q.category, fileStem, allowedIds);
         if (forcedCat0) q.category[0] = forcedCat0; // ชิปผู้ใช้ = เด็ดขาด แม้ Gemini เขียนมาอย่างอื่น
     });

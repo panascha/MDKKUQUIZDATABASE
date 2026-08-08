@@ -566,6 +566,8 @@ function showSection(sectionId) {
             renderAiModelsPanel();
         } else if (sectionId === 'feedback') {
             loadFeedbackSection();
+        } else if (sectionId === 'dashboard') {
+            loadPriorYearAudit();
         }
 
         $('#page-title').text(sectionId.charAt(0).toUpperCase() + sectionId.slice(1).replace('-', ' '));
