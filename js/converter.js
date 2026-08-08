@@ -1081,6 +1081,38 @@ function applyDetectedGroup(type) {
     updateConvGroupReadout();
 }
 
+// ตรวจสอบความขัดแย้งระหว่างชื่อไฟล์ (parseFilenameMetadata) กับ subjID/conv-group-batch ที่ผู้ใช้เลือกไว้
+// ถ้าไม่ตรงกัน → แสดง #pdf-conflict-warning ใต้ dropzone
+function checkFilenameConflict() {
+    const warnEl = document.getElementById('pdf-conflict-warning');
+    if (!warnEl) return;
+    const btn = document.getElementById('btn-convert-pdf');
+    const filename = (btn && btn.dataset.filename) || '';
+    if (!filename || typeof parseFilenameMetadata !== 'function') {
+        warnEl.classList.add('d-none');
+        return;
+    }
+    const meta = parseFilenameMetadata(filename);
+    const subjSel = (document.getElementById('subjID').value || '').trim().toUpperCase();
+    const batchSel = (document.getElementById('conv-group-batch').value || '').trim();
+
+    const subjectConflict = subjSel && meta.subjectCode && subjSel !== meta.subjectCode;
+    const batchConflict = batchSel && meta.batch && batchSel !== meta.batch;
+
+    if (subjectConflict || batchConflict) {
+        const parts = [];
+        if (subjectConflict) parts.push(`วิชาในไฟล์ <b>${_convEsc(meta.subjectCode)}</b>`);
+        if (batchConflict) parts.push(`รุ่นในไฟล์ <b>${_convEsc(meta.batch)}</b>`);
+        const selectedSubj = subjSel ? _convEsc(subjSel) : '?';
+        const selectedBatch = batchSel ? _convEsc(batchSel) : '?';
+        warnEl.innerHTML = `<i class="fas fa-exclamation-triangle me-1"></i>
+            <strong>⚠️ ชื่อไฟล์ไม่ตรงกับการเลือก</strong> — ${parts.join(' + ')} | ที่เลือกอยู่: <b>${selectedSubj}_${selectedBatch}</b> กรุณาตรวจสอบก่อนแปลง`;
+        warnEl.classList.remove('d-none');
+    } else {
+        warnEl.classList.add('d-none');
+    }
+}
+
 // ─── PDF drop/file handling ────────────────────────────────────────────────
 
 function handlePDFDrop(event) {
@@ -1163,6 +1195,9 @@ async function handlePDFFile(file) {
     }
 
     updateConvGroupReadout(); // แสดงชื่อไฟล์ + กลุ่มที่เดาไว้ทันที (แม้ detect จะยังไม่เสร็จ/ล้มเหลว)
+
+    // ตรวจสอบชื่อไฟล์ vs วิชา/กลุ่มที่ prefilled — แจ้งเตือนถ้าไม่ตรงกัน
+    checkFilenameConflict();
 
     // Edit 3: auto-detect กลุ่มข้อสอบ + รุ่น จากข้อความหน้าแรกๆ (suggest-only, ไม่บล็อกการโหลด)
     detectExamMeta(currentPdfDoc).then(meta => {

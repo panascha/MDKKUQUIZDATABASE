@@ -63,35 +63,114 @@ function renderPriorYearAudit(res) {
         return;
     }
 
-    const renderGroupBadges = (groups, highlightSet) => {
-        if (!groups || groups.length === 0) return '<span class="text-muted">-</span>';
-        return groups.map(g => {
-            const cls = highlightSet.has(g) ? 'bg-warning-subtle text-warning border-warning-subtle' : 'bg-light text-dark border-light';
-            return `<span class="badge ${cls} border rounded-pill px-2 py-1 me-1 mb-1">${g}</span>`;
-        }).join('');
+    // Helper to render badges with diff colors
+    const badgeFor = (g, role, matchedSet, onlyLatestSet, onlyPriorSet) => {
+        // role: 'latest' or 'prior'
+        const isMatched = matchedSet && matchedSet.has(g);
+        const isOnlyLatest = onlyLatestSet && onlyLatestSet.has(g);
+        const isOnlyPrior = onlyPriorSet && onlyPriorSet.has(g);
+        let cls = 'bg-light text-dark border-light';
+        if (isMatched) cls = 'bg-success-subtle text-success border-success-subtle';
+        else if (role === 'latest' && isOnlyLatest) cls = 'bg-info-subtle text-info border-info-subtle';
+        else if (role === 'prior' && isOnlyPrior) cls = 'bg-danger-subtle text-danger border-danger-subtle';
+        return `<span class="badge ${cls} border rounded-pill px-2 py-1 me-1 mb-1">${g}</span>`;
     };
 
     const rows = subjects.map(s => {
-        const onlyLatest = new Set(s.structuralDiff ? s.structuralDiff.onlyInLatest : []);
-        const onlyPrior = new Set(s.structuralDiff ? s.structuralDiff.onlyInPrior : []);
+        const diff = s.structuralDiff || { onlyInLatest: [], onlyInPrior: [], matched: [] };
+        const onlyLatestSet = new Set(diff.onlyInLatest || []);
+        const onlyPriorSet = new Set(diff.onlyInPrior || []);
+        const matchedSet = new Set(diff.matched || []);
+
+        const latestBadges = (s.latestGroups || []).map(g => badgeFor(g, 'latest', matchedSet, onlyLatestSet, onlyPriorSet)).join('');
+        const priorBadges = (s.priorGroups || []).map(g => badgeFor(g, 'prior', matchedSet, onlyLatestSet, onlyPriorSet)).join('');
+
+        // If prior had groups that are missing in latest -> show explicit Missing-in-Latest section
+        let missingHtml = '';
+        if (diff && diff.onlyInPrior && diff.onlyInPrior.length > 0) {
+            const missingList = diff.onlyInPrior.map(g => {
+                // convert button per group
+                const safeG = _convEsc(String(g));
+                const btn = `<button class="btn btn-sm btn-outline-primary ms-1" onclick="goToConverterWithPrefill('${s.subjectId}','${s.latestYear}','${_convEsc(g)}')">Convert</button>`;
+                return `<span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2 py-1 me-1 mb-1">${safeG}</span>${btn}`;
+            }).join(' ');
+            missingHtml = `<div class="mt-1"><strong class="text-danger">Missing in Year ${_convEsc(String(s.latestYear))}:</strong> ${missingList}</div>`;
+        }
 
         const statusBadge = !s.priorYearExists
             ? '<span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-3">ขาดรุ่นก่อนหน้า</span>'
-            : (onlyLatest.size > 0 || onlyPrior.size > 0)
+            : ((onlyLatestSet.size > 0 || onlyPriorSet.size > 0)
                 ? '<span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill px-3 text-dark">รูปแบบต่างจากรุ่นก่อน</span>'
-                : '<span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3">ตรงกัน</span>';
+                : '<span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3">ตรงกัน</span>');
 
         return `<tr>
-            <td><strong>${s.subjectName}</strong><br><span class="small text-muted">${s.subjectId}</span></td>
-            <td><span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-1 me-1 mb-1">รุ่น ${s.latestYear}</span>${renderGroupBadges(s.latestGroups, onlyLatest)}</td>
-            <td>${s.priorYearExists
-                ? `<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill px-2 py-1 me-1 mb-1">รุ่น ${s.priorYear}</span>${renderGroupBadges(s.priorGroups, onlyPrior)}`
-                : `<span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2 py-1">ไม่พบรุ่น ${s.priorYear}</span>`
-            }</td>
-            <td class="small text-muted">${s.years.join(', ')}</td>
+            <td><strong>${_convEsc(s.subjectName)}</strong><br><span class="small text-muted">${_convEsc(s.subjectId)}</span></td>
+            <td>
+              <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-1 me-1 mb-1">รุ่น ${_convEsc(String(s.latestYear))}</span>
+              ${latestBadges}
+              ${missingHtml}
+            </td>
+            <td>
+              ${s.priorYearExists
+                ? `<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill px-2 py-1 me-1 mb-1">รุ่น ${_convEsc(String(s.priorYear))}</span>${priorBadges}`
+                : `<span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2 py-1">ไม่พบรุ่น ${_convEsc(String(s.priorYear))}</span>`
+              }
+            </td>
+            <td class="small text-muted">${_convEsc((s.years || []).join(', '))}</td>
             <td class="text-center">${statusBadge}</td>
         </tr>`;
     }).join('');
 
     $('#prior-audit-body').html(rows);
+}
+
+// Prefill converter and jump to PDF dropzone for a missing group
+function goToConverterWithPrefill(subjectId, year, missingGroup) {
+    try {
+        // open converter section
+        if (typeof showSection === 'function') showSection('converter');
+        // set year, populate subjects
+        const yearSel = document.getElementById('conv-year-select');
+        if (yearSel) {
+            yearSel.value = String(year);
+            try { onConvYearChange(yearSel.value); } catch (e) { /* non-fatal */ }
+        }
+
+        // small delay for subject select to populate
+        setTimeout(() => {
+            const subjSel = document.getElementById('conv-subject-select');
+            if (subjSel) {
+                for (let i = 0; i < subjSel.options.length; i++) {
+                    if (subjSel.options[i].value === subjectId) { subjSel.selectedIndex = i; break; }
+                }
+                try { onConvSubjectChange(subjSel.value); } catch (e) { /* ok */ }
+                const opt = subjSel.options[subjSel.selectedIndex];
+                const subjName = opt ? (opt.dataset.name || opt.text) : '';
+                try { setConvSubjectMirror(String(year), subjectId, subjName); } catch (e) { /* ignore */ }
+            }
+
+            // Prefill batch (last two digits of year if numeric) and group
+            const batchEl = document.getElementById('conv-group-batch');
+            if (batchEl) batchEl.value = String(year).slice(-2);
+
+            // Try to activate a known chip for group prefix, else use custom input
+            const groupRaw = String(missingGroup || '').trim();
+            const groupNoBatch = groupRaw.replace(/^\d+/, '');
+            const chip = document.querySelector(`#conv-group-picker .conv-chip[data-group="${groupNoBatch}"]`);
+            if (chip && typeof pickConvGroup === 'function') {
+                try { pickConvGroup(chip); } catch (e) { chip.classList.add('active'); _convGroupType = groupNoBatch; }
+            } else {
+                // set as custom
+                const custom = document.getElementById('conv-group-custom');
+                if (custom) { custom.classList.remove('d-none'); custom.value = groupNoBatch; _convGroupType = '__custom__'; }
+            }
+
+            try { updateConvGroupReadout(); } catch (e) { /* best effort */ }
+
+            const drop = document.getElementById('pdf-drop-zone');
+            if (drop) drop.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 150);
+    } catch (err) {
+        console.warn('goToConverterWithPrefill failed', err);
+    }
 }
