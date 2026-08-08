@@ -72,6 +72,20 @@
             color: white;
         }
 
+        .prior-audit-tag {
+            cursor: pointer;
+            border: none;
+        }
+
+        .prior-audit-row-highlight {
+            animation: priorAuditFlash 1.6s ease;
+        }
+
+        @keyframes priorAuditFlash {
+            0%, 100% { background-color: transparent; }
+            20%, 60% { background-color: #fff3cd; }
+        }
+
         @media (max-width: 767.98px) {
             #dashboardRecentTable {
                 display: block;
