@@ -221,53 +221,76 @@ function renderPriorAuditTable() {
 }
 
 // Prefill converter and jump to PDF dropzone for a missing group
-function goToConverterWithPrefill(subjectId, year, missingGroup) {
+// พารามิเตอร์ `batch` = รุ่นข้อสอบ 2 หลัก (latestYear/priorYear ของ backend มาจากเลขใน categoryId เช่น CVS_52MCQ1)
+//   — ไม่ใช่ชั้นปี! ชั้นปีต้องหาจาก globalData.structure ด้วย subjectId
+// `missingGroup` มาจาก structuralDiff ซึ่งตัดเลขรุ่นออกแล้ว เช่น "MCQ2" → ชิป MCQ + ครั้งที่ 2
+function goToConverterWithPrefill(subjectId, batch, missingGroup) {
     try {
         // open converter section
         if (typeof showSection === 'function') showSection('converter');
-        // set year, populate subjects
-        const yearSel = document.getElementById('conv-year-select');
-        if (yearSel) {
-            yearSel.value = String(year);
-            try { onConvYearChange(yearSel.value); } catch (e) { /* non-fatal */ }
+
+        // ชั้นปี + ชื่อวิชา จากทะเบียนโครงสร้าง (แถวแรกที่ SubjectID ตรง)
+        const structRow = (typeof globalData === 'object' && Array.isArray(globalData.structure))
+            ? globalData.structure.find(s => String(s.SubjectID).trim() === String(subjectId).trim())
+            : null;
+        const curriculumYear = structRow ? String(structRow.Year).trim() : '';
+        const subjName = structRow ? String(structRow.SubjectName || '') : '';
+        // ไม่มีแถวใน Structure = เติมชั้นปี/ชื่อวิชาให้ไม่ได้ — ต้องบอก ไม่ใช่เติมครึ่งๆ เงียบๆ
+        if (!structRow) {
+            Swal.fire({
+                toast: true, icon: 'warning', position: 'top-end',
+                title: `ไม่พบวิชา ${subjectId} ในทะเบียนโครงสร้าง — กรุณาเลือกชั้นปี/วิชาเอง`,
+                timer: 5000, showConfirmButton: false
+            });
         }
 
-        // small delay for subject select to populate
-        setTimeout(() => {
-            const subjSel = document.getElementById('conv-subject-select');
-            if (subjSel) {
-                for (let i = 0; i < subjSel.options.length; i++) {
-                    if (subjSel.options[i].value === subjectId) { subjSel.selectedIndex = i; break; }
-                }
-                try { onConvSubjectChange(subjSel.value); } catch (e) { /* ok */ }
-                const opt = subjSel.options[subjSel.selectedIndex];
-                const subjName = opt ? (opt.dataset.name || opt.text) : '';
-                try { setConvSubjectMirror(String(year), subjectId, subjName); } catch (e) { /* ignore */ }
+        // ตั้งชั้นปี → onConvYearChange เติม options ของวิชาแบบ synchronous (ไม่ต้องหน่วงเวลา)
+        const yearSel = document.getElementById('conv-year-select');
+        if (yearSel && curriculumYear) {
+            yearSel.value = curriculumYear;
+            try { onConvYearChange(curriculumYear); } catch (e) { /* non-fatal */ }
+        }
+
+        const subjSel = document.getElementById('conv-subject-select');
+        if (subjSel) {
+            for (let i = 0; i < subjSel.options.length; i++) {
+                if (subjSel.options[i].value === subjectId) { subjSel.selectedIndex = i; break; }
             }
+        }
+        // เขียน mirror ครั้งเดียวจากค่าที่หาได้จริง — ไม่เรียก onConvSubjectChange
+        // (ถ้าหาวิชาใน dropdown ไม่เจอ มันจะถูกเรียกด้วยค่าว่างแล้วล้าง #yearVal/#subjID/#subjName ทิ้ง)
+        try { setConvSubjectMirror(curriculumYear, subjectId, subjName); } catch (e) { /* ignore */ }
 
-            // Prefill batch (last two digits of year if numeric) and group
-            const batchEl = document.getElementById('conv-group-batch');
-            if (batchEl) batchEl.value = String(year).slice(-2);
+        // รุ่น/ปีข้อสอบ เช่น "52"
+        const batchEl = document.getElementById('conv-group-batch');
+        if (batchEl) batchEl.value = String(batch).slice(-2);
 
-            // Try to activate a known chip for group prefix, else use custom input
-            const groupRaw = String(missingGroup || '').trim();
-            const groupNoBatch = groupRaw.replace(/^\d+/, '');
-            if (groupNoBatch) {
-                const chip = document.querySelector(`#conv-group-picker .conv-chip[data-group="${groupNoBatch}"]`);
-                if (chip && typeof pickConvGroup === 'function') {
-                    try { pickConvGroup(chip); } catch (e) { chip.classList.add('active'); _convGroupType = groupNoBatch; }
-                } else {
-                    // set as custom
-                    const custom = document.getElementById('conv-group-custom');
-                    if (custom) { custom.classList.remove('d-none'); custom.value = groupNoBatch; _convGroupType = '__custom__'; }
-                }
-            }
+        // กลุ่มข้อสอบ: แยก "MCQ2" → ประเภท MCQ + ครั้งที่ 2 ให้ตรงกับชิป/ช่องครั้งที่ใน UI
+        const groupRaw = String(missingGroup || '').trim().toUpperCase();
+        const roundEl = document.getElementById('conv-group-round');
+        const gm = groupRaw.match(/^([A-Z]+)(\d*)$/);
+        const chip = gm ? document.querySelector(`#conv-group-picker .conv-chip[data-group="${gm[1]}"]`) : null;
+        // ครั้งที่ต้องมีใน dropdown จริง ไม่งั้นเลขจะหายไปจาก categoryId → ตกไปใช้ช่องพิมพ์เองแทน
+        const roundOk = gm && (!gm[2] || (roundEl && [...roundEl.options].some(o => o.value === gm[2])));
+        if (chip && roundOk) {
+            chip.classList.remove('active'); // pickConvGroup toggle ปิดถ้าชิป active อยู่แล้ว (prefill ซ้ำ)
+            try { pickConvGroup(chip); } catch (e) { chip.classList.add('active'); _convGroupType = gm[1]; }
+            if (roundEl) roundEl.value = gm[2] || '';
+        } else if (groupRaw) {
+            // ไม่มีชิปตรง (หรือครั้งที่เกินตัวเลือก) → ใช้ช่องพิมพ์เอง
+            document.querySelectorAll('#conv-group-picker .conv-chip').forEach(b => b.classList.remove('active', 'suggested'));
+            const customChip = document.querySelector('#conv-group-picker .conv-chip[data-group="__custom__"]');
+            if (customChip) customChip.classList.add('active');
+            const custom = document.getElementById('conv-group-custom');
+            if (custom) { custom.classList.remove('d-none'); custom.value = groupRaw; }
+            _convGroupType = '__custom__';
+            if (roundEl) roundEl.value = '';
+        }
 
-            try { updateConvGroupReadout(); } catch (e) { /* best effort */ }
+        try { updateConvGroupReadout(); } catch (e) { /* best effort */ }
 
-            const drop = document.getElementById('pdf-drop-zone');
-            if (drop) drop.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 150);
+        const drop = document.getElementById('pdf-drop-zone');
+        if (drop) drop.scrollIntoView({ behavior: 'smooth', block: 'center' });
     } catch (err) {
         console.warn('goToConverterWithPrefill failed', err);
     }

@@ -1356,15 +1356,37 @@ async function startPDFConversion() {
 
     document.getElementById('btn-convert-pdf').disabled = true;
     try {
-        await runGeminiConversion(window._pdfFile, filename);
+        const convResult = await runGeminiConversion(window._pdfFile, filename);
         autoMatchByPage();
         saveCheckpoint();
+        await showConversionSummary(convResult); // สรุปจำนวนข้อให้ตรวจความครบถ้วน
         await offerFillEmptyChoices(); // Feature B: เสนอเติมตัวเลือกที่ว่าง
     } catch (e) {
         Swal.fire('Gemini Error', e.message, 'error');
     } finally {
         document.getElementById('btn-convert-pdf').disabled = false;
     }
+}
+
+// สรุปจำนวนข้อที่แปลงได้หลังแปลงเสร็จ — แอดมินเทียบกับต้นฉบับ PDF ได้ทันที
+// มีชุดที่โดน recitation = ข้อมูลไม่ครบ ห้ามบอกว่า "ครบถ้วน" ต้องบอกหน้าที่หายไปด้วย
+async function showConversionSummary(res) {
+    const total = (res && res.total) || 0;
+    const failed = (res && res.failedBatches) || [];
+    if (failed.length > 0) {
+        await Swal.fire({
+            icon: 'warning',
+            title: `แปลงได้ ${total} ข้อ — ยังไม่ครบ`,
+            html: `ข้าม ${failed.length} ชุดที่โดนตัวกรอง recitation — หน้า <b>${_convEsc(failed.map(b => `${b.start}-${b.end}`).join(', '))}</b><br>
+                   กรุณาตรวจสอบและแปลงหน้าที่ขาดซ้ำอีกครั้ง`
+        });
+        return;
+    }
+    await Swal.fire({
+        icon: 'success',
+        title: `✅ แปลงสำเร็จครบถ้วนจำนวน ${total} ข้อ`,
+        text: 'กรุณาเทียบจำนวนข้อกับต้นฉบับ PDF ก่อนบันทึก'
+    });
 }
 
 // ─── Feature B: ตรวจหาข้อที่ตัวเลือกว่าง + เติมทั้งหมดด้วย AI (1 POST) ──────────

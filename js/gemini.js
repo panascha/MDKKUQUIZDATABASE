@@ -560,8 +560,14 @@ async function runGeminiConversion(file, filename) {
                 if (allQuestions.length === 0) throw err; // โดนทุกชุด — โยน error เดิมพร้อมคำแนะนำ
             }
         } else {
-            // ── หลายชุด: render หน้าเป็นภาพ ส่ง 1 POST ต่อชุด (ทน recitation รายชุด) ──
-            const res = await convertImageBatches(batches, additionalPrompt, statusEl, allowedCats, forcedCat0);
+            // ── ไฟล์ >14MB: ส่ง PDF ดิบไม่ได้ → render หน้าเป็นภาพ ส่ง 1 POST ต่อชุด (ทน recitation รายชุด) ──
+            // backend (convertPdfBatch) ปฏิเสธถ้า images.length > 20 → ต้องซอยเสมอ ส่งทั้งไฟล์ครั้งเดียวไม่ได้
+            const IMG_PAGES_PER_POST = 15;
+            const imgBatches = [];
+            for (let s = 1; s <= currentPdfDoc.numPages; s += IMG_PAGES_PER_POST) {
+                imgBatches.push({ start: s, end: Math.min(s + IMG_PAGES_PER_POST - 1, currentPdfDoc.numPages) });
+            }
+            const res = await convertImageBatches(imgBatches, additionalPrompt, statusEl, allowedCats, forcedCat0);
             allQuestions.push(...res.questions);
             failedBatches = res.failed;
             if (allQuestions.length === 0 && failedBatches.length > 0) {
@@ -587,4 +593,6 @@ async function runGeminiConversion(file, filename) {
     statusEl.textContent = failedBatches.length > 0
         ? `✅ แปลงได้ ${allQuestions.length} ข้อ (ข้าม ${failedBatches.length} ชุดที่โดน recitation: หน้า ${failedBatches.map(b => `${b.start}-${b.end}`).join(', ')})`
         : `✅ แปลงสำเร็จ ${allQuestions.length} ข้อ`;
+
+    return { total: allQuestions.length, failedBatches: failedBatches };
 }
