@@ -715,6 +715,9 @@ async function importConvertedData() {
                 }
                 // คืนข้อความเดิม กัน overlay รอบถัดไปโชว์ตัวเลขค้าง
                 $('#loading-overlay').find('p').text('กรุณารอสักครู่');
+                // ปิด overlay เสมอหลังอัปโหลดจบ — z-index สูงกว่า SweetAlert2 (10000 vs ~1060)
+                // ถ้าไม่ปิด จะบัง modal ยืนยันนำเข้าข้อมูลข้างล่าง ทำให้ดูเหมือนค้าง (ไม่มี request ออกจริง)
+                $('#loading-overlay').hide();
                 // ตรวจว่ายังมีที่ล้มเหลวอยู่ไหม
                 let failedCount = 0;
                 imgAssignments.forEach(entries => { entries.forEach(e => { if (e.status === 'Failed') failedCount++; }); });
