@@ -183,7 +183,7 @@ function updateSaveButtonState() {
     imgAssignments.forEach(entries => {
         entries.forEach(entry => {
             if (entry.status === 'Failed') hasFailed = true;
-            if (entry.status === 'Uploading' || entry.status === 'Waiting') hasUploading = true;
+            if (entry.status === 'Uploading') hasUploading = true;
         });
     });
 
