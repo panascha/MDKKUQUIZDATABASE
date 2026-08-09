@@ -132,6 +132,16 @@ async function extractImagesFromPDF(pdfDoc) {
         img.pageCount = pages.size;
     });
 
+    // ลำดับการปรากฏของรูปจริงทั้งเอกสาร (1-based, global ไม่ใช่รีเซ็ตต่อหน้า) — ตรงกับธรรมเนียมเลข
+    // Figure ในเอกสารสอบทั่วไปที่นับต่อเนื่องทั้งไฟล์ ไม่ใช่รีเซ็ตทุกหน้า converter.js ใช้จับคู่กับ
+    // "Figure N"/"รูปที่ N" ที่พบในโจทย์ กับรูปตัวที่ N ของเอกสาร (autoMatchByPage)
+    let globalOrdinalCounter = 0;
+    extractedImages.forEach(img => {
+        if (img.decorative) return;
+        globalOrdinalCounter++;
+        img.figureOrdinal = globalOrdinalCounter;
+    });
+
     const decoCount = extractedImages.filter(i => i.decorative).length;
     statusEl.textContent = `✅ ดึงภาพสำเร็จ ${extractedImages.length - decoCount} รูป` +
         (decoCount > 0 ? ` (แยกรูปประดับ ${decoCount} รูป)` : '');

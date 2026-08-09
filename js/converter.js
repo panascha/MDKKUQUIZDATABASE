@@ -1849,9 +1849,16 @@ function removeAssignment(rowIndex, imgIndex) {
 
 // ─── Page-proximity auto-match ─────────────────────────────────────────────
 
+// เลข Figure/รูปที่ ในโจทย์ (ถ้ามี) — จับคู่กับรูปตัวที่ N ตามลำดับปรากฏในหน้าเดียวกัน
+// (extractor.js: img.figureOrdinal, นับต่อเนื่องทั้งเอกสาร) แม่นกว่า page-proximity เฉย ๆ เมื่อหน้าเดียวมีหลายรูป
+function extractFigureNumber(text) {
+    const m = String(text || '').match(/(?:figure|fig\.?|รูปที่|รูปภาพที่|รูป)\s*(\d{1,2})/i);
+    return m ? parseInt(m[1], 10) : null;
+}
+
 function autoMatchByPage() {
     const requireImgRows = converterStorage.ques
-        .map((row, i) => ({ rowIndex: i, pageHint: pageHintMap.get(i) || null }))
+        .map((row, i) => ({ rowIndex: i, pageHint: pageHintMap.get(i) || null, problem: row[1] }))
         .filter(q => {
             const row = converterStorage.ques[q.rowIndex];
             return row && String(row[2]).trim() === 'require_img';
@@ -1865,7 +1872,12 @@ function autoMatchByPage() {
         const unassigned = extractedImages.filter(img => img.assignedTo == null && !img.decorative);
         if (unassigned.length === 0) return;
 
-        let match = unassigned.find(img => img.page === q.pageHint);
+        let match = null;
+        const figNum = extractFigureNumber(q.problem);
+        if (figNum != null && q.pageHint != null) {
+            match = unassigned.find(img => img.page === q.pageHint && img.figureOrdinal === figNum);
+        }
+        if (!match) match = unassigned.find(img => img.page === q.pageHint);
         if (!match && q.pageHint != null) {
             match = unassigned.sort((a, b) =>
                 Math.abs(a.page - q.pageHint) - Math.abs(b.page - q.pageHint)
