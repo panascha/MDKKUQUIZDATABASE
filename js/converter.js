@@ -50,6 +50,15 @@ function resetConverter() {
                 $('#conv-group-readout').addClass('d-none').empty();
                 $('#btn-convert-pdf').removeAttr('data-filename');
 
+                // รีเซ็ตฝั่ง AI panel: prompt, ช่องเลือกไฟล์, สถานะ/แถบความคืบหน้า, คำเตือนชื่อไฟล์
+                $('#extra-prompt').val('');
+                $('#pdf-file-input').val(''); // ต้องล้าง ไม่งั้นเลือกไฟล์เดิมซ้ำแล้ว onchange ไม่ยิง
+                $('#pdf-status').text('');
+                $('#pdf-progress').addClass('d-none').val(0);
+                $('#pdf-conflict-warning').addClass('d-none');
+                const convBtn = document.getElementById('btn-convert-pdf');
+                if (convBtn) convBtn.disabled = true; // ไม่มี PDF แล้ว กลับไปสถานะเริ่มต้น
+
                 // ล้างข้อมูลใน Storage ชั่วคราว
                 converterStorage.struct = [];
                 converterStorage.category = [];
@@ -59,6 +68,8 @@ function resetConverter() {
                 window._pdfFile = null;
                 extractedImages = [];
                 imgAssignments.clear();
+                selectedTrayIndex = null;
+                localStorage.removeItem('mdkku_pdf_checkpoint'); // กัน restoreCheckpoint() กู้ของที่เพิ่งล้างกลับมา
 
                 // ซ่อน split layout และล้าง PDF viewer
                 const splitEl = document.getElementById('converter-split');
@@ -66,9 +77,10 @@ function resetConverter() {
                 const pdfContainer = document.getElementById('pdf-pages-container');
                 if (pdfContainer) pdfContainer.innerHTML = '<p class="text-muted small text-center p-4">ยังไม่ได้โหลด PDF</p>';
 
-                // รีเซ็ตตาราง Preview และ Cards
+                // รีเซ็ตตาราง Preview, Cards และถาดรูป
                 renderPreview();
                 renderPreviewCards();
+                renderImageTray();
 
                 Swal.fire('ล้างข้อมูลแล้ว', '', 'success');
             }
@@ -1379,6 +1391,16 @@ async function showConversionSummary(res) {
             title: `แปลงได้ ${total} ข้อ — ยังไม่ครบ`,
             html: `ข้าม ${failed.length} ชุดที่โดนตัวกรอง recitation — หน้า <b>${_convEsc(failed.map(b => `${b.start}-${b.end}`).join(', '))}</b><br>
                    กรุณาตรวจสอบและแปลงหน้าที่ขาดซ้ำอีกครั้ง`
+        });
+        return;
+    }
+    // คำตอบถูกตัดกลางคัน (MAX_TOKENS) แล้วกู้มาได้บางส่วน — ห้ามบอกว่า "ครบถ้วน" เช่นเดียวกับกรณี recitation
+    if (res && res.truncated) {
+        await Swal.fire({
+            icon: 'warning',
+            title: `แปลงได้ ${total} ข้อ — คำตอบถูกตัดกลางคัน`,
+            html: `AI ตอบยาวเกินขีดจำกัดจึงถูกตัด ระบบกู้มาได้ ${total} ข้อ — <b>ข้อมูลอาจไม่ครบ</b><br>
+                   กรุณาเทียบจำนวนข้อกับต้นฉบับ PDF ถ้าขาด ให้แบ่ง PDF ให้เล็กลงแล้วแปลงส่วนที่ขาดซ้ำ`
         });
         return;
     }

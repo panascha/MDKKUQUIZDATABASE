@@ -202,7 +202,15 @@ async function convertBatchViaGAS(prompt, payloadExtra) {
         redirect: 'follow'
     });
     if (!res.ok) throw new Error(`เซิร์ฟเวอร์ตอบ HTTP ${res.status} — ลองใหม่อีกครั้ง`);
-    const json = await res.json();
+    // ไฟล์ใหญ่/หลายข้อ → GAS อาจชน 6 นาที แล้วตอบหน้า error เป็น HTML (ไม่ใช่ JSON)
+    // res.json() จะโยน SyntaxError ที่อ่านไม่รู้เรื่อง — แปลงเป็นข้อความที่บอกทางแก้แทน
+    const bodyText = await res.text();
+    let json;
+    try {
+        json = JSON.parse(bodyText);
+    } catch (e) {
+        throw new Error('เซิร์ฟเวอร์ไม่ได้ตอบเป็น JSON (ไฟล์อาจใหญ่เกินจนแปลงไม่ทันใน 6 นาที) — ลองแบ่ง PDF ให้เล็กลงแล้วแปลงใหม่');
+    }
     if (json.result !== 'success') throw new Error(json.message || 'แปลงไม่สำเร็จ (backend error)');
 
     const rawText = json.raw || '';
@@ -265,25 +273,45 @@ async function fillEmptyChoicesViaGAS(targets, payloadExtra) {
 
 // Port of Python extract_valid_questions_from_broken_json
 // Brace-depth scanner — extracts valid {problem/choices} objects from truncated JSON
+// ต้องเริ่มสแกน "ข้างใน" array questions: รูปแบบที่ prompt บังคับคือ {"meta":…,"questions":[…]}
+// ถ้าเริ่มที่ index 0 depth จะไม่มีวันกลับมา 0 (object นอกสุดถูกตัดหาย) → กู้ได้ 0 ข้อเสมอ
+// ข้าม { } ที่อยู่ในสตริง (เช่น สูตร/วงเล็บปีกกาใน explain) ไม่งั้นนับ depth เพี้ยน
 function recoverQuestionsFromJSON(raw) {
+    const text = String(raw || '');
     const questions = [];
+
+    const qKey = text.search(/"questions"\s*:\s*\[/);
+    const bracket = qKey === -1 ? -1 : text.indexOf('[', qKey);
+    let i = bracket === -1 ? 0 : bracket + 1;
+
     let depth = 0;
     let start = null;
+    let inStr = false;
+    let esc = false;
 
-    for (let i = 0; i < raw.length; i++) {
-        const ch = raw[i];
+    for (; i < text.length; i++) {
+        const ch = text[i];
+        if (inStr) {
+            if (esc) esc = false;
+            else if (ch === '\\') esc = true;
+            else if (ch === '"') inStr = false;
+            continue;
+        }
+        if (ch === '"') { inStr = true; continue; }
         if (ch === '{') {
             if (depth === 0) start = i;
             depth++;
         } else if (ch === '}') {
             depth--;
             if (depth === 0 && start !== null) {
-                const objStr = raw.substring(start, i + 1);
+                const objStr = text.substring(start, i + 1);
                 try {
                     const obj = JSON.parse(objStr);
                     if (obj.problem || obj.choices) questions.push(obj);
                 } catch (e) {}
                 start = null;
+            } else if (depth < 0) {
+                depth = 0; start = null; // } ปิด array/object ที่ครอบอยู่ — เริ่มนับใหม่
             }
         }
     }
@@ -360,7 +388,8 @@ function parseGeminiResponse(rawText) {
                     title: `JSON ไม่สมบูรณ์ — กู้คืนได้ ${recovered.length} ข้อ`,
                     timer: 4000, showConfirmButton: false
                 });
-                result = { questions: recovered };
+                // source:'partial' = ข้อมูลไม่ครบ — ต้องส่งต่อถึงหน้าสรุป ห้ามรายงานว่า "ครบถ้วน"
+                result = { meta: { source: 'partial', converted: recovered.length }, questions: recovered };
             }
         }
     }
@@ -411,10 +440,19 @@ function stripImagePlaceholder(text) {
 }
 
 // ตัดตัวอักษรตัวเลือกนำหน้า (A. / B) / …) ออกจากแต่ละ choice — เนื้อหาซ้ำกับตำแหน่งในลิสต์อยู่แล้ว
+// ตัดเฉพาะเมื่อทุกตัวเลือกขึ้นต้นด้วย A, B, C, … เรียงตามลำดับจริงเท่านั้น
+// ไม่งั้นชื่อจุลชีพย่อ ("E. coli", "C. albicans", "B. cereus") จะถูกตัดหัวเหลือ "coli"/"albicans"
 function stripChoiceLetters(choicesRaw) {
     const raw = String(choicesRaw || '');
     if (!raw) return raw;
-    return raw.split('///').map(c => c.replace(/^\s*[A-Ea-e]\s*[.)]\s*/, '').trim()).join('///');
+    const parts = raw.split('///');
+    const marker = /^\s*([A-Ea-e])\s*[.)]\s*/;
+    const isEnumerated = parts.every((c, i) => {
+        const m = c.match(marker);
+        return m && m[1].toUpperCase() === String.fromCharCode(65 + i);
+    });
+    if (!isEnumerated) return raw;
+    return parts.map(c => c.replace(marker, '').trim()).join('///');
 }
 
 // Validate category[0] format post-parse — warn if malformed (non-blocking)
@@ -467,6 +505,7 @@ function groupAndFeedToProcessAll(questions, fileStem) {
 async function convertImageBatches(batches, additionalPrompt, statusEl, allowedCats, forcedCat0) {
     const questions = [];
     const failed = [];
+    let truncated = false;
     for (let b = 0; b < batches.length; b++) {
         const batch = batches[b];
         statusEl.textContent = `ชุดที่ ${b + 1}/${batches.length} (หน้า ${batch.start}-${batch.end}) — กำลังเตรียมภาพ…`;
@@ -477,7 +516,9 @@ async function convertImageBatches(batches, additionalPrompt, statusEl, allowedC
             const raw = await convertBatchViaGAS(buildConverterPrompt(additionalPrompt, pageNote, allowedCats, forcedCat0), {
                 images: pages.map(p => p.dataUrl)
             });
-            const qs = parseGeminiResponse(raw).questions;
+            const parsed = parseGeminiResponse(raw);
+            if (parsed.meta && parsed.meta.source === 'partial') truncated = true;
+            const qs = parsed.questions;
             questions.push(...qs);
             statusEl.textContent = `ชุดที่ ${b + 1}/${batches.length} เสร็จ — ได้ ${qs.length} ข้อ (รวม ${questions.length})`;
         } catch (err) {
@@ -490,7 +531,7 @@ async function convertImageBatches(batches, additionalPrompt, statusEl, allowedC
             });
         }
     }
-    return { questions, failed };
+    return { questions, failed, truncated };
 }
 
 // Main entry point: takes raw File object (batching ใช้ currentPdfDoc จาก converter.js)
@@ -533,6 +574,7 @@ async function runGeminiConversion(file, filename) {
 
     const allQuestions = [];
     let failedBatches = [];
+    let truncated = false; // JSON ถูกตัดกลางคัน (MAX_TOKENS) แล้วกู้มาได้บางส่วน = ข้อมูลไม่ครบ
     try {
         if (batches.length === 1 && !forceImagePath) {
             // ── ทั้งไฟล์ในครั้งเดียว: native PDF ผ่าน proxy ──
@@ -546,7 +588,9 @@ async function runGeminiConversion(file, filename) {
             statusEl.textContent = 'กำลังส่ง PDF ให้ระบบแปลง (key กลาง)…';
             try {
                 const raw = await convertBatchViaGAS(buildConverterPrompt(additionalPrompt, '', allowedCats, forcedCat0), { pdfB64 });
-                allQuestions.push(...parseGeminiResponse(raw).questions);
+                const parsed = parseGeminiResponse(raw);
+                if (parsed.meta && parsed.meta.source === 'partial') truncated = true;
+                allQuestions.push(...parsed.questions);
             } catch (err) {
                 if (!String(err.message).includes('RECITATION')) throw err;
                 // ทั้งไฟล์โดนตัวกรอง recitation → auto-fallback: แบ่งเป็นชุดรูปหน้าละ 4 ให้รอดเป็นรายชุด
@@ -557,6 +601,7 @@ async function runGeminiConversion(file, filename) {
                 const res = await convertImageBatches(small, additionalPrompt, statusEl, allowedCats, forcedCat0);
                 allQuestions.push(...res.questions);
                 failedBatches = res.failed;
+                if (res.truncated) truncated = true;
                 if (allQuestions.length === 0) throw err; // โดนทุกชุด — โยน error เดิมพร้อมคำแนะนำ
             }
         } else {
@@ -570,6 +615,7 @@ async function runGeminiConversion(file, filename) {
             const res = await convertImageBatches(imgBatches, additionalPrompt, statusEl, allowedCats, forcedCat0);
             allQuestions.push(...res.questions);
             failedBatches = res.failed;
+            if (res.truncated) truncated = true;
             if (allQuestions.length === 0 && failedBatches.length > 0) {
                 throw new Error('ทุกชุดโดนตัวกรอง recitation ของ Gemini — ลองกดแปลงซ้ำอีกครั้ง');
             }
@@ -592,7 +638,9 @@ async function runGeminiConversion(file, filename) {
 
     statusEl.textContent = failedBatches.length > 0
         ? `✅ แปลงได้ ${allQuestions.length} ข้อ (ข้าม ${failedBatches.length} ชุดที่โดน recitation: หน้า ${failedBatches.map(b => `${b.start}-${b.end}`).join(', ')})`
-        : `✅ แปลงสำเร็จ ${allQuestions.length} ข้อ`;
+        : truncated
+            ? `⚠️ แปลงได้ ${allQuestions.length} ข้อ — คำตอบถูกตัดกลางคัน ข้อมูลอาจไม่ครบ`
+            : `✅ แปลงสำเร็จ ${allQuestions.length} ข้อ`;
 
-    return { total: allQuestions.length, failedBatches: failedBatches };
+    return { total: allQuestions.length, failedBatches: failedBatches, truncated: truncated };
 }
