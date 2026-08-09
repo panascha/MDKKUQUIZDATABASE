@@ -201,6 +201,15 @@ function updateSaveButtonState() {
     const btn = document.getElementById('btn-upload-and-save');
     if (!btn) return;
 
+    // ไม่มีข้อมูลที่แปลง/พาสต์ไว้เลย — ล็อกปุ่มเสมอ ไม่ว่าจะอยู่ state อื่นยังไง (item 1)
+    if (!converterStorage.ques || converterStorage.ques.length === 0) {
+        btn.disabled = true;
+        btn.classList.remove('btn-warning');
+        btn.classList.add('btn-success');
+        btn.textContent = '💾 บันทึก';
+        return;
+    }
+
     // ปุ่มเดียวเสมอ — มีรูปรออัปโหลดหรือไม่ แค่เปลี่ยนป้าย/สถานะ ไม่ซ่อนปุ่ม
     const hasImages = [...imgAssignments.values()].some(arr => arr.length > 0);
 

@@ -81,6 +81,7 @@ function resetConverter() {
                 renderPreview();
                 renderPreviewCards();
                 renderImageTray();
+                updateSaveButtonState(); // item 1: ล้างข้อมูลแล้วต้องล็อกปุ่มบันทึกกลับ
 
                 Swal.fire('ล้างข้อมูลแล้ว', '', 'success');
             }
@@ -539,6 +540,7 @@ function processAll() {
                 converterStorage.category = categoryRows;
                 converterStorage.ques = quesRows;
                 computeCatSuggestions(subjectID);
+                updateSaveButtonState(); // item 1: มีข้อมูลแล้ว ปลดล็อกปุ่มบันทึก
 
                 Swal.fire('Success', 'ประมวลผลสำเร็จ!', 'success');
                 document.getElementById('converter-split').classList.remove('d-none');
@@ -727,6 +729,17 @@ function renderPreview() {
                   </div>
                   ${assignedHtml}
                 </div>`;
+            } else {
+                // Task 5: แถวที่มีรูปจริงติดมาแล้ว (ไม่ใช่ require_img ที่รอ assign) — โชว์ thumbnail คลิกดูขยายได้
+                const rawImg = String(row[2] || '').trim();
+                const hasRealImg = /^https?:|drive\.google\.com|^<svg/i.test(rawImg) || rawImg.includes('///');
+                if (hasRealImg) {
+                    const urls = rawImg.split('///').map(u => u.trim()).filter(Boolean);
+                    const thumbs = urls.map(u =>
+                        `<img src="${transformUrl(u)}" style="max-height:50px;border-radius:4px;cursor:pointer" onclick="viewFullImage(this.src)">`
+                    ).join('');
+                    imgArea = `<div class="mt-1 d-flex flex-wrap gap-1">${thumbs}</div>`;
+                }
             }
 
             cardInner = `<div class="d-flex gap-2">
@@ -903,6 +916,13 @@ async function importConvertedData() {
                 }
             });
 
+            // Task 6: สถิติอัปโหลดรูป ณ จุดนี้ (หลังคิวอัปโหลดจบและก่อน patch img field) — ใช้ในสรุปหลัง import
+            let uploadDone = 0, uploadFailed = 0;
+            imgAssignments.forEach(entries => entries.forEach(e => {
+                if (e.status === 'Ready') uploadDone++;
+                else if (e.status === 'Failed') uploadFailed++;
+            }));
+
             const sheetsToProcess = [
                 { name: 'Structure', key: 'struct' },
                 { name: 'Category', key: 'category' },
@@ -912,6 +932,7 @@ async function importConvertedData() {
             let totalNew = 0;
             let totalSkipped = 0;
             let importLog = "";
+            const sheetStats = {}; // key -> { added, updated, count, skipped }
 
             const isConfirmed = await Swal.fire({
                 title: 'ยืนยันการนำเข้าข้อมูล?',
@@ -944,6 +965,11 @@ async function importConvertedData() {
                             if (resJson.result === 'success') {
                                 totalNew += (resJson.count || 0);
                                 totalSkipped += (resJson.skipped || 0);
+                                sheetStats[sheet.key] = {
+                                    added: resJson.added != null ? resJson.added : (resJson.count || 0),
+                                    updated: resJson.updated || 0,
+                                    skipped: resJson.skipped || 0
+                                };
                                 const addedLine = resJson.added != null
                                     ? `เพิ่ม ${resJson.added}, อัปเดต ${resJson.updated}`
                                     : `เพิ่ม/อัปเดต ${resJson.count} แถว (ซ้ำ ${resJson.skipped || 0})`;
@@ -958,8 +984,21 @@ async function importConvertedData() {
                     }
                 }
 
+                // Task 6: ข้อที่ยังต้องมีรูปแต่ไม่มีอยู่ดี — เก็บไว้ก่อน storage จะถูกล้างใน handleSaveResult
+                const requireImgRemaining = (converterStorage.ques || [])
+                    .filter(row => String(row[2] || '').trim() === 'require_img')
+                    .map(row => ({ qId: row[0], problem: String(row[1] || '').substring(0, 80) }));
+
                 $('#loading-overlay').hide();
-                handleSaveResult({ result: 'success', count: totalNew, importLog });
+                handleSaveResult({
+                    result: 'success',
+                    count: totalNew,
+                    importLog,
+                    sheetStats,
+                    uploadDone,
+                    uploadFailed,
+                    requireImgRemaining
+                });
 
             } catch (err) {
                 $('#loading-overlay').hide();
@@ -2012,15 +2051,8 @@ function handleSaveResult(resJson) {
         if (pdfContainer) pdfContainer.innerHTML = '<p class="text-muted small text-center p-4">ยังไม่ได้โหลด PDF</p>';
         renderPreview();
         renderPreviewCards();
-        Swal.fire({
-            title: 'นำเข้าข้อมูลเสร็จสิ้น',
-            html: `<div class="text-start small">
-                <p class="mb-1 text-success fw-bold">สรุปผลการดำเนินการ:</p>
-                <pre class="bg-light p-2 border rounded">${resJson.importLog || ''}</pre>
-                <p class="mt-2 text-muted">รวมเพิ่มข้อมูลใหม่/อัปเดตสำเร็จทั้งหมด: ${resJson.count} แถว</p>
-            </div>`,
-            icon: 'success'
-        });
+        updateSaveButtonState(); // item 1: import เสร็จแล้ว ข้อมูลถูกล้าง ล็อกปุ่มกลับ
+        showImportAuditSummary(resJson); // Task 6: สรุปผลแบบละเอียดแทน alert ธรรมดา
         scheduleSync(); // adminImport เขียนแถว QUESTION/IMPORT ลง Logs แล้ว — delta sync เห็นข้อที่ import ครบ
 
     } else if (resJson.result === 'partial' || resJson.result === 'error') {
@@ -2042,6 +2074,67 @@ function handleSaveResult(resJson) {
             html: `<pre class="text-start small bg-light p-2">${(resJson.failedList || []).map(f => `• ${f.questionId}: ${f.reason}`).join('\n')}</pre>`
         });
     }
+}
+
+// Task 6: สรุปผล import แบบละเอียด แทน alert เดิมที่มีแค่ importLog text
+function showImportAuditSummary(resJson) {
+    const stats = resJson.sheetStats || {};
+    const quesStats = stats.ques || {};
+    const catStats = stats.category || {};
+    const structStats = stats.struct || {};
+
+    const rows = (label, s) => (s.added || 0) + (s.updated || 0) + (s.skipped || 0) > 0
+        ? `<tr><td>${label}</td><td class="text-success">+${s.added || 0}</td><td class="text-warning">${s.updated || 0}</td><td class="text-muted">${s.skipped || 0}</td></tr>`
+        : '';
+
+    const uploadTotal = (resJson.uploadDone || 0) + (resJson.uploadFailed || 0);
+    const uploadHtml = uploadTotal > 0
+        ? `<p class="mb-1"><i class="fas fa-image me-1"></i>อัปโหลดรูปภาพ: <span class="text-success">สำเร็จ ${resJson.uploadDone || 0}</span>${resJson.uploadFailed > 0 ? `, <span class="text-danger">ล้มเหลว ${resJson.uploadFailed}</span>` : ''}</p>`
+        : '';
+
+    const remaining = resJson.requireImgRemaining || [];
+    const remainingHtml = remaining.length > 0
+        ? `<div class="mt-2">
+             <p class="mb-1 text-danger fw-bold"><i class="fas fa-exclamation-triangle me-1"></i>ยังขาดรูปภาพ ${remaining.length} ข้อ:</p>
+             <div class="text-start" style="max-height:180px;overflow-y:auto">
+               ${remaining.map(r => `
+                 <div class="d-flex align-items-center justify-content-between border-bottom py-1">
+                   <span class="small text-truncate me-2" title="${_convEsc(r.problem)}">${_convEsc(r.qId)} — ${_convEsc(r.problem)}</span>
+                   <button class="btn btn-sm btn-outline-primary flex-shrink-0" onclick="_convOpenAuditEdit('${_convEsc(r.qId)}')">แก้ไข</button>
+                 </div>`).join('')}
+             </div>
+           </div>`
+        : '';
+
+    Swal.fire({
+        title: 'นำเข้าข้อมูลเสร็จสิ้น',
+        width: 560,
+        html: `<div class="text-start small">
+            <table class="table table-sm mb-2">
+              <thead><tr><th>รายการ</th><th>เพิ่มใหม่</th><th>อัปเดต</th><th>ข้าม(ซ้ำ)</th></tr></thead>
+              <tbody>
+                ${rows('คำถาม', quesStats)}
+                ${rows('หัวข้อ (Category)', catStats)}
+                ${rows('โครงสร้างวิชา (Structure)', structStats)}
+              </tbody>
+            </table>
+            ${uploadHtml}
+            ${remainingHtml}
+        </div>`,
+        icon: 'success'
+    });
+}
+
+// ปิด modal สรุปผลแล้วเปิดหน้าแก้ไขคำถามจริงในตาราง Questions — ใช้ตอนคลิก "แก้ไข" จากรายการขาดรูป
+// globalData.questions อาจยังไม่มี id นี้ถ้า delta sync (scheduleSync) ยังไม่จบ — เตือนแทนพัง
+function _convOpenAuditEdit(qId) {
+    Swal.close();
+    const exists = Array.isArray(globalData.questions) && globalData.questions.some(q => q.questionId === qId);
+    if (!exists) {
+        Swal.fire({ toast: true, icon: 'info', position: 'top-end', title: `ID ${qId} ยังไม่ซิงค์เข้าตาราง — รอสักครู่แล้วค้นหาด้วยตนเอง`, timer: 3500, showConfirmButton: false });
+        return;
+    }
+    checkAuthBeforeAction(() => openEditModal(qId));
 }
 
 // ─── Fix recompressBase64 (async img.onload) ─────────────────────────────
