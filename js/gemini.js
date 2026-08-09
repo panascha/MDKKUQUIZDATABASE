@@ -180,18 +180,23 @@ function buildConverterPrompt(additionalPrompt, pageNote, allowedCats, forcedCat
 }
 
 กฎที่ต้องทำตามอย่างเคร่งครัด:
-1. choices ใช้ /// คั่นระหว่างตัวเลือก (5 ตัวเลือกถ้าเป็นไปได้)
+1. choices ใช้ /// คั่นระหว่างตัวเลือก (5 ตัวเลือกถ้าเป็นไปได้) ห้ามใส่ "-" หรือเว้นว่างเป็นตัวเลือกเด็ดขาด —
+   ถ้าต้นฉบับมีตัวเลือกไม่ครบ 5 ให้ใส่เท่าที่อ่านได้จริงเท่านั้น (choices สั้นกว่า 5 รายการได้ ห้ามเติม "-" ยัดให้ครบ)
 1.1 problem ต้องมีเฉพาะข้อความโจทย์ ห้ามมีรายการตัวเลือก (A. B. C. …) ปนอยู่ — ตัวเลือกอยู่ใน choices เท่านั้น
 1.2 problem ต้องคงเลขข้อเดิมจากต้นฉบับ PDF ไว้ตรงตามที่ปรากฏ (เช่น "1.", "2)", "ข้อ 3.") ห้ามตัดออกหรือแก้รูปแบบ
 1.3 ถ้าโจทย์อ้างอิงรูปภาพด้วยเลข (เช่น "Figure 1", "รูปที่ 2", "ภาพที่ 3") ให้คงข้อความอ้างอิงนั้นไว้ใน problem
     ตรงตามที่ปรากฏ — ใช้จับคู่รูปภาพที่ถูกต้องกับข้อคำถามในขั้นตอนถัดไป ห้ามตัดทิ้งหรือสรุปใหม่
-2. answer ต้องตรงกับข้อความใน choices
+2. answer ต้องตรงกับข้อความใน choices แบบตรงเป๊ะทุกตัวอักษร ห้ามมีตัวอักษรตัวเลือกนำหน้า (เช่น "A. ", "b) ")
+   ปนอยู่ใน answer เด็ดขาด — คัดลอกเฉพาะเนื้อความของตัวเลือกที่ถูกต้องมาเท่านั้น
 3. explain ต้องเขียนเป็น "ภาษาไทยผสมศัพท์ทางการแพทย์ภาษาอังกฤษ" — ห้ามใช้ภาษาอังกฤษอย่างเดียว
-   โครงสร้าง explain ต้องเป็นย่อหน้าเดียวต่อเนื่อง (ไม่แบ่งบรรทัด) ประกอบด้วย 4 ส่วน:
-   ส่วนที่ 1: แนวคิดหลัก (Key Concept)
-   ส่วนที่ 2: เหตุผลที่คำตอบถูก — ชี้ไปที่จุดสำคัญในโจทย์หรือรูปภาพที่บ่งบอกคำตอบ
-   ส่วนที่ 3: อธิบายว่าทำไมตัวลวงอื่นถึงผิด (เช่น "ส่วนข้อ B ผิดเพราะ..." "ข้อ C ไม่ใช่เพราะ...")
-   ส่วนที่ 4: Clinical Pearl หรือ Guideline ที่เกี่ยวข้อง
+   โครงสร้าง explain ต้องเป็นย่อหน้าเดียวต่อเนื่อง (ไม่แบ่งบรรทัด) ครอบคลุม 4 ประเด็นต่อไปนี้ แต่ห้ามเขียนหัวข้อ
+   หรือป้ายชื่อประเด็นลงในเนื้อหาจริง (เช่น ห้ามมีคำว่า "ส่วนที่ 1" ปรากฏในข้อความ):
+   - กลไก/พยาธิสภาพ หรือประเด็นการวินิจฉัยที่เป็นแก่นของข้อนี้
+   - เหตุผลที่คำตอบถูก — ชี้ไปที่จุดสำคัญในโจทย์หรือรูปภาพที่บ่งบอกคำตอบ
+   - อธิบายว่าทำไมตัวลวงอื่นถึงผิด (เช่น "ส่วนข้อ B ผิดเพราะ..." "ข้อ C ไม่ใช่เพราะ...")
+   - Clinical Pearl หรือ Guideline ที่เกี่ยวข้อง
+   **ห้ามขึ้นต้น explain ด้วยวลีซ้ำ ๆ เช่น "แนวคิดหลักคือ...", "แนวคิดหลักของ...คือ...",
+   "เหตุผลที่คำตอบถูกเนื่องจาก..." — ให้เริ่มประโยคแรกด้วยเนื้อหาการวินิจฉัย/กลไกของโรคโดยตรงเป็นภาษาธรรมชาติ**
 4. img ใส่ "require_img" ถ้าโจทย์มีรูปภาพ/กราฟ/ตารางที่จำเป็นต้องดูเพื่อตอบ
 5. category[0]: "ชื่อย่อวิชา_กลุ่มข้อสอบ" รูปแบบ SubjectCode_ExamGroup เช่น "GI_51MCQ1", "CVS_50FMT", "RESP_52QUIZ2", "NS_51LAB", "HEMATO_51MCQ1"
 6. category[1]: "ชื่อย่อวิชา_กลุ่มวิชาย่อย_หัวข้อ" โดยกลุ่มวิชาย่อยต้องเป็นหนึ่งใน: ANA, BIOCHEM, PHYSIO, MICRO, PARASITO, PATHO, PHARM, RADIO, CLINICAL
@@ -466,6 +471,27 @@ function stripChoiceLetters(choicesRaw) {
     return parts.map(c => c.replace(marker, '').trim()).join('///');
 }
 
+// ตัดตัวอักษรตัวเลือกนำหน้าออกจาก answer (Gemini บางครั้งคัดลอกทั้ง "B. Acantholytic cells" มาทั้งดุ้น
+// ทั้งที่ choices เก็บแค่ "Acantholytic cells" เฉยๆ) — บังคับให้ answer ตรงกับ choices แบบตรงเป๊ะ (กฎข้อ 2)
+// ตัดแล้วยังไม่ตรงกับ choices เลย = ปล่อยของเดิมไว้ กันพังยิ่งกว่าเดิม
+function sanitizeAnswer(answer, choicesRaw) {
+    const raw = String(answer || '').trim();
+    if (!raw) return raw;
+    const choices = String(choicesRaw || '').split('///').map(c => c.trim());
+    if (choices.includes(raw)) return raw;
+    const stripped = raw.replace(/^\s*[A-Ea-eก-ฅ]\s*[.)]\s*/, '').trim();
+    return choices.includes(stripped) ? stripped : raw;
+}
+
+// เน็ตกันหลุด — ตัดวลีเปิดซ้ำๆ ที่ prompt (กฎข้อ 3) สั่งห้ามแล้ว เผื่อ Gemini ยังหลุดมา
+// ตัดเฉพาะแบบ "แนวคิดหลักของ X คือ ..." ที่ตัดแล้วอ่านลื่นแน่นอน (เหลือ "X คือ ...")
+// แบบ "แนวคิดหลักคือ ..." ตัดแล้วเหลือวลีนามห้อยลอยไม่มีประธาน+กริยา จึงปล่อยของเดิมไว้ ดีกว่าทำให้อ่านแย่ลง
+function stripExplainIntro(explain) {
+    const raw = String(explain || '').trim();
+    const m = raw.match(/^แนวคิดหลักของ\s*(.+)/s);
+    return m ? m[1].trim() : raw;
+}
+
 // Validate category[0] format post-parse — warn if malformed (non-blocking)
 // Expected: SubjectCode_YearPrefix+Group (e.g. GI_51MCQ1, CVS_50FMT, RESP_52QUIZ2)
 function validateCategoryFormat(questions) {
@@ -724,6 +750,8 @@ async function runGeminiConversion(file, filename) {
     allQuestions.forEach(q => {
         q.problem = stripImagePlaceholder(stripChoiceTail(q.problem, q.choices));
         q.choices = stripChoiceLetters(q.choices);
+        q.answer = sanitizeAnswer(q.answer, q.choices);
+        q.explain = stripExplainIntro(q.explain);
         q.category = sanitizeCategory(q.category, fileStem, allowedIds);
         q.category = enforceKnownTopic(q.category, subjId, allowedIds); // Task 1: block invented topic IDs
         if (forcedCat0) q.category[0] = forcedCat0; // ชิปผู้ใช้ = เด็ดขาด แม้ Gemini เขียนมาอย่างอื่น

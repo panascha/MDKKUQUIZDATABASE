@@ -1564,7 +1564,7 @@ function detectEmptyChoiceRows() {
     const rows = converterStorage.ques || [];
     const targets = [];
     rows.forEach((row, i) => {
-        const choices = String(row[3] || '').split('///').map(c => c.trim()).filter(c => c !== '');
+        const choices = String(row[3] || '').split('///').map(c => c.trim()).filter(c => c !== '' && c !== '-');
         if (choices.length < 2) targets.push(i);
     });
     return targets;
@@ -1614,7 +1614,7 @@ async function bulkFillEmptyChoices(targets) {
             id: i,
             problem: String(row[1] || '').trim(),
             answer: String(row[4] || '').trim(),
-            existingChoices: String(row[3] || '').split('///').map(c => c.trim()).filter(c => c !== '')
+            existingChoices: String(row[3] || '').split('///').map(c => c.trim()).filter(c => c !== '' && c !== '-')
         };
     }).filter(t => t.problem !== '');
 
@@ -1667,11 +1667,11 @@ function applyChoiceFills(fills) {
     (fills || []).forEach(f => {
         const id = Number(f.id);
         if (!Number.isInteger(id) || !converterStorage.ques[id]) return; // id เพี้ยน/ไม่มีแถว → ข้าม
-        const choices = String(f.choices || '').split('///').map(c => c.trim()).filter(c => c !== '');
+        const choices = String(f.choices || '').split('///').map(c => c.trim()).filter(c => c !== '' && c !== '-');
         if (choices.length < 2) return; // เติมไม่ได้จริง
 
         const row = converterStorage.ques[id];
-        let answer = String(f.answer || '').trim();
+        let answer = sanitizeAnswer(String(f.answer || '').trim(), choices.join('///'));
         const prevAnswer = String(row[4] || '').trim();
 
         // คงคำตอบเดิมถ้ายังอยู่ในตัวเลือกใหม่
