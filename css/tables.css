@@ -38,9 +38,9 @@
         }
 
         .selected-cell {
-            background-color: #ffe8d1 !important;
-            /* พื้นหลังสีส้มอ่อนสำหรับเซลล์ที่ถูกเลือก */
-            border: 1px dashed #fd7e14 !important;
+            background-color: #dbe4fb !important;
+            /* พื้นหลังสีฟ้าอ่อนสำหรับเซลล์ที่ถูกเลือก */
+            border: 1px dashed var(--primary-color) !important;
             /* เส้นประ */
         }
 

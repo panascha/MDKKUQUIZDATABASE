@@ -173,7 +173,7 @@ function fetchPendingVotes(questionId) {
                             denyButtonText: 'ไม่เห็นด้วย (-1)',
                             cancelButtonText: 'ยกเลิก',
                             confirmButtonColor: '#1cc88a',
-                            denyButtonColor: '#e74a3b'
+                            denyButtonColor: '#dc3545'
                         }).then((result) => {
                             if (result.isConfirmed) {
                                 submitSingleVote(item.categoryId, true, 1);

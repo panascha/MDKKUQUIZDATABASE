@@ -87,7 +87,7 @@ function renderReportList() {
             };
 
             let card = `
-            <div class="card mb-4 shadow-sm border-0 bg-white" style="border-left: 4px solid ${isAutoResolved ? '#22c55e' : '#e74a3b'} !important;">
+            <div class="card mb-4 shadow-sm border-0 bg-white" style="border-left: 4px solid ${isAutoResolved ? '#22c55e' : '#4e73df'} !important;">
                 <div class="card-body">
                     <div class="row">
                         <div class="col-md-8 border-end">

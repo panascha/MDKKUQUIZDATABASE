@@ -146,14 +146,14 @@
             .table-responsive table tbody td {
                 white-space: normal;
                 /* allow wrapping of long text */
-                font-size: 0.78rem;
+                font-size: 0.85rem;
                 padding: 6px 8px;
                 line-height: 1.15;
             }
 
             /* Reduce header emphasis to save space */
             .table-responsive table thead th {
-                font-size: 0.75rem;
+                font-size: 0.8rem;
                 font-weight: 600;
             }
 
@@ -166,7 +166,7 @@
             /* Reduce button padding inside tables */
             .table-responsive .btn {
                 padding: 4px 6px;
-                font-size: 0.78rem;
+                font-size: 0.85rem;
             }
 
             /* Allow long words/URLs to break */

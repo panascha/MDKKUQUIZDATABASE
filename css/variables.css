@@ -7,7 +7,7 @@
             --success-color: #1cc88a;
             --info-color: #36b9cc;
             --warning-color: #f6c23e;
-            --danger-color: #e74a3b;
+            --pending-color: #4e73df;
             --light-bg: #f8f9fc;
             --sidebar-width: 270px;
             --sidebar-hidden-margin: calc(-1 * var(--sidebar-width));

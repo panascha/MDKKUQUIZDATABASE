@@ -164,6 +164,15 @@
             justify-content: space-between;
         }
 
+        /* มือถือ: ปักหัว Topbar ไว้บนสุดตอนเลื่อนตาราง (z-index ต่ำกว่า sidebar 1050 / backdrop 1040) */
+        @media (max-width: 767.98px) {
+            .topbar {
+                position: sticky;
+                top: 0;
+                z-index: 500;
+            }
+        }
+
         /* ปรับแต่งหัวข้อใน Topbar สำหรับมือถือ */
         #page-title {
             font-size: 1.1rem;

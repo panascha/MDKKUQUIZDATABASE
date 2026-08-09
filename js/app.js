@@ -271,11 +271,14 @@ $(document).ready(function () {
         });
 
         // Click outside to close (Only on Mobile screens)
-        $(document).on('click', '#page-content-wrapper', function (e) {
-            if ($(window).width() < 768 && $("#wrapper").hasClass("toggled")) {
-                if (!$(e.target).closest('#menu-toggle').length) {
-                    $("#wrapper").removeClass("toggled");
-                }
+        // Note: the dimmed backdrop is #wrapper.toggled:before (layout.css), a fixed
+        // full-viewport pseudo-element painted above #page-content-wrapper. Clicks on it
+        // resolve to #wrapper itself, not #page-content-wrapper, so the handler must bind
+        // there and check e.target === this to distinguish "hit the backdrop" from
+        // "hit a real child element".
+        $("#wrapper").on('click', function (e) {
+            if (e.target === this && $(window).width() < 768 && $(this).hasClass("toggled")) {
+                $(this).removeClass("toggled");
             }
         });
 

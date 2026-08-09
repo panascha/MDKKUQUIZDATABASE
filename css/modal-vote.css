@@ -117,11 +117,11 @@
             margin-left: 8px;
         }
 
-        /* 4.2 สไตล์ Suggested (สีส้ม/เหลือง) - แบบ Interactive */
+        /* 4.2 สไตล์ Suggested (สีฟ้า) - แบบ Interactive */
         .category-badge.suggested {
             background-color: #fff;
-            color: #d35400;
-            border: 2px solid #ffcc80;
+            color: #4e73df;
+            border: 2px solid #b3c4f2;
             cursor: pointer;
             position: relative;
             overflow: hidden;
@@ -129,22 +129,22 @@
 
         /* Effect ตอนเอาเมาส์ชี้ (Hover) */
         .category-badge.suggested:hover {
-            background-color: #ffe0b2;
-            border-color: #ffb74d;
-            color: #e65100;
+            background-color: #dbe4fb;
+            border-color: #7f97e6;
+            color: #224abe;
             transform: translateY(-4px) scale(1.05);
-            box-shadow: 0 8px 15px rgba(255, 167, 38, 0.3);
+            box-shadow: 0 8px 15px rgba(78, 115, 223, 0.3);
         }
 
         /* Effect ตอนกด (Active) */
         .category-badge.suggested:active {
             transform: translateY(-1px) scale(0.98);
-            box-shadow: 0 2px 5px rgba(255, 167, 38, 0.3);
+            box-shadow: 0 2px 5px rgba(78, 115, 223, 0.3);
         }
 
         /* Badge บอกจำนวนคนโหวต */
         .vote-count-badge {
-            background-color: #e65100;
+            background-color: #224abe;
             color: white;
             border-radius: 20px;
             padding: 2px 8px;

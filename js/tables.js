@@ -133,7 +133,7 @@ function initAdminTable() {
                         const hasReport = _reportedQIds.has(row.questionId);
 
                         const reportBadge = hasReport
-                            ? `<span class="badge bg-danger pulse-animation" title="มีรายงานปัญหาค้างอยู่"><i class="fas fa-exclamation-circle"></i> REPORT</span> `
+                            ? `<span class="badge bg-primary pulse-animation" title="มีรายงานปัญหาค้างอยู่"><i class="fas fa-exclamation-circle"></i> REPORT</span> `
                             : '';
 
                         return reportBadge + getSubjectFromCategory(row.category);
