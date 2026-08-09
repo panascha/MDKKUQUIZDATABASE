@@ -159,7 +159,8 @@ ${lines}
 // pageNote: ใช้กับ batch แบบรูปหน้ากระดาษ เพื่อบอกเลขหน้าจริงให้ pageHint ถูกต้อง
 // allowedCats: หัวข้อบรรยายจริงของวิชานี้ — ถ้ามี จะบังคับ category[1] ให้เลือกจากรายการ
 // forcedCat0: examGroup ที่ผู้ใช้เลือกจากชิป (edit 3) — บังคับ category[0] ชนะการเดาจากชื่อไฟล์
-function buildConverterPrompt(additionalPrompt, pageNote, allowedCats, forcedCat0) {
+// expectCount: จำนวนข้อที่นับได้จาก text layer ของชุดนี้ — บอกโมเดลตรง ๆ ว่าต้องได้กี่ข้อ
+function buildConverterPrompt(additionalPrompt, pageNote, allowedCats, forcedCat0, expectCount) {
     const prompt = `คุณเป็น AI แปลงข้อสอบแพทย์จาก PDF เป็น JSON
 ส่งกลับ JSON object นี้เท่านั้น — ไม่มี markdown, ไม่มีข้อความอื่น:
 {
@@ -200,14 +201,32 @@ function buildConverterPrompt(additionalPrompt, pageNote, allowedCats, forcedCat
 4. img ใส่ "require_img" ถ้าโจทย์มีรูปภาพ/กราฟ/ตารางที่จำเป็นต้องดูเพื่อตอบ
 5. category[0]: "ชื่อย่อวิชา_กลุ่มข้อสอบ" รูปแบบ SubjectCode_ExamGroup เช่น "GI_51MCQ1", "CVS_50FMT", "RESP_52QUIZ2", "NS_51LAB", "HEMATO_51MCQ1"
 6. category[1]: "ชื่อย่อวิชา_กลุ่มวิชาย่อย_หัวข้อ" โดยกลุ่มวิชาย่อยต้องเป็นหนึ่งใน: ANA, BIOCHEM, PHYSIO, MICRO, PARASITO, PATHO, PHARM, RADIO, CLINICAL
-7. ไม่แปลหรือเปลี่ยนภาษาของโจทย์ — ข้อความตรงตาม PDF${forcedCat0 ? `\n\n**บังคับใช้แทนกฎข้อ 5:** category[0] ของทุกข้อต้องเป็น "${forcedCat0}" เท่านั้น — คัดลอกตรงเป๊ะ ห้ามเปลี่ยน` : ''}${buildAllowedTopicsBlock(allowedCats)}${pageNote ? '\n' + pageNote : ''}${additionalPrompt ? '\n' + additionalPrompt : ''}`;
+7. ไม่แปลหรือเปลี่ยนภาษาของโจทย์ — ข้อความตรงตาม PDF
+8. **ความครบถ้วนสำคัญที่สุด — ต้องแปลงให้ครบทุกข้อที่ปรากฏในไฟล์/รูปที่แนบมา**
+   ห้ามข้ามข้อ ห้ามเลือกมาเฉพาะบางข้อ ห้ามสรุปย่อ และห้ามหยุดกลางคัน
+   ถ้าเอกสารมี N ข้อ ต้องคืน questions ครบทั้ง N รายการ และ meta.converted ต้องเท่ากับ N
+   ถ้าข้อไหนอ่านไม่ชัดหรือตัวเลือกไม่ครบ ให้ใส่เท่าที่อ่านได้ — ต้องมีรายการของข้อนั้นอยู่เสมอ ห้ามตัดทิ้ง
+   เขียน explain ให้กระชับได้ แต่ต้องครบทุกข้อ — "ครบทุกข้อ" สำคัญกว่า "อธิบายยาว"
+9. ถ้าโจทย์ต้นฉบับไม่สมบูรณ์ (ประโยคขาดหาย/พิมพ์ตกหล่น/อ่านไม่ครบ) และคุณต้องเติมข้อความให้สมบูรณ์เพื่อให้อ่านเข้าใจได้
+   ให้ต่อท้าย problem ด้วย " [⚠️ เพิ่มเติมเพื่อความสมบูรณ์: <สรุปสั้นๆ ว่าเติมอะไรไป>]" เพื่อให้ผู้ตรวจทานรู้ว่าส่วนนั้น AI เติมเอง ไม่ใช่ต้นฉบับ
+   ข้อความ [⚠️ ...] นี้ใช้ได้เฉพาะต่อท้าย problem เท่านั้น ห้ามใส่ลงใน choices เด็ดขาด — ถ้าตัวเลือกขาดหายให้เว้นไว้ตามกฎข้อ 1${expectCount > 0 ? `\n\n**จำนวนข้อขั้นต่ำ:** ชุดนี้นับได้ "อย่างน้อย" ${expectCount} ข้อ (อาจมีมากกว่านี้)
+   ต้องคืน questions ไม่น้อยกว่า ${expectCount} รายการ และถ้าเห็นข้อมากกว่านั้น ให้คืนมาให้ครบทุกข้อที่เห็น — ห้ามหยุดที่ ${expectCount}` : ''}${forcedCat0 ? `\n\n**บังคับใช้แทนกฎข้อ 5:** category[0] ของทุกข้อต้องเป็น "${forcedCat0}" เท่านั้น — คัดลอกตรงเป๊ะ ห้ามเปลี่ยน` : ''}${buildAllowedTopicsBlock(allowedCats)}${pageNote ? '\n' + pageNote : ''}${additionalPrompt ? '\n' + additionalPrompt : ''}`;
 
     return prompt;
 }
 
+// บันทึกผลการยิงแต่ละ batch ไว้วินิจฉัย — เคลียร์ทุกครั้งที่เริ่มแปลงใหม่ใน runGeminiConversion
+// เก็บ finishReason/servedModel/usage เพื่อแยกให้ออกว่า "ข้อหาย" เกิดจาก
+//   (ก) โมเดลออกข้อไม่ครบเอง  finishReason STOP + candidatesTokenCount ต่ำ
+//   (ข) คำตอบถูกตัด           finishReason MAX_TOKENS
+//   (ค) thinking กินโควต้า output  thoughtsTokenCount สูงทั้งที่สั่ง thinkingBudget:0
+// ดูได้จาก console: convDiagnostics
+let convDiagnostics = [];
+
 // ยิง 1 batch ไปที่ GAS convertPdfBatch — ไม่ auto-retry (กันเผา quota pool ซ้ำถ้า Gemini สำเร็จแต่ response หาย)
 // payloadExtra: { pdfB64 } หรือ { images: [dataURL,…] }
-// label: ไว้แยกให้ออกว่าเป็นรอบแปลงจริงหรือรอบ refine ทีหลัง (ยังไม่ได้ใช้ในฟังก์ชันนี้เอง — สงวนพารามิเตอร์ไว้ให้ผู้เรียก)
+// label: ติด tag ใน convDiagnostics เฉย ๆ (optional) — เผื่อแยกให้ออกว่าแถวไหนเป็นรอบแปลงจริง
+// กับรอบ refine ทีหลัง ไม่งั้นดูใน console แล้วสับสนว่าทำไม batch เดียวยิงหลายครั้ง
 // คืนค่า rawText (string) หรือ recovered object {questions:[…]} กรณี MAX_TOKENS
 async function convertBatchViaGAS(prompt, payloadExtra, label) {
     const body = Object.assign({
@@ -238,6 +257,15 @@ async function convertBatchViaGAS(prompt, payloadExtra, label) {
     if (json.result !== 'success') throw new Error(json.message || 'แปลงไม่สำเร็จ (backend error)');
 
     const rawText = json.raw || '';
+    // breadcrumb: เก็บทุกครั้งก่อน parse — ถ้าข้อหาย จะย้อนดูได้ว่าโมเดลหยุดเองหรือถูกตัด
+    convDiagnostics.push({
+        label: label || null,
+        finishReason: json.finishReason || null,
+        servedModel: json.servedModel || null,
+        usage: json.usage || null,
+        rawChars: rawText.length,
+        rawTail: rawText.slice(-120) // ปิด JSON ครบ (…}]}) = โมเดลจบเอง / ขาดกลาง = ถูกตัด
+    });
     if (json.finishReason === 'MAX_TOKENS') {
         const recovered = recoverQuestionsFromJSON(rawText);
         if (recovered.length > 0) {
@@ -537,29 +565,57 @@ function groupAndFeedToProcessAll(questions, fileStem) {
     }
 }
 
+// จำนวนข้อที่นับได้จาก text layer ในช่วงหน้าของชุดนี้ — 0 = นับไม่ได้
+function expectedForBatch(detected, batch) {
+    if (!detected || !detected.perPage || detected.expected <= 0) return 0;
+    let n = 0;
+    for (let p = batch.start; p <= batch.end; p++) n += (detected.perPage.get(p) || 0);
+    return n;
+}
+
 // แปลงแบบชุดรูปหน้ากระดาษหลายชุด — ทน RECITATION รายชุด: ชุดที่โดนตัวกรองตายชุดเดียว ชุดอื่นรอด
 // error อื่น (auth/network/quota) โยนต่อทันที — ไม่เผา quota กับชุดที่เหลือ
-async function convertImageBatches(batches, additionalPrompt, statusEl, allowedCats, forcedCat0) {
+// detected: ผลจาก detectQuestionCount — ใช้บอกโมเดลว่าชุดนี้ควรได้กี่ข้อ + ตรวจชุดที่ได้ไม่ครบ
+async function convertImageBatches(batches, additionalPrompt, statusEl, allowedCats, forcedCat0, detected) {
     const questions = [];
     const failed = [];
+    const shortBatches = []; // ชุดที่ได้ข้อน้อยกว่าที่นับได้จาก PDF
     let truncated = false;
+    let aborted = null; // error กลางทางที่ไม่ใช่ recitation — หยุดแต่เก็บของที่แปลงได้แล้ว
     for (let b = 0; b < batches.length; b++) {
         const batch = batches[b];
+        const expect = expectedForBatch(detected, batch);
         statusEl.textContent = `ชุดที่ ${b + 1}/${batches.length} (หน้า ${batch.start}-${batch.end}) — กำลังเตรียมภาพ…`;
         const pages = await renderPagesAsBase64(currentPdfDoc, batch);
         const pageNote = `หมายเหตุ: รูปที่แนบมาคือหน้า ${batch.start} ถึง ${batch.end} ของ PDF (เรียงตามลำดับ) — pageHint ต้องใช้เลขหน้าจริงเหล่านี้`;
         statusEl.textContent = `ชุดที่ ${b + 1}/${batches.length} — กำลังส่งให้ระบบแปลง…`;
         try {
-            const raw = await convertBatchViaGAS(buildConverterPrompt(additionalPrompt, pageNote, allowedCats, forcedCat0), {
+            const raw = await convertBatchViaGAS(buildConverterPrompt(additionalPrompt, pageNote, allowedCats, forcedCat0, expect), {
                 images: pages.map(p => p.dataUrl)
             });
             const parsed = parseGeminiResponse(raw);
             if (parsed.meta && parsed.meta.source === 'partial') truncated = true;
             const qs = parsed.questions;
             questions.push(...qs);
+            if (expect > 0 && qs.length < expect) shortBatches.push({ start: batch.start, end: batch.end, got: qs.length, expect });
             statusEl.textContent = `ชุดที่ ${b + 1}/${batches.length} เสร็จ — ได้ ${qs.length} ข้อ (รวม ${questions.length})`;
         } catch (err) {
-            if (!String(err.message).includes('RECITATION')) throw err;
+            if (!String(err.message).includes('RECITATION')) {
+                // error อื่น (quota หมด/เน็ตหลุด/GAS timeout) กลางทาง
+                // ซอยเป็นหลายชุดแล้ว = มีโอกาสพังกลางคันหลายจุด ถ้าโยนทิ้งทันทีจะเสียทั้งข้อที่แปลงสำเร็จ
+                // และโควต้า Gemini ที่จ่ายไปแล้วของชุดก่อนหน้า → เก็บของที่ได้ แล้วรายงานว่าไม่ครบ
+                if (questions.length > 0) {
+                    aborted = { atBatch: b + 1, totalBatches: batches.length, message: err.message };
+                    for (let r = b; r < batches.length; r++) failed.push(batches[r]);
+                    Swal.fire({
+                        toast: true, icon: 'error', position: 'top-end',
+                        title: `หยุดที่ชุด ${b + 1}/${batches.length} — เก็บ ${questions.length} ข้อที่แปลงได้ไว้แล้ว`,
+                        timer: 6000, showConfirmButton: false
+                    });
+                    break;
+                }
+                throw err; // ยังไม่ได้อะไรเลย — โยนต่อให้ผู้ใช้เห็น error จริง
+            }
             failed.push(batch);
             Swal.fire({
                 toast: true, icon: 'warning', position: 'top-end',
@@ -568,7 +624,7 @@ async function convertImageBatches(batches, additionalPrompt, statusEl, allowedC
             });
         }
     }
-    return { questions, failed, truncated };
+    return { questions, failed, truncated, shortBatches, aborted };
 }
 
 // ─── Autonomous AI Self-Correction Loop (Uncategorized questions) ──────────
@@ -688,13 +744,21 @@ async function runGeminiConversion(file, filename) {
     const allowedIds = new Set(allowedCats.map(c => String(c.CategoryID)));
 
     const additionalPrompt = (document.getElementById('extra-prompt') || {}).value || '';
-    const batches = await checkAndSplitPDF(currentPdfDoc);
+
+    convDiagnostics = []; // เริ่มรอบใหม่ — ทิ้ง breadcrumb ของรอบก่อน
+
+    // นับจำนวนข้อจริงจาก text layer ก่อน แล้วค่อยตัดสินใจว่าจะซอยกี่ชุด
+    statusEl.textContent = 'กำลังนับจำนวนข้อในไฟล์…';
+    const detected = await detectQuestionCount(currentPdfDoc);
+    const batches = await checkAndSplitPDF(currentPdfDoc, detected);
 
     const progressEl = document.getElementById('pdf-progress');
     if (progressEl) { progressEl.classList.remove('d-none'); progressEl.removeAttribute('value'); }
 
     const allQuestions = [];
     let failedBatches = [];
+    let shortBatches = [];
+    let aborted = null;
     let truncated = false; // JSON ถูกตัดกลางคัน (MAX_TOKENS) แล้วกู้มาได้บางส่วน = ข้อมูลไม่ครบ
     try {
         if (batches.length === 1 && !forceImagePath) {
@@ -708,7 +772,7 @@ async function runGeminiConversion(file, filename) {
             });
             statusEl.textContent = 'กำลังส่ง PDF ให้ระบบแปลง (key กลาง)…';
             try {
-                const raw = await convertBatchViaGAS(buildConverterPrompt(additionalPrompt, '', allowedCats, forcedCat0), { pdfB64 });
+                const raw = await convertBatchViaGAS(buildConverterPrompt(additionalPrompt, '', allowedCats, forcedCat0, detected.expected), { pdfB64 });
                 const parsed = parseGeminiResponse(raw);
                 if (parsed.meta && parsed.meta.source === 'partial') truncated = true;
                 allQuestions.push(...parsed.questions);
@@ -719,23 +783,31 @@ async function runGeminiConversion(file, filename) {
                 const total = currentPdfDoc.numPages;
                 const small = [];
                 for (let s = 1; s <= total; s += 4) small.push({ start: s, end: Math.min(s + 3, total) });
-                const res = await convertImageBatches(small, additionalPrompt, statusEl, allowedCats, forcedCat0);
+                const res = await convertImageBatches(small, additionalPrompt, statusEl, allowedCats, forcedCat0, detected);
                 allQuestions.push(...res.questions);
                 failedBatches = res.failed;
+                shortBatches = res.shortBatches;
+                aborted = res.aborted || null;
                 if (res.truncated) truncated = true;
                 if (allQuestions.length === 0) throw err; // โดนทุกชุด — โยน error เดิมพร้อมคำแนะนำ
             }
         } else {
-            // ── ไฟล์ >14MB: ส่ง PDF ดิบไม่ได้ → render หน้าเป็นภาพ ส่ง 1 POST ต่อชุด (ทน recitation รายชุด) ──
-            // backend (convertPdfBatch) ปฏิเสธถ้า images.length > 20 → ต้องซอยเสมอ ส่งทั้งไฟล์ครั้งเดียวไม่ได้
-            const IMG_PAGES_PER_POST = 15;
+            // ── หลายชุด: ข้อเยอะเกิน 1 คำขอ หรือไฟล์ >14MB (ส่ง PDF ดิบไม่ได้) ──
+            // render หน้าเป็นภาพ ส่ง 1 POST ต่อชุด — โมเดล "เห็นเฉพาะหน้าของชุดนั้น" จึงข้ามข้อไม่ได้เชิงโครงสร้าง
+            // (ถ้าแนบ PDF ทั้งไฟล์แล้วสั่งเป็นข้อความว่า "เอาเฉพาะหน้า X-Y" โมเดลไม่ทำตามได้ — ซึ่งคือบั๊กที่กำลังแก้อยู่)
+            // backend (convertPdfBatch) ปฏิเสธถ้า images.length > 20 → ต้องไม่ให้ชุดไหนยาวเกิน 15 หน้า
+            const MAX_PAGES_PER_POST = 15;
             const imgBatches = [];
-            for (let s = 1; s <= currentPdfDoc.numPages; s += IMG_PAGES_PER_POST) {
-                imgBatches.push({ start: s, end: Math.min(s + IMG_PAGES_PER_POST - 1, currentPdfDoc.numPages) });
-            }
-            const res = await convertImageBatches(imgBatches, additionalPrompt, statusEl, allowedCats, forcedCat0);
+            batches.forEach(b => {
+                for (let s = b.start; s <= b.end; s += MAX_PAGES_PER_POST) {
+                    imgBatches.push({ start: s, end: Math.min(s + MAX_PAGES_PER_POST - 1, b.end) });
+                }
+            });
+            const res = await convertImageBatches(imgBatches, additionalPrompt, statusEl, allowedCats, forcedCat0, detected);
             allQuestions.push(...res.questions);
             failedBatches = res.failed;
+            shortBatches = res.shortBatches;
+            aborted = res.aborted || null;
             if (res.truncated) truncated = true;
             if (allQuestions.length === 0 && failedBatches.length > 0) {
                 throw new Error('ทุกชุดโดนตัวกรอง recitation ของ Gemini — ลองกดแปลงซ้ำอีกครั้ง');
@@ -771,11 +843,29 @@ async function runGeminiConversion(file, filename) {
     statusEl.textContent = `กำลังโหลดข้อมูล ${allQuestions.length} ข้อ…`;
     groupAndFeedToProcessAll(allQuestions, fileStem);
 
-    statusEl.textContent = failedBatches.length > 0
-        ? `✅ แปลงได้ ${allQuestions.length} ข้อ (ข้าม ${failedBatches.length} ชุดที่โดน recitation: หน้า ${failedBatches.map(b => `${b.start}-${b.end}`).join(', ')})`
+    // เทียบจำนวนที่นับได้จาก PDF กับที่แปลงได้จริง — detected.expected เป็นค่าขั้นต่ำ
+    // ถ้ายังขาด แปลว่าโมเดลออกข้อไม่ครบ (ไม่ใช่แค่ถูกตัด) — ต้องบอกผู้ใช้ ห้ามรายงานว่าสำเร็จเฉย ๆ
+    const missing = detected.expected > 0 ? Math.max(0, detected.expected - allQuestions.length) : 0;
+
+    statusEl.textContent = aborted
+        ? `⚠️ หยุดกลางคันที่ชุด ${aborted.atBatch}/${aborted.totalBatches} — เก็บได้ ${allQuestions.length} ข้อ (${aborted.message})`
+        : failedBatches.length > 0
+        ? `⚠️ แปลงได้ ${allQuestions.length} ข้อ (ข้าม ${failedBatches.length} ชุดที่โดน recitation: หน้า ${failedBatches.map(b => `${b.start}-${b.end}`).join(', ')})`
         : truncated
             ? `⚠️ แปลงได้ ${allQuestions.length} ข้อ — คำตอบถูกตัดกลางคัน ข้อมูลอาจไม่ครบ`
-            : `✅ แปลงสำเร็จ ${allQuestions.length} ข้อ`;
+            : missing > 0
+                ? `⚠️ แปลงได้ ${allQuestions.length} ข้อ จากที่นับได้ ${detected.expected} ข้อ — ขาดไป ${missing} ข้อ`
+                : `✅ แปลงสำเร็จ ${allQuestions.length} ข้อ`;
 
-    return { total: allQuestions.length, failedBatches: failedBatches, truncated: truncated };
+    return {
+        total: allQuestions.length,
+        failedBatches: failedBatches,
+        truncated: truncated,
+        expected: detected.expected,
+        missing: missing,
+        shortBatches: shortBatches,
+        aborted: aborted,
+        batchCount: batches.length,
+        diagnostics: convDiagnostics
+    };
 }

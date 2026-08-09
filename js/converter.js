@@ -64,6 +64,7 @@ function resetConverter() {
                 converterStorage.category = [];
                 converterStorage.ques = [];
                 pageHintMap.clear();
+                convSkippedRows.clear();
                 currentPdfDoc = null;
                 window._pdfFile = null;
                 extractedImages = [];
@@ -302,15 +303,18 @@ function getFilteredImportData(sheetKey) {
 
                 let seenKeys = new Set();
                 return rawData.filter((row, i) => {
+                    if (sheetKey === 'ques' && convSkippedRows.has(i)) return false; // Task 3: ผู้ใช้เลือกข้ามแถวซ้ำนี้
                     const status = evaluateRowStatusInBatch(row, i, sheetKey, seenKeys);
                     return status === 'NEW' || status === 'UPDATED';
                 });
             }
 
-// ─── Smart Uncategorized Suggestions ───────────────────────────────────────
-// rowIndex (into converterStorage.ques) -> [{CategoryID, CategoryName, score}] top-3, Uncategorized rows only
-let convCatSuggestions = new Map();
-
+// ─── Smart duplicate warning (Task 3) ──────────────────────────────────────
+// evaluateRowStatusInBatch() above already flags DUPLICATE/UPDATED/EXISTING, but only on an
+// EXACT questionId or exact-trimmed problem-text match. It misses near-duplicates (Gemini
+// re-wording the same question, OCR noise, minor edits). This is a separate fuzzy layer on top.
+// Trigram/Dice similarity — cheap, no CDN dependency, good enough for an 85% threshold (doesn't
+// need real edit-distance precision) and works on Thai text with no inter-word spaces.
 function normalizeForSimilarity(text) {
     return String(text || '').replace(/\s+/g, ' ').trim().toLowerCase();
 }
@@ -323,7 +327,80 @@ function textTrigrams(text) {
     return grams;
 }
 
-// Coverage score, NOT Dice: normalizes by the CATEGORY side's trigram count only.
+function gramSimilarity(a, b) {
+    if (a.norm === b.norm) return a.norm ? 1 : 0;
+    if (!a.grams.size || !b.grams.size) return 0;
+    let intersect = 0;
+    a.grams.forEach(g => { if (b.grams.has(g)) intersect++; });
+    return (2 * intersect) / (a.grams.size + b.grams.size);
+}
+
+const DUP_SIMILARITY_THRESHOLD = 0.85;
+
+// rowIndex (into converterStorage.ques) -> { type: 'exact'|'similar', label }
+let convDuplicateFlags = new Map();
+
+// rowIndex ที่แอดมินเลือก "ข้าม" เพราะซ้ำ/คล้ายของเดิม — ไม่ส่งไป adminImport แม้ status จะเป็น NEW/UPDATED
+let convSkippedRows = new Set();
+
+function toggleSkipDuplicate(i) {
+    if (convSkippedRows.has(i)) convSkippedRows.delete(i);
+    else convSkippedRows.add(i);
+    renderPreview();
+    saveCheckpoint();
+}
+
+// เทียบทุกแถวใน converterStorage.ques กับ (1) globalData.questions วิชาเดียวกัน และ (2) แถวอื่นในชุดเดียวกัน
+// เรียกครั้งเดียวหลัง processAll() (ไม่ใช่ทุก re-render — trigram compare ทั้งวิชาไม่ควรรันซ้ำทุกครั้ง)
+function computeDuplicateFlags(subjectID) {
+    convDuplicateFlags = new Map();
+    const rows = converterStorage.ques || [];
+    if (rows.length === 0) return;
+    if (typeof globalData !== 'object' || !Array.isArray(globalData.questions)) return;
+
+    // ขอบเขต: เทียบเฉพาะคำถามวิชาเดียวกัน (ไม่ใช่ทั้งฐานข้อมูล) — ตรงกับที่ขอ, เร็วกว่ามาก
+    const target = String(subjectID || '').trim().toUpperCase();
+    const subjCatIds = new Set(
+        (globalData.category || [])
+            .filter(c => String(c.SubjectRef || '').trim().toUpperCase() === target)
+            .map(c => String(c.CategoryID))
+    );
+    const dbCandidates = subjCatIds.size === 0 ? [] : globalData.questions
+        .filter(q => Array.isArray(q.category) && q.category.some(id => subjCatIds.has(String(id))))
+        .map(q => ({ questionId: q.questionId, grams: textTrigrams(q.problem), norm: normalizeForSimilarity(q.problem) }));
+
+    const rowGrams = rows.map(row => {
+        const problem = row[1];
+        if (!problem || !String(problem).trim()) return null;
+        return { grams: textTrigrams(problem), norm: normalizeForSimilarity(problem) };
+    });
+
+    rowGrams.forEach((rg, i) => {
+        if (!rg) return;
+
+        for (const cand of dbCandidates) {
+            // norm equality เทียบตรง ๆ สำหรับ "ซ้ำเป๊ะ" — ไม่ใช้ threshold ใกล้ 1 เป็นตัวแทน
+            // เพราะข้อความสองข้อที่ไม่เหมือนกันเป๊ะก็ยังทำคะแนน trigram ได้ >= 0.999 ได้
+            if (rg.norm === cand.norm) { convDuplicateFlags.set(i, { type: 'exact', label: `ตรงกับข้อในฐานข้อมูล (${cand.questionId})` }); return; }
+            const sim = gramSimilarity(rg, cand);
+            if (sim >= DUP_SIMILARITY_THRESHOLD) { convDuplicateFlags.set(i, { type: 'similar', label: `คล้ายข้อในฐานข้อมูล ${Math.round(sim * 100)}% (${cand.questionId})` }); return; }
+        }
+
+        // ในชุดที่กำลังแปลงเดียวกัน (กันโมเดลออกข้อซ้ำข้าม batch ที่แบ่งส่ง)
+        for (let j = 0; j < rowGrams.length; j++) {
+            if (j === i || !rowGrams[j]) continue;
+            if (rg.norm === rowGrams[j].norm) { convDuplicateFlags.set(i, { type: 'exact', label: `ซ้ำกับข้อ #${j + 1} ในชุดนี้` }); return; }
+            const sim = gramSimilarity(rg, rowGrams[j]);
+            if (sim >= DUP_SIMILARITY_THRESHOLD) { convDuplicateFlags.set(i, { type: 'similar', label: `คล้ายข้อ #${j + 1} ในชุดนี้ ${Math.round(sim * 100)}%` }); return; }
+        }
+    });
+}
+
+// ─── Smart Uncategorized Suggestions ───────────────────────────────────────
+// rowIndex (into converterStorage.ques) -> [{CategoryID, CategoryName, score}] top-3, Uncategorized rows only
+let convCatSuggestions = new Map();
+
+// Coverage score, NOT gramSimilarity/Dice: normalizes by the CATEGORY side's trigram count only.
 // Dice would normalize by (problem+choices grams + CategoryName grams) combined — the question text
 // is 10-20x longer than a CategoryName, so Dice collapses to "raw overlap count", which just ranks
 // the longest CategoryName highest regardless of relevance. Coverage asks "how much of this short
@@ -395,6 +472,7 @@ function processAll() {
             converterStorage.category = [];
             converterStorage.ques = [];
             pageHintMap.clear();
+            convSkippedRows.clear();
 
             let initialTab = 'category';
             let inputType = 'structure_only';
@@ -539,6 +617,7 @@ function processAll() {
                 converterStorage.struct = Array.from(structMap.values());
                 converterStorage.category = categoryRows;
                 converterStorage.ques = quesRows;
+                computeDuplicateFlags(subjectID);
                 computeCatSuggestions(subjectID);
                 updateSaveButtonState(); // item 1: มีข้อมูลแล้ว ปลดล็อกปุ่มบันทึก
 
@@ -551,25 +630,6 @@ function processAll() {
                 Swal.fire('Error', 'Format ข้อมูลผิดพลาด: ' + e.message, 'error');
             }
         }
-
-// 1-click category fix from the Smart Uncategorized Suggestions dropdown (see renderPreview, ques
-// branch). No renderPreview() call here on purpose — the <select> already shows the chosen option
-// natively, and re-rendering the whole card list on every dropdown change would jump the scroll
-// position on a large batch. Tradeoff: _convCardSearch[i] (built from row[6] at render time) goes
-// stale for this row's category text until the next full render — acceptable, only affects card
-// search matching, not the saved data.
-function applyCatSuggestion(i, newCatId) {
-    if (!newCatId) return; // "— ยังไม่เลือก —" placeholder = no-op, row[6] stays as-is
-    const row = converterStorage.ques[i];
-    if (!row) return;
-    let cats = [];
-    try { cats = JSON.parse(row[6]); } catch (e) { cats = []; }
-    if (!Array.isArray(cats)) cats = [];
-    while (cats.length < 2) cats.push(cats[0] || '');
-    cats[1] = newCatId;
-    row[6] = JSON.stringify(cats);
-    saveCheckpoint();
-}
 
 // 1-click require_img toggle from the card view — skips the full edit modal.
 // Guard matches converter-edit.js's hasRealImg check: won't flip a row that already has a real
@@ -607,6 +667,25 @@ function toggleRequireImgFlag(i) {
     // renderPreviewWithBadges (not plain renderPreview) — same as assignImageToQuestion/removeAssignment,
     // needed so the card view's image-pending badge clears immediately, not just on the next full render.
     renderPreviewWithBadges();
+    saveCheckpoint();
+}
+
+// 1-click category fix from the Smart Uncategorized Suggestions dropdown (see renderPreview, ques
+// branch). No renderPreview() call here on purpose — the <select> already shows the chosen option
+// natively, and re-rendering the whole card list on every dropdown change would jump the scroll
+// position on a large batch. Tradeoff: _convCardSearch[i] (built from row[6] at render time) goes
+// stale for this row's category text until the next full render — acceptable, only affects card
+// search matching, not the saved data.
+function applyCatSuggestion(i, newCatId) {
+    if (!newCatId) return; // "— ยังไม่เลือก —" placeholder = no-op, row[6] stays as-is
+    const row = converterStorage.ques[i];
+    if (!row) return;
+    let cats = [];
+    try { cats = JSON.parse(row[6]); } catch (e) { cats = []; }
+    if (!Array.isArray(cats)) cats = [];
+    while (cats.length < 2) cats.push(cats[0] || '');
+    cats[1] = newCatId;
+    row[6] = JSON.stringify(cats);
     saveCheckpoint();
 }
 
@@ -665,6 +744,7 @@ function renderPreview() {
             </div>`;
         } else {
             // ques row: [QuestionID, Problem, Image, Choices, Answer, Explanation, Category]
+            const dupFlag = convDuplicateFlags.get(i) || null; // Task 3: fuzzy-similarity warning
             const assignments = imgAssignments.get(i) || [];
             let cats = [];
             try { cats = JSON.parse(row[6]); } catch (e) { if (row[6]) cats = [row[6]]; }
@@ -747,6 +827,8 @@ function renderPreview() {
                 <span class="badge bg-${color}">${textMap[status]}</span><br>
                 <span class="badge bg-secondary">#${i + 1}</span>
                 ${requireImg ? '<br><span class="badge bg-warning text-dark mt-1" style="font-size:0.6em">รูปภาพ</span>' : ''}
+                ${dupFlag ? `<br><span class="badge ${dupFlag.type === 'exact' ? 'bg-danger' : 'bg-warning text-dark'} mt-1" style="font-size:0.6em" title="${dupFlag.label}"><i class="fas fa-clone"></i> ${dupFlag.type === 'exact' ? 'ซ้ำ' : 'คล้าย'}</span>` : ''}
+                ${dupFlag ? `<button class="btn btn-sm ${convSkippedRows.has(i) ? 'btn-secondary' : 'btn-outline-danger'} d-block w-100 mt-1 px-2" onclick="toggleSkipDuplicate(${i})" title="${convSkippedRows.has(i) ? 'ยกเลิกการข้าม — จะนำเข้าข้อนี้ตามปกติ' : 'ข้ามข้อนี้ — จะไม่ถูกนำเข้า เพราะซ้ำ/คล้ายของเดิม'}">${convSkippedRows.has(i) ? '↩ ยกเลิกข้าม' : '⊘ ข้าม'}</button>` : ''}
                 <button class="btn btn-sm btn-primary d-block w-100 mt-1 px-2" onclick="openConverterEditModal(${i})" title="แก้ไขข้อสอบ"><i class="fas fa-pen me-1"></i>แก้ไข</button>
                 <button class="btn btn-sm ${requireImg ? 'btn-warning' : 'btn-outline-secondary'} d-block w-100 mt-1 px-2" onclick="toggleRequireImgFlag(${i})" title="สลับสถานะต้องมีรูปภาพแบบด่วน"><i class="fas fa-image"></i></button>
               </div>
@@ -761,12 +843,14 @@ function renderPreview() {
             </div>`;
         }
 
+        const skipped = currentSheet === 'ques' && convSkippedRows.has(i);
+        const cardStyle = [hidden ? 'display:none' : '', skipped ? 'opacity:0.5' : ''].filter(Boolean).join(';');
         return `<div class="card mb-2 conv-card${border}"
                      data-status="${status}"
                      data-require-img="${requireImg}"
                      tabindex="${currentSheet === 'ques' ? '0' : '-1'}"
                      ${currentSheet === 'ques' ? `onfocus="onConverterCardFocus(${i})" onclick="onConverterCardFocus(${i})"` : ''}
-                     ${hidden ? 'style="display:none"' : ''}>
+                     ${cardStyle ? `style="${cardStyle}"` : ''}>
           <div class="card-body py-2 px-3">${cardInner}</div>
         </div>`;
     }).join('');
@@ -1379,6 +1463,21 @@ async function handlePDFFile(file) {
         return;
     }
 
+    // Auto-clear previous conversion state — a stale imgAssignments Map keeps rowIndex→image
+    // bindings from the old file; without this, converting a 2nd PDF silently reassigns leftover
+    // images from file A onto file B's questions at the same row index. Runs only after the new
+    // PDF has passed validation above, so a rejected file never wipes existing work.
+    converterStorage.ques = [];
+    converterStorage.struct = [];
+    converterStorage.category = [];
+    pageHintMap.clear();
+    imgAssignments.clear();
+    extractedImages = [];
+    localStorage.removeItem('mdkku_pdf_checkpoint');
+    renderPreview();
+    renderPreviewCards();
+    renderImageTray();
+
     window._pdfFile = file; // preserve raw File for inline-PDF Gemini call
     btn.dataset.filename = file.name;
     applyDetectedBatch(guessBatchFromFilename(file.name), 'ชื่อไฟล์'); // เดารุ่นจากชื่อไฟล์ทันที
@@ -1571,6 +1670,18 @@ async function startPDFConversion() {
 async function showConversionSummary(res) {
     const total = (res && res.total) || 0;
     const failed = (res && res.failedBatches) || [];
+    // หยุดกลางคันเพราะ error อื่น (quota/เน็ต/timeout) — ไม่ใช่ recitation ห้ามรายงานผิดสาเหตุ
+    if (res && res.aborted) {
+        await Swal.fire({
+            icon: 'error',
+            title: `หยุดกลางคัน — เก็บได้ ${total} ข้อ`,
+            html: `แปลงถึงชุดที่ <b>${res.aborted.atBatch}/${res.aborted.totalBatches}</b> แล้วเกิดข้อผิดพลาด:<br>
+                   <code>${_convEsc(res.aborted.message)}</code><br><br>
+                   ข้อที่แปลงได้แล้วถูกเก็บไว้ให้ — หน้าที่ยังไม่ได้แปลง: <b>${_convEsc(failed.map(b => `${b.start}-${b.end}`).join(', '))}</b><br>
+                   แก้ปัญหาแล้วแปลงเฉพาะหน้าที่ขาดซ้ำอีกครั้ง`
+        });
+        return;
+    }
     if (failed.length > 0) {
         await Swal.fire({
             icon: 'warning',
@@ -1590,21 +1701,48 @@ async function showConversionSummary(res) {
         });
         return;
     }
+    // ข้อหาย: นับจาก text layer ได้ N ข้อ แต่แปลงมาได้น้อยกว่า = โมเดลออกข้อไม่ครบ (ไม่ใช่ถูกตัด)
+    // เคสจริง 2026-08-09: 90 ข้อ ส่งครั้งเดียว ได้กลับมา 10 ข้อ โดย finishReason = STOP
+    const missing = (res && res.missing) || 0;
+    if (missing > 0) {
+        const shorts = (res && res.shortBatches) || [];
+        const shortHtml = shorts.length > 0
+            ? `<br><br>ชุดที่ได้ไม่ครบ: <b>${_convEsc(shorts.map(s => `หน้า ${s.start}-${s.end} (ได้ ${s.got}/${s.expect})`).join(', '))}</b>`
+            : '';
+        await Swal.fire({
+            icon: 'warning',
+            title: `แปลงได้ ${total} ข้อ — ขาดไป ${missing} ข้อ`,
+            html: `นับจากไฟล์ PDF ได้ <b>${res.expected} ข้อ</b> แต่ AI คืนมา <b>${total} ข้อ</b>${shortHtml}<br><br>
+                   AI ออกข้อไม่ครบ ไม่ใช่ระบบตัดทิ้ง — กดแปลงซ้ำอีกครั้งมักได้ครบขึ้น
+                   หรือแบ่ง PDF เป็นไฟล์ย่อยแล้วแปลงทีละส่วน<br>
+                   <small class="text-muted">ดูรายละเอียดการวินิจฉัยได้ที่ console: <code>convDiagnostics</code></small>`
+        });
+        return;
+    }
+
+    // res.expected เป็น "ค่าขั้นต่ำ" (ดู detectQuestionCount) ไม่ใช่จำนวนจริง —
+    // ผ่านเกณฑ์นี้แปลว่า "ไม่ต่ำกว่าที่นับได้" เท่านั้น ห้ามประทับตราว่าครบถ้วนแน่นอน
+    // ไม่งั้นไฟล์ที่นับได้ 40 จาก 90 ข้อ แล้ว AI คืน 45 ข้อ จะถูกบอกว่า "ครบ" ซึ่งแย่กว่าบั๊กเดิม
+    // => ต้องคงข้อความให้ผู้ใช้ไปเทียบกับต้นฉบับไว้ทุกกรณี
+    const counted = res && res.expected > 0;
     await Swal.fire({
         icon: 'success',
-        title: `✅ แปลงสำเร็จครบถ้วนจำนวน ${total} ข้อ`,
-        text: 'กรุณาเทียบจำนวนข้อกับต้นฉบับ PDF ก่อนบันทึก'
+        title: counted ? `✅ แปลงได้ ${total} ข้อ (ครบตามที่นับได้)` : `✅ แปลงได้ ${total} ข้อ`,
+        html: counted
+            ? `ไม่น้อยกว่าจำนวนข้อที่นับได้จาก PDF (อย่างน้อย ${res.expected} ข้อ)<br>
+               <b>กรุณาเทียบจำนวนข้อกับต้นฉบับ PDF ก่อนบันทึก</b> — ระบบนับได้เป็นค่าขั้นต่ำ ไม่ใช่ตัวเลขที่ยืนยันได้`
+            : 'ระบบนับจำนวนข้อจากไฟล์นี้ไม่ได้ — <b>กรุณาเทียบจำนวนข้อกับต้นฉบับ PDF ก่อนบันทึก</b>'
     });
 }
 
 // ─── Feature B: ตรวจหาข้อที่ตัวเลือกว่าง + เติมทั้งหมดด้วย AI (1 POST) ──────────
-// นับตัวเลือกจริง (ไม่ว่าง) จาก row[3] — ข้อที่มี < 2 ตัวเลือก ถือว่า "ว่าง/ไม่ครบ"
+// นับตัวเลือกจริง (ไม่ว่าง) จาก row[3] — ข้อที่มี < 5 ตัวเลือก ถือว่า "ไม่ครบ"
 function detectEmptyChoiceRows() {
     const rows = converterStorage.ques || [];
     const targets = [];
     rows.forEach((row, i) => {
         const choices = String(row[3] || '').split('///').map(c => c.trim()).filter(c => c !== '' && c !== '-');
-        if (choices.length < 2) targets.push(i);
+        if (choices.length < 5) targets.push(i);
     });
     return targets;
 }
@@ -2000,6 +2138,7 @@ function saveCheckpoint() {
     const data = {
         questions: converterStorage.ques,
         imageAssignments: [...imgAssignments.entries()],
+        skippedRows: [...convSkippedRows], // Task 3: กันตัวเลือก "ข้าม" หายตอน reload กลางรีวิว
         // base64 images are NOT stored (too large); user will see "need re-upload" notice
         extractedImagesMeta: extractedImages.map(img => ({
             page: img.page, source: img.source, assignedTo: img.assignedTo,
@@ -2016,8 +2155,10 @@ function restoreCheckpoint() {
         const data = JSON.parse(raw);
         converterStorage.ques = data.questions || [];
         imgAssignments = new Map(data.imageAssignments || []);
+        convSkippedRows = new Set(data.skippedRows || []);
         // checkpoint ไม่ได้เก็บ subjID — ใช้ค่าที่อยู่ในช่อง ณ ตอนนี้ (อาจว่างถ้าโหลดหน้าใหม่); ถ้าว่าง
-        // computeCatSuggestions จะไม่มีหัวข้อให้เทียบ เลยข้ามการคำนวณไปเอง (ไม่ error)
+        // computeDuplicateFlags จะข้ามส่วนเทียบกับ DB ไปเอง แต่ยังเทียบ in-batch ได้ตามปกติ
+        computeDuplicateFlags((document.getElementById('subjID') || {}).value || '');
         computeCatSuggestions((document.getElementById('subjID') || {}).value || '');
         // base64 images lost — notify user
         Swal.fire({
@@ -2043,6 +2184,7 @@ function handleSaveResult(resJson) {
         extractedImages = [];
         imgAssignments.clear();
         pageHintMap.clear();
+        convSkippedRows.clear();
         currentPdfDoc = null;
         localStorage.removeItem('mdkku_pdf_checkpoint');
         const splitEl = document.getElementById('converter-split');
