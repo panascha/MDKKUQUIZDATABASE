@@ -126,6 +126,22 @@ function sanitizeCategory(categoryData, stem, validIds) {
     return [cats[0], cats[1]];
 }
 
+// Strict category validation (Task 1): sanitizeCategory() only reshapes category[1] into
+// SubCode_SubGroup_Topic form — it does NOT check the topic itself is real. Gemini can still
+// invent a plausible-looking but nonexistent CategoryID. This is the actual gate.
+// ทำงานเฉพาะเมื่อวิชานี้มีหัวข้อที่รู้จักอยู่แล้ว (validIds.size > 0) — วิชาใหม่ที่ยังไม่มีหัวข้อในชีตเลย
+// ต้องปล่อยผ่านหมด ไม่งั้นการ import ครั้งแรกของวิชาใหม่จะใช้งานไม่ได้
+// รูปแบบ Fallback ต้อง "ไม่มีวันผ่าน" filter ของ getExistingCategoriesForSubject() เอง (2 ส่วน ไม่มี
+// subgroup token) — ถ้าใช้รูปแบบ 3 ส่วนแบบ SUBJ_CLINICAL_Uncategorized (3 ส่วน + มี subgroup จริง
+// คือ CLINICAL) มันจะผ่าน filter นั้นได้เอง แล้วโดนดูดเข้า allowedIds ในรอบถัดไป กลายเป็น "หัวข้อจริง"
+// ที่ AI เลือกซ้ำได้ — คือช่องโหว่เดิมที่ Task 1 ตั้งใจปิดย้อนกลับมาเปิดเองแบบเงียบ ๆ
+function enforceKnownTopic(cats, subjId, validIds) {
+    const valid = (validIds && typeof validIds.has === 'function') ? validIds : new Set();
+    if (valid.size === 0 || valid.has(String(cats[1]))) return cats;
+    cats[1] = `${String(subjId).trim().toUpperCase()}_Uncategorized`;
+    return cats;
+}
+
 // รายการหัวข้อบรรยายที่บังคับให้ Gemini เลือกลง category[1] — คัดลอก CategoryID มาเป๊ะ ห้ามแต่งเอง
 // allowedCats: [{CategoryID, CategoryName}] จาก getExistingCategoriesForSubject
 function buildAllowedTopicsBlock(allowedCats) {
@@ -184,8 +200,9 @@ function buildConverterPrompt(additionalPrompt, pageNote, allowedCats, forcedCat
 
 // ยิง 1 batch ไปที่ GAS convertPdfBatch — ไม่ auto-retry (กันเผา quota pool ซ้ำถ้า Gemini สำเร็จแต่ response หาย)
 // payloadExtra: { pdfB64 } หรือ { images: [dataURL,…] }
+// label: ไว้แยกให้ออกว่าเป็นรอบแปลงจริงหรือรอบ refine ทีหลัง (ยังไม่ได้ใช้ในฟังก์ชันนี้เอง — สงวนพารามิเตอร์ไว้ให้ผู้เรียก)
 // คืนค่า rawText (string) หรือ recovered object {questions:[…]} กรณี MAX_TOKENS
-async function convertBatchViaGAS(prompt, payloadExtra) {
+async function convertBatchViaGAS(prompt, payloadExtra, label) {
     const body = Object.assign({
         action: 'convertPdfBatch',
         prompt: prompt,
@@ -526,6 +543,90 @@ async function convertImageBatches(batches, additionalPrompt, statusEl, allowedC
     return { questions, failed, truncated };
 }
 
+// ─── Autonomous AI Self-Correction Loop (Uncategorized questions) ──────────
+// enforceKnownTopic() (gemini.js, ด้านบน) ทิ้งข้อไว้เป็น Uncategorized เมื่อ Gemini รอบแรกเลือกหัวข้อ
+// ที่ไม่มีอยู่จริง — แทนที่จะปล่อยให้ตกไปที่ dropdown ทบทวนมือ (Smart Uncategorized Suggestions,
+// converter.js) ทันที ลองส่งเฉพาะข้อที่ยัง Uncategorized กลับไปให้ Gemini แก้เองก่อน จำกัด
+// MAX_UNCATEGORIZED_REFINE_ATTEMPTS รอบ กันเผาโควต้าถ้า Gemini แก้ไม่ได้จริง ๆ (เช่น วิชานั้นไม่มี
+// หัวข้อบรรยายในชีตเลย) — เหลือเท่าไรหลังจากนี้ยังมี dropdown เป็น fallback ให้แอดมินแก้เอง
+const MAX_UNCATEGORIZED_REFINE_ATTEMPTS = 2;
+
+// items: [{id, problem, choices}] — id คือ index ใน allQuestions ให้ map คำตอบกลับถูกข้อ
+// isRetry: รอบที่ 2 เป็นต้นไปต้องเตือนว่า "เคยเลือกไม่ได้มาแล้ว" ไม่งั้นพรอมต์เหมือนรอบแรกทุกตัวอักษร
+// ยิงซ้ำแล้วได้คำตอบเดิม — เผาโควต้าฟรี ไม่ได้อะไรเพิ่ม
+function buildRefinementPrompt(items, allowedCats, isRetry) {
+    const lines = allowedCats.map(c => `- ${c.CategoryID}`).join('\n');
+    const itemsText = items.map(it => `[id=${it.id}] ${it.problem}\nตัวเลือก: ${it.choices}`).join('\n\n');
+    const retryNote = isRetry
+        ? '\n\n**หมายเหตุ:** รอบที่แล้วคุณเลือกหัวข้อที่ไม่มีอยู่จริงสำหรับข้อเหล่านี้มาแล้ว — ตรวจสอบรายการหัวข้อด้านล่างอีกครั้งให้ละเอียด แล้วเลือกใหม่จากรายการเท่านั้น'
+        : '';
+    return `ข้อสอบต่อไปนี้ถูกจัดเป็น "Uncategorized" เพราะรอบแรก AI เลือกหัวข้อที่ไม่มีอยู่จริงในวิชานี้
+วิเคราะห์โจทย์และตัวเลือกของแต่ละข้อ แล้วเลือก CategoryID ที่ตรงที่สุดจากรายการหัวข้อบรรยายจริงด้านล่างนี้
+ห้ามคืนค่า Uncategorized หรือสร้าง CategoryID ใหม่ — ต้องเลือกหัวข้อที่ "ใกล้เคียงที่สุด" จากรายการเสมอ${retryNote}
+
+รายการหัวข้อที่เลือกได้ (คัดลอก CategoryID มาทั้งดุ้นแบบเป๊ะ ห้ามแต่งใหม่ ห้ามย่อ):
+${lines}
+
+ส่งกลับ JSON object นี้เท่านั้น — ไม่มี markdown ไม่มีข้อความอื่น:
+{"corrections":[{"id":<เลข id เดิม>,"categoryId":"<CategoryID ที่เลือก>"}]}
+คืนทุก id ที่ได้รับให้ครบ ห้ามข้าม
+
+ข้อสอบที่ต้องแก้ไข:
+${itemsText}`;
+}
+
+// แก้ category[1] ของ allQuestions ที่ยัง Uncategorized ในที่เดิม (mutate in place) — คืนจำนวนข้อที่แก้ได้
+// attempt: 0-based รอบที่กำลังยิง (มาจาก loop เรียกใน runGeminiConversion) — ใช้เลือกพรอมต์ retry
+// ต้องแนบ pdf/รูปเพราะ backend (convertPdfBatch) บังคับ ("ต้องมี prompt และ PDF หรือรูปหน้ากระดาษ")
+// แต่เนื้อหาที่ใช้จัดหมวดจริงอยู่ในพรอมต์ (problem/choices) ที่ส่งไปแล้วทั้งหมด — รูปหน้าแรกที่แนบไม่ได้
+// ถูกใช้จัดหมวดจริง แค่ satisfy gate ฝั่ง backend เท่านั้น อย่าลบออกเด็ดขาด ไม่งั้นโดน "ข้อมูลไม่ครบ" ทันที
+async function refineUncategorizedCategories(allQuestions, allowedCats, attempt) {
+    if (!allowedCats || allowedCats.length === 0) return 0;
+    const items = [];
+    allQuestions.forEach((q, i) => {
+        if (Array.isArray(q.category) && /_Uncategorized$/.test(String(q.category[1] || ''))) {
+            items.push({ id: i, problem: q.problem || '', choices: q.choices || '' });
+        }
+    });
+    if (items.length === 0) return 0;
+
+    let raw;
+    try {
+        const pages = await renderPagesAsBase64(currentPdfDoc, { start: 1, end: 1 });
+        const prompt = buildRefinementPrompt(items, allowedCats, attempt > 0);
+        raw = await convertBatchViaGAS(prompt, { images: pages.map(p => p.dataUrl) }, 'uncategorized-refine');
+    } catch (e) {
+        console.warn('Uncategorized refinement pass failed:', e.message);
+        return 0;
+    }
+    if (typeof raw !== 'string') return 0; // unexpected MAX_TOKENS-recovery shape (built for {questions:[]}, not {corrections:[]}) — skip, dropdown fallback still applies
+
+    let parsed;
+    try {
+        const cleaned = raw.replace(/^```json\s*/i, '').replace(/\s*```$/, '').trim();
+        const firstBrace = cleaned.indexOf('{');
+        const lastBrace = cleaned.lastIndexOf('}');
+        parsed = JSON.parse(firstBrace !== -1 && lastBrace > firstBrace ? cleaned.substring(firstBrace, lastBrace + 1) : cleaned);
+    } catch (e) {
+        return 0;
+    }
+
+    const corrections = Array.isArray(parsed.corrections) ? parsed.corrections : [];
+    const allowedIds = new Set(allowedCats.map(c => String(c.CategoryID)));
+    let fixed = 0;
+    corrections.forEach(c => {
+        const q = allQuestions[c.id];
+        const newId = String((c && c.categoryId) || '').trim();
+        // นอกจาก id/categoryId ต้องถูกต้องแล้ว แถวนั้นต้องยัง Uncategorized จริง ณ ตอน apply —
+        // กัน id หลอน/id ผิดที่ Gemini คืนมาไปทับ category ที่ถูกต้องอยู่แล้วของแถวอื่น
+        if (!q || !Array.isArray(q.category) || !allowedIds.has(newId)) return;
+        if (!/_Uncategorized$/.test(String(q.category[1] || ''))) return;
+        q.category[1] = newId;
+        fixed++;
+    });
+    return fixed;
+}
+
 // Main entry point: takes raw File object (batching ใช้ currentPdfDoc จาก converter.js)
 // batch เดียว → ส่ง PDF ทั้งไฟล์แบบ native (คุณภาพ OCR ดีสุด); หลาย batch → render หน้าเป็น JPEG ส่งทีละชุด
 // (1 POST ต่อ batch — อยู่ใต้ GAS 6-min limit เสมอ)
@@ -622,8 +723,20 @@ async function runGeminiConversion(file, filename) {
         q.problem = stripImagePlaceholder(stripChoiceTail(q.problem, q.choices));
         q.choices = stripChoiceLetters(q.choices);
         q.category = sanitizeCategory(q.category, fileStem, allowedIds);
+        q.category = enforceKnownTopic(q.category, subjId, allowedIds); // Task 1: block invented topic IDs
         if (forcedCat0) q.category[0] = forcedCat0; // ชิปผู้ใช้ = เด็ดขาด แม้ Gemini เขียนมาอย่างอื่น
     });
+
+    // Autonomous AI Self-Correction Loop — ลองให้ Gemini แก้ข้อที่ยัง Uncategorized เองก่อน
+    // แสดงผลให้แอดมินเห็น (Smart Uncategorized Suggestions dropdown, converter.js)
+    for (let attempt = 0; attempt < MAX_UNCATEGORIZED_REFINE_ATTEMPTS; attempt++) {
+        const stillUncategorized = allQuestions.some(q =>
+            Array.isArray(q.category) && /_Uncategorized$/.test(String(q.category[1] || '')));
+        if (!stillUncategorized) break;
+        statusEl.textContent = `กำลังให้ AI ทบทวนหัวข้อที่ยังไม่ชัดเจนอีกครั้ง (รอบ ${attempt + 1}/${MAX_UNCATEGORIZED_REFINE_ATTEMPTS})…`;
+        const fixedCount = await refineUncategorizedCategories(allQuestions, allowedCats, attempt);
+        if (fixedCount === 0) break; // ไม่คืบหน้า — เหลือให้แอดมินเลือกเองจาก dropdown
+    }
 
     statusEl.textContent = `กำลังโหลดข้อมูล ${allQuestions.length} ข้อ…`;
     groupAndFeedToProcessAll(allQuestions, fileStem);
