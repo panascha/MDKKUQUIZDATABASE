@@ -569,6 +569,45 @@ function applyCatSuggestion(i, newCatId) {
     saveCheckpoint();
 }
 
+// 1-click require_img toggle from the card view — skips the full edit modal.
+// Guard matches converter-edit.js's hasRealImg check: won't flip a row that already has a real
+// assigned image/URL, since clearing row[2] there would orphan the assignment silently.
+function toggleRequireImgFlag(i) {
+    const row = converterStorage.ques[i];
+    if (!row) return;
+    const img = String(row[2] || '').trim();
+    const hasRealImg = /^https?:|drive\.google\.com|^<svg/i.test(img) || img.includes('///');
+    if (hasRealImg) {
+        Swal.fire({
+            toast: true, icon: 'info', position: 'top-end',
+            title: 'ข้อนี้มีรูปภาพผูกอยู่แล้ว — แก้ไขผ่านปุ่ม ✎ แทน',
+            timer: 3000, showConfirmButton: false
+        });
+        return;
+    }
+    const turningOff = img === 'require_img';
+    row[2] = turningOff ? '' : 'require_img';
+    if (turningOff) {
+        // Clearing require_img must also drop any pending (not-yet-uploaded) image tied to this
+        // row — otherwise a stale imgAssignments entry survives and can still get uploaded/saved
+        // even though the card now says no image is needed. Same unassign pattern as removeAssignment().
+        const arr = imgAssignments.get(i);
+        if (arr && arr.length) {
+            arr.forEach(entry => {
+                const src = extractedImages.find(ei => ei.assignedTo === i && ei.base64 === entry.base64);
+                if (src) src.assignedTo = null;
+            });
+            imgAssignments.delete(i);
+            renderImageTray();
+            updateSaveButtonState();
+        }
+    }
+    // renderPreviewWithBadges (not plain renderPreview) — same as assignImageToQuestion/removeAssignment,
+    // needed so the card view's image-pending badge clears immediately, not just on the next full render.
+    renderPreviewWithBadges();
+    saveCheckpoint();
+}
+
 function renderPreview() {
     const body = document.getElementById('cardsBody');
     if (!body) return;
@@ -691,11 +730,12 @@ function renderPreview() {
             }
 
             cardInner = `<div class="d-flex gap-2">
-              <div class="flex-shrink-0 text-center" style="min-width:44px">
+              <div class="flex-shrink-0 text-center" style="min-width:72px">
                 <span class="badge bg-${color}">${textMap[status]}</span><br>
                 <span class="badge bg-secondary">#${i + 1}</span>
                 ${requireImg ? '<br><span class="badge bg-warning text-dark mt-1" style="font-size:0.6em">รูปภาพ</span>' : ''}
-                <br><button class="btn btn-xs btn-outline-primary mt-1 py-0 px-1" onclick="openConverterEditModal(${i})" title="แก้ไขข้อสอบ"><i class="fas fa-pen"></i></button>
+                <button class="btn btn-sm btn-primary d-block w-100 mt-1 px-2" onclick="openConverterEditModal(${i})" title="แก้ไขข้อสอบ"><i class="fas fa-pen me-1"></i>แก้ไข</button>
+                <button class="btn btn-sm ${requireImg ? 'btn-warning' : 'btn-outline-secondary'} d-block w-100 mt-1 px-2" onclick="toggleRequireImgFlag(${i})" title="สลับสถานะต้องมีรูปภาพแบบด่วน"><i class="fas fa-image"></i></button>
               </div>
               <div class="flex-grow-1 min-w-0">
                 <p class="mb-1" style="font-size:0.82rem">${String(row[1] || '').substring(0, 300)}</p>
