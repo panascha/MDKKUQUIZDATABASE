@@ -306,6 +306,73 @@ function getFilteredImportData(sheetKey) {
                 });
             }
 
+// ─── Smart Uncategorized Suggestions ───────────────────────────────────────
+// rowIndex (into converterStorage.ques) -> [{CategoryID, CategoryName, score}] top-3, Uncategorized rows only
+let convCatSuggestions = new Map();
+
+function normalizeForSimilarity(text) {
+    return String(text || '').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+function textTrigrams(text) {
+    const t = normalizeForSimilarity(text);
+    const grams = new Set();
+    if (t.length < 3) { if (t) grams.add(t); return grams; }
+    for (let i = 0; i <= t.length - 3; i++) grams.add(t.substring(i, i + 3));
+    return grams;
+}
+
+// Coverage score, NOT Dice: normalizes by the CATEGORY side's trigram count only.
+// Dice would normalize by (problem+choices grams + CategoryName grams) combined — the question text
+// is 10-20x longer than a CategoryName, so Dice collapses to "raw overlap count", which just ranks
+// the longest CategoryName highest regardless of relevance. Coverage asks "how much of this short
+// topic name shows up in the question", which is the actual question being asked.
+function catCoverage(qGrams, catGrams) {
+    if (!catGrams.size) return 0;
+    let hit = 0;
+    catGrams.forEach(g => { if (qGrams.has(g)) hit++; });
+    // Floor of 12 trigrams (~14-char name) in the denominator — without it, a short single-word
+    // CategoryName ("Psoriasis") hits 100% coverage the instant that word appears ANYWHERE in the
+    // question, including a wrong-answer distractor choice, and permanently outranks a longer,
+    // genuinely-correct multi-word topic name that can never reach 100%. Long names are unaffected
+    // (their own gram count already exceeds the floor); this only caps how easily a short name wins.
+    return hit / Math.max(catGrams.size, 12);
+}
+
+// Scores every Uncategorized-fallback row (see enforceKnownTopic, gemini.js) against every real
+// topic of this subject, keeps the Top-3. Only computed for fallback rows — real AI picks are left
+// alone, and this keeps the trigram work cheap even on large batches.
+function computeCatSuggestions(subjectID) {
+    convCatSuggestions = new Map();
+    const rows = converterStorage.ques || [];
+    if (rows.length === 0) return;
+    const allowedCats = (typeof getExistingCategoriesForSubject === 'function')
+        ? getExistingCategoriesForSubject(subjectID) : [];
+    if (allowedCats.length === 0) return;
+
+    const catIndex = allowedCats.map(c => {
+        // ไม่มี CategoryName ค่อย fallback ไปตัด CategoryID (ตัด SUBJ_SUBGROUP_ ออกก่อน กัน token
+        // ของ subject/subgroup ไปสร้าง overlap ปลอมกับทุกแถว)
+        const name = (c.CategoryName && String(c.CategoryName).trim())
+            ? String(c.CategoryName).trim()
+            : (String(c.CategoryID || '').split('_').slice(2).join('_') || String(c.CategoryID || ''));
+        return { CategoryID: c.CategoryID, CategoryName: c.CategoryName || c.CategoryID, grams: textTrigrams(name) };
+    });
+
+    rows.forEach((row, i) => {
+        let cats = [];
+        try { cats = JSON.parse(row[6]); } catch (e) { if (row[6]) cats = [row[6]]; }
+        if (!/_Uncategorized$/.test(String(cats[1] || ''))) return;
+
+        const qGrams = textTrigrams(`${row[1] || ''} ${row[3] || ''}`);
+        const scored = catIndex
+            .map(c => ({ CategoryID: c.CategoryID, CategoryName: c.CategoryName, score: catCoverage(qGrams, c.grams) }))
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 3);
+        convCatSuggestions.set(i, scored);
+    });
+}
+
 function processAll() {
             let rawInput = document.getElementById('jsonInput').value.trim();
             const year = document.getElementById('yearVal').value;
@@ -471,6 +538,7 @@ function processAll() {
                 converterStorage.struct = Array.from(structMap.values());
                 converterStorage.category = categoryRows;
                 converterStorage.ques = quesRows;
+                computeCatSuggestions(subjectID);
 
                 Swal.fire('Success', 'ประมวลผลสำเร็จ!', 'success');
                 document.getElementById('converter-split').classList.remove('d-none');
@@ -481,6 +549,25 @@ function processAll() {
                 Swal.fire('Error', 'Format ข้อมูลผิดพลาด: ' + e.message, 'error');
             }
         }
+
+// 1-click category fix from the Smart Uncategorized Suggestions dropdown (see renderPreview, ques
+// branch). No renderPreview() call here on purpose — the <select> already shows the chosen option
+// natively, and re-rendering the whole card list on every dropdown change would jump the scroll
+// position on a large batch. Tradeoff: _convCardSearch[i] (built from row[6] at render time) goes
+// stale for this row's category text until the next full render — acceptable, only affects card
+// search matching, not the saved data.
+function applyCatSuggestion(i, newCatId) {
+    if (!newCatId) return; // "— ยังไม่เลือก —" placeholder = no-op, row[6] stays as-is
+    const row = converterStorage.ques[i];
+    if (!row) return;
+    let cats = [];
+    try { cats = JSON.parse(row[6]); } catch (e) { cats = []; }
+    if (!Array.isArray(cats)) cats = [];
+    while (cats.length < 2) cats.push(cats[0] || '');
+    cats[1] = newCatId;
+    row[6] = JSON.stringify(cats);
+    saveCheckpoint();
+}
 
 function renderPreview() {
     const body = document.getElementById('cardsBody');
@@ -540,8 +627,28 @@ function renderPreview() {
             const assignments = imgAssignments.get(i) || [];
             let cats = [];
             try { cats = JSON.parse(row[6]); } catch (e) { if (row[6]) cats = [row[6]]; }
-            const catBadges = cats.map(c =>
-                `<span class="badge bg-info text-dark me-1" style="font-size:0.68rem">${c}</span>`).join('');
+            const catBadges = cats.map((c, ci) => {
+                // Task 1: หัวข้อที่ enforceKnownTopic() (gemini.js) fallback มา เพราะ AI เลือกหัวข้อที่ไม่มีจริง
+                const isFallback = /_Uncategorized$/.test(String(c));
+                if (isFallback && ci === 1) {
+                    // Smart Uncategorized Suggestions: Top-3 semantic-match dropdown instead of a dead-end badge
+                    const suggestions = convCatSuggestions.get(i) || [];
+                    if (suggestions.length > 0) {
+                        const options = suggestions.map(s =>
+                            `<option value="${_convEsc(s.CategoryID)}">${_convEsc(s.CategoryName || s.CategoryID)} (${Math.round(s.score * 100)}%)</option>`
+                        ).join('');
+                        return `<select class="form-select form-select-sm d-inline-block w-auto me-1" style="font-size:0.68rem"
+                                   title="หัวข้อที่ AI เลือกไม่มีอยู่จริงในวิชานี้ — เลือกหัวข้อที่ใกล้เคียงที่สุดจากรายการนี้แทน"
+                                   onclick="event.stopPropagation()"
+                                   onchange="applyCatSuggestion(${i}, this.value)">
+                                   <option value="" selected>— ยังไม่เลือก (Uncategorized) —</option>${options}
+                                 </select>`;
+                    }
+                }
+                const cls = isFallback ? 'bg-danger' : 'bg-info text-dark';
+                const title = isFallback ? ' title="หัวข้อที่ AI เลือกไม่มีอยู่จริงในวิชานี้ — ระบบจัดเข้ากลุ่มนี้แทน ต้องตรวจสอบ"' : '';
+                return `<span class="badge ${cls} me-1" style="font-size:0.68rem"${title}>${c}</span>`;
+            }).join('');
             const choices = String(row[3] || '').split('///').map((c, ci) =>
                 `<div class="text-muted" style="font-size:0.78rem">${String.fromCharCode(65 + ci)}. ${c}</div>`
             ).join('');
@@ -1818,6 +1925,9 @@ function restoreCheckpoint() {
         const data = JSON.parse(raw);
         converterStorage.ques = data.questions || [];
         imgAssignments = new Map(data.imageAssignments || []);
+        // checkpoint ไม่ได้เก็บ subjID — ใช้ค่าที่อยู่ในช่อง ณ ตอนนี้ (อาจว่างถ้าโหลดหน้าใหม่); ถ้าว่าง
+        // computeCatSuggestions จะไม่มีหัวข้อให้เทียบ เลยข้ามการคำนวณไปเอง (ไม่ error)
+        computeCatSuggestions((document.getElementById('subjID') || {}).value || '');
         // base64 images lost — notify user
         Swal.fire({
             toast: true, icon: 'info', position: 'top-end',
