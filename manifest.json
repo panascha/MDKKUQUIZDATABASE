@@ -1,0 +1,32 @@
+{
+  "name": "MDKKU Manager Center",
+  "short_name": "MDKKUQUIZ Admin",
+  "description": "ระบบจัดการข้อสอบ KKU Medical",
+  "id": "https://panascha.github.io/MDKKUQUIZDATABASE/",
+  "start_url": "https://panascha.github.io/MDKKUQUIZDATABASE/",
+  "scope": "https://panascha.github.io/MDKKUQUIZDATABASE/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#2563eb",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icons/icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon.png",
+      "sizes": "720x720",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
