@@ -32,12 +32,12 @@ window.renderAnnouncementsList = function () {
 
         const row = `
             <tr>
-                <td class="font-monospace small align-middle">${ann.Id}</td>
-                <td class="align-middle">${ann.Text}</td>
-                <td class="align-middle">${typeBadge}</td>
-                <td class="text-center align-middle">${activeBadge}</td>
-                <td class="text-center align-middle">${ann.Order}</td>
-                <td class="text-center align-middle">
+                <td class="font-monospace small align-middle" data-label="ID">${ann.Id}</td>
+                <td class="align-middle" data-label="ข้อความประกาศ">${ann.Text}</td>
+                <td class="align-middle" data-label="ประเภทสี">${typeBadge}</td>
+                <td class="text-center align-middle" data-label="สถานะใช้งาน">${activeBadge}</td>
+                <td class="text-center align-middle" data-label="ลำดับ">${ann.Order}</td>
+                <td class="text-center align-middle" data-label="การกระทำ">
                     <button class="btn btn-sm btn-outline-primary me-1" onclick="openEditAnnouncementModal('${ann.Id}')">
                         <i class="fas fa-edit"></i>
                     </button>

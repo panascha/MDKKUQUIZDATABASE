@@ -48,13 +48,13 @@ function renderFeedbackRows(rows) {
             .map(u => `<a href="${escapeFeedbackHtml(u)}" target="_blank" rel="noopener"><img src="${escapeFeedbackHtml(transformUrl(u))}" style="width:60px;height:60px;object-fit:cover;border-radius:4px;margin:2px;" loading="lazy"></a>`)
             .join('');
         return `<tr>
-            <td class="small text-nowrap">${escapeFeedbackHtml(formatDate(r.timestamp))}</td>
-            <td><span class="badge ${typeBadge[r.type] || 'bg-secondary'}">${escapeFeedbackHtml(r.type)}</span></td>
-            <td style="white-space: pre-wrap; max-width: 380px;">${escapeFeedbackHtml(r.description)}</td>
-            <td class="small">${escapeFeedbackHtml(r.email)}</td>
-            <td class="small">${ctxHtml}</td>
-            <td>${imgsHtml}</td>
-            <td><span class="badge ${statusBadge[r.status] || 'bg-light text-dark'}">${escapeFeedbackHtml(r.status)}</span>${r.adminNote ? '<div class="small text-muted mt-1">' + escapeFeedbackHtml(r.adminNote) + '</div>' : ''}</td>
+            <td class="small text-nowrap" data-label="เวลา">${escapeFeedbackHtml(formatDate(r.timestamp))}</td>
+            <td data-label="ประเภท"><span class="badge ${typeBadge[r.type] || 'bg-secondary'}">${escapeFeedbackHtml(r.type)}</span></td>
+            <td style="white-space: pre-wrap; max-width: 380px;" data-label="รายละเอียด">${escapeFeedbackHtml(r.description)}</td>
+            <td class="small" data-label="อีเมล">${escapeFeedbackHtml(r.email)}</td>
+            <td class="small" data-label="Context">${ctxHtml}</td>
+            <td data-label="รูป">${imgsHtml}</td>
+            <td data-label="สถานะ"><span class="badge ${statusBadge[r.status] || 'bg-light text-dark'}">${escapeFeedbackHtml(r.status)}</span>${r.adminNote ? '<div class="small text-muted mt-1">' + escapeFeedbackHtml(r.adminNote) + '</div>' : ''}</td>
         </tr>`;
     }).join('');
 }

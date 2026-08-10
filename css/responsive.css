@@ -24,12 +24,10 @@
 
         /* --- Mobile Responsive Table (Card View) --- */
         /* --- โหมดการ์ด (Card View Mode) --- */
-        /* ทำงานเมื่อตารางมีคลาส .view-as-card หรือเมื่ออยู่ในมือถืออัตโนมัติ */
-        @media (max-width: 767.98px) {
-            .table-responsive table {
-                display: block !important;
-            }
-        }
+        /* ทำงานเมื่อตารางมีคลาส .view-as-card เท่านั้น (structure.css:180 ประกาศ display:block!important ไว้แล้ว
+           สำหรับ .view-as-card เอง — เดิมมี rule ซ้อนที่กว้างเกินไปตรงนี้: บังคับทุก <table> ใน .table-responsive
+           เป็น display:block แม้ไม่มีคลาส .view-as-card ทำให้ thead/tbody/tr/td เหลือ display table-* เดิม
+           แล้วพังบนตารางธรรมดาที่ไม่ได้เป็น card-view — ลบออก ไม่ต้องมี rule ทดแทนเพราะ structure.css จัดการอยู่แล้ว) */
 
         .view-as-card thead {
             display: none !important;
@@ -75,14 +73,15 @@
             text-transform: uppercase;
         }
 
-        /* โจทย์ (Question) */
-        .view-as-card td:nth-child(3) {
+        /* โจทย์ (Question) — ผูกกับ data-label แทนตำแหน่งคอลัมน์ เพราะตารางอื่น (prior-audit,
+           announcements, ai-models, feedback) คอลัมน์ที่ 3 ไม่ใช่ Question */
+        .view-as-card td[data-label="Question"] {
             display: block !important;
             background-color: #f8faff;
             border-left: 5px solid var(--primary-color) !important;
         }
 
-        .view-as-card td:nth-child(3)::before {
+        .view-as-card td[data-label="Question"]::before {
             display: block;
             margin-bottom: 8px;
         }
@@ -102,6 +101,12 @@
 
         .view-as-card td:last-child::before {
             display: none;
+        }
+
+        /* คอลัมน์สุดท้ายปกติคือปุ่ม Action (ไม่มี data-label หรือไม่มีความหมายให้แสดง label)
+           แต่ตาราง Feedback คอลัมน์สุดท้ายคือ "สถานะ" ซึ่งเป็นข้อมูลจริง ไม่ใช่ปุ่ม — เปิด label กลับเฉพาะจุดนี้ */
+        .view-as-card td[data-label="สถานะ"]:last-child::before {
+            display: inline;
         }
 
         .view-as-card td:last-child .btn {
@@ -198,5 +203,33 @@
 
     /* make card action buttons full-width */
     .view-as-card td:last-child .btn { width: 100%; margin-bottom: 6px; }
+
+    /* Edit-question modal (item 3): category rows are 3 <select> elements
+       side-by-side with a fixed flex ratio and no wrap/min-width guard —
+       each select's intrinsic content width (long Thai category names)
+       forces the row wider than the phone screen, pushing the whole
+       modal-body into horizontal scroll. Stack them on narrow screens. */
+    .category-row {
+        flex-wrap: wrap;
+    }
+    .category-row select {
+        flex: 1 1 100%;
+        min-width: 0;
+    }
+
+    /* Same issue for choice rows: radio + text input + action buttons in
+       one unwrapped flex row. Let the text input shrink/wrap instead of
+       forcing the row (and modal) wider than the viewport. */
+    .choice-input-group {
+        flex-wrap: wrap;
+    }
+    .choice-input-group .choice-text-input {
+        flex: 1 1 180px;
+        min-width: 0;
+    }
+
+    #editQuestionModal .modal-body {
+        overflow-x: hidden;
+    }
 }
         }

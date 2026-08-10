@@ -200,20 +200,20 @@ function renderPriorAuditTable() {
         const priorBadges = (s.priorGroups || []).map(g => _priorAuditBadge(g, 'prior', s)).join('');
 
         return `<tr id="prior-audit-row-${_convEsc(s.subjectId)}">
-            <td><strong>${_convEsc(s.subjectName)}</strong><br><span class="small text-muted">${_convEsc(s.subjectId)}</span></td>
-            <td>
+            <td data-label="วิชา"><strong>${_convEsc(s.subjectName)}</strong><br><span class="small text-muted">${_convEsc(s.subjectId)}</span></td>
+            <td data-label="รุ่นล่าสุด">
               <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-1 me-1 mb-1">รุ่น ${_convEsc(String(s.latestYear))}</span>
               ${latestBadges}
             </td>
-            <td>
+            <td data-label="รุ่นก่อนหน้า">
               ${s.priorYearExists
                 ? `<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill px-2 py-1 me-1 mb-1">รุ่น ${_convEsc(String(s.priorYear))}</span>${priorBadges}`
                 : `<span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2 py-1">ไม่พบรุ่น ${_convEsc(String(s.priorYear))}</span>`
               }
             </td>
-            <td class="small text-muted">${_convEsc((s.years || []).join(', '))}</td>
-            <td class="text-center">${_priorAuditStatusBadge(s)}</td>
-            <td class="text-end">${_priorAuditActions(s)}</td>
+            <td class="small text-muted" data-label="รุ่นที่มี">${_convEsc((s.years || []).join(', '))}</td>
+            <td class="text-center" data-label="สถานะ">${_priorAuditStatusBadge(s)}</td>
+            <td class="text-end" data-label="การดำเนินการ">${_priorAuditActions(s)}</td>
         </tr>`;
     }).join('');
 

@@ -47,7 +47,7 @@
     <!-- ==================================================================== -->
     <div class="border-right" id="sidebar-wrapper">
         <div class="sidebar-heading">
-            <i class="fas fa-brain"></i> MDKKUQUIZ
+            <img src="icons/icon-blue.png" alt="" style="height:1.6em; width:auto; vertical-align:-0.3em; margin-right:0.3em;"> MDKKUQUIZ
             <!-- ปุ่มปิด Sidebar สำหรับ Mobile -->
             <a href="#" id="sidebar-close-btn" class="d-md-none" aria-label="Close Sidebar">
                 <i class="fas fa-times"></i>
@@ -106,7 +106,7 @@
         </div>
 
         <div
-            style="position: absolute; bottom: 20px; width: 100%; text-align: center; color: rgba(255,255,255,0.6); font-size: 0.9rem;">
+            style="margin-top: auto; padding: 20px 0; width: 100%; text-align: center; color: rgba(255,255,255,0.6); font-size: 0.9rem;">
             <div id="user-status-display">Guest User</div>
         </div>
     </div>
@@ -238,7 +238,7 @@
                         </div>
 
                         <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0">
+                            <table class="table table-hover align-middle mb-0" data-mobile-card="true">
                                 <thead class="bg-light">
                                     <tr>
                                         <th>วิชา</th>
@@ -1007,7 +1007,7 @@
                     </div>
                     <div class="card-body">
                         <div class="table-responsive">
-                            <table class="table table-bordered table-striped" style="width:100%" id="announcementsTable">
+                            <table class="table table-bordered table-striped" style="width:100%" id="announcementsTable" data-mobile-card="true">
                                 <thead class="table-light">
                                     <tr>
                                         <th style="width: 100px;">ID</th>
@@ -1040,7 +1040,7 @@
                             v1 อ่านอย่างเดียว — แก้คอลัมน์ Status (New/Ack/Done/Rejected) และ AdminNote ในชีต
                             <b>Feedback</b> ของ Google Sheet โดยตรง</p>
                         <div class="table-responsive">
-                            <table class="table table-bordered table-striped align-middle" style="width:100%" id="feedbackTable">
+                            <table class="table table-bordered table-striped align-middle" style="width:100%" id="feedbackTable" data-mobile-card="true">
                                 <thead class="table-light">
                                     <tr>
                                         <th style="width: 140px;">เวลา</th>
@@ -1165,7 +1165,7 @@
                         </div>
                         <div id="ai-models-status" class="small text-muted mb-2">กำลังโหลด…</div>
                         <div class="table-responsive">
-                            <table class="table table-striped table-hover align-middle">
+                            <table class="table table-striped table-hover align-middle" id="aiModelsTable" data-mobile-card="true">
                                 <thead>
                                     <tr>
                                         <th>Model</th>

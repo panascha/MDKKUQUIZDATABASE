@@ -298,7 +298,7 @@
             .pdf-viewer-panel {
                 flex: none;
                 max-width: 100%;
-                max-height: 40vh;
+                max-height: 65vh;
                 position: static;
             }
             .converter-split .converter-cards-container {

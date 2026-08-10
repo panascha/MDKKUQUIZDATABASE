@@ -19,12 +19,15 @@ function updateMobileView() {
 
 function applyMobileTableViews() {
     document.querySelectorAll('.content-section:not(.hidden) table').forEach(function (tbl) {
-        if (!tbl.id) return;
-        if ($.fn && $.fn.DataTable && $.fn.DataTable.isDataTable('#' + tbl.id)) {
+        if (tbl.id && $.fn && $.fn.DataTable && $.fn.DataTable.isDataTable('#' + tbl.id)) {
             var $tbl = $('#' + tbl.id);
             if (!$tbl.hasClass('view-as-card')) {
                 try { setTableView(tbl.id, 'card', null); } catch (e) { /* ignore */ }
             }
+        } else if (tbl.hasAttribute('data-mobile-card')) {
+            // ตารางธรรมดา (ไม่ใช่ DataTable) ที่ opt-in ไว้ — แค่ติดคลาส .view-as-card พอ
+            // ไม่ต้องมีปุ่มสลับมุมมองแบบ DataTables เพราะเป็นการ์ดเฉพาะบนมือถือเท่านั้น
+            tbl.classList.add('view-as-card');
         }
     });
 }
@@ -576,6 +579,10 @@ function showSection(sectionId) {
 
         if ($(window).width() < 768) {
             $("#wrapper").removeClass("toggled");
+            // ตารางบางส่วน (logsTable เป็น DataTable ที่สร้างแบบ lazy, ตารางธรรมดาอื่นๆ) เพิ่งถูก
+            // render/init ในบล็อกด้านบน — updateMobileView() เดิมทำงานแค่ตอน DOM ready + resize
+            // เท่านั้น จึงพลาดตารางที่โผล่มาทีหลังจากการสลับ section บนมือถือ
+            applyMobileTableViews();
         }
     }
 

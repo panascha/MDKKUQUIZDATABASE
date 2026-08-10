@@ -301,9 +301,10 @@ function initLogsTable() {
                 {
                     data: 'Timestamp',
                     width: '15%',
-                    render: function (data) { return formatDate(data); }
+                    render: function (data) { return formatDate(data); },
+                    createdCell: (td) => $(td).attr('data-label', 'เวลา')
                 },
-                { data: 'User', width: '10%' },
+                { data: 'User', width: '10%', createdCell: (td) => $(td).attr('data-label', 'ผู้ใช้งาน') },
                 {
                     data: 'ActionType',
                     width: '10%',
@@ -314,12 +315,14 @@ function initLogsTable() {
                         if (upper.includes('DELETE') || upper.includes('REJECT')) badge = 'bg-danger';
                         if (upper.includes('ADD') || upper.includes('IMPORT') || upper.includes('REGISTER')) badge = 'bg-success';
                         return `<span class="badge ${badge}">${data}</span>`;
-                    }
+                    },
+                    createdCell: (td) => $(td).attr('data-label', 'การกระทำ')
                 },
-                { data: 'TargetID', width: '15%' },
+                { data: 'TargetID', width: '15%', createdCell: (td) => $(td).attr('data-label', 'เป้าหมาย (ID)') },
                 {
                     data: 'Details',
-                    width: '35%'
+                    width: '35%',
+                    createdCell: (td) => $(td).attr('data-label', 'รายละเอียด')
                 },
                 {
                     // ปุ่มดูความเปลี่ยนแปลง

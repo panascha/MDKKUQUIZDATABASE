@@ -2,7 +2,7 @@
         /* 4.2 Sidebar Styles */
         /* -------------------------------------------------------------------- */
         #sidebar-wrapper {
-            min-height: 100vh;
+            height: 100vh;
             width: var(--sidebar-width);
             position: fixed;
             z-index: 1050;
@@ -77,6 +77,9 @@
 
         #sidebar-wrapper .list-group {
             width: var(--sidebar-width);
+            flex: 1 1 auto;
+            overflow-y: auto;
+            min-height: 0;
         }
 
         #sidebar-wrapper .list-group-item {
@@ -118,7 +121,13 @@
         /* 4.3 Page Content & Topbar Styles */
         /* -------------------------------------------------------------------- */
         #page-content-wrapper {
-            min-width: 100vw;
+            /* min-width was 100vw — on mobile, vw is the layout viewport (address bar
+               hidden) which can exceed the current visible width, forcing a reflow/
+               repaint every time the address bar shows/hides during scroll (item 5:
+               "content disappears, only background left"). #sidebar-wrapper is
+               position:fixed so it's out of flow — this is the only flex child of
+               #wrapper, so 100% already fills the row without the vw repaint risk. */
+            min-width: 100%;
             transition: margin .25s ease-out;
             padding-left: 0;
             margin-left: 0;
@@ -126,7 +135,7 @@
 
         /* เมื่อถูก toggle บน Mobile (Sidebar เปิด) เนื้อหาไม่ต้องขยับ */
         #wrapper.toggled #page-content-wrapper {
-            min-width: 100vw;
+            min-width: 100%;
             margin-left: 0;
         }
 

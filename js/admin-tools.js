@@ -176,11 +176,11 @@ function renderAiModelsTable() {
         const rpdVal = (m.rpd === 0 || m.rpd) ? String(m.rpd) : '';
         const prioVal = (m.priority === 0 || m.priority) ? String(m.priority) : '';
         html += `<tr class="${needAttn ? 'table-warning' : ''}">
-            <td class="fw-bold">${escapeHtml(String(m.model))} ${flags.join('')}</td>
-            <td><input type="number" min="0" step="1" class="form-control form-control-sm ai-model-rpd" data-model="${escapeHtml(String(m.model))}" value="${escapeHtml(rpdVal)}"></td>
-            <td><input type="number" step="1" class="form-control form-control-sm ai-model-prio" value="${escapeHtml(prioVal)}"></td>
-            <td>${escapeHtml(String(m.status))}</td>
-            <td class="small text-muted">${escapeHtml(String(m.notes || ''))}</td>
+            <td class="fw-bold" data-label="Model">${escapeHtml(String(m.model))} ${flags.join('')}</td>
+            <td data-label="RPD Limit"><input type="number" min="0" step="1" class="form-control form-control-sm ai-model-rpd" data-model="${escapeHtml(String(m.model))}" value="${escapeHtml(rpdVal)}"></td>
+            <td data-label="Priority"><input type="number" step="1" class="form-control form-control-sm ai-model-prio" value="${escapeHtml(prioVal)}"></td>
+            <td data-label="Status">${escapeHtml(String(m.status))}</td>
+            <td class="small text-muted" data-label="Notes">${escapeHtml(String(m.notes || ''))}</td>
             <td><button class="btn btn-sm btn-primary ai-model-save-btn" onclick="saveModelRpd(this)"><i class="fas fa-save"></i></button></td>
         </tr>`;
     });
