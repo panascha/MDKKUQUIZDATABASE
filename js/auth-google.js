@@ -65,10 +65,14 @@ async function resumeSharedGoogleSession() {
             applyGoogleSessionDb(res.user, token);
             console.log('🔐 Google session (ร่วมกับ MDKKUQUIZ) กู้คืนสำเร็จ: ' + res.user.displayName + ' [' + res.user.role + ']');
             promptStudentIdDb(res.user);
-        } else {
+        } else if (res.result === 'error' &&
+                   (res.message === 'session_expired' || res.message === 'token_expired' || res.message === 'Session หมดอายุ กรุณาล็อกอินใหม่')) {
             // token หมดอายุ/ถูกเพิกถอน — ล้างทิ้งทั้งสองแอปจะได้ไม่ยิง token ตายซ้ำ
             localStorage.removeItem(SHARED_TOKEN_KEY);
             if (sessionToken === token) sessionToken = '';
+        } else {
+            // transient error (เครือข่าย/overload) — เก็บ token ไว้ลองใหม่
+            console.warn('verifySession transient error, keeping token:', res && res.message);
         }
     } catch (e) {
         console.warn('Google session resume ล้มเหลว (เครือข่าย?):', e);

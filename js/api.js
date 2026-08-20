@@ -129,9 +129,9 @@ async function sendWithRetry(payload, retries = 3, signal = null) {
         }
 
         if (resJson && resJson.result === 'error' &&
-            (resJson.message === 'token_expired' ||
-                resJson.message === 'Session หมดอายุ กรุณาล็อกอินใหม่' ||
-                (typeof resJson.message === 'string' && resJson.message.indexOf('หมดอายุ') !== -1))) {
+            (resJson.message === 'session_expired' ||
+             resJson.message === 'token_expired' ||
+             resJson.message === 'Session หมดอายุ กรุณาล็อกอินใหม่')) {
             if (typeof window.logoutEditModeSilent === 'function') {
                 window.logoutEditModeSilent();
             }
