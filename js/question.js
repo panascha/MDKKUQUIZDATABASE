@@ -32,7 +32,7 @@ function showQuestionDetail(id) {
             });
         }
         $('#modal-q-choices').html(choiceHtml);
-        $('#modal-q-explain').text(q.explain || '-');
+        $('#modal-q-explain').html(q.explain ? window.renderMarkdownSafe(q.explain) : '-');
 
         $('#btn-modal-report').off('click').on('click', function () {
             $('#questionDetailModal').modal('hide');
@@ -40,6 +40,7 @@ function showQuestionDetail(id) {
         });
 
         $('#questionDetailModal').modal('show');
+        window.renderAllMath($('#modal-q-explain'));
         // ... (จบโค้ด showQuestionDetail เดิม) ...
     }
 

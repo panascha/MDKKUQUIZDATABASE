@@ -114,6 +114,162 @@ window.parseExplain = function (explainRaw) {
     };
 };
 
+
+// ── Explanation rendering helpers (ยกมาจาก MDKKUQUIZREAL/js/quiz-render.js — ให้แสดงผลเหมือนฝั่งนักศึกษา) ──
+
+// เรนเดอร์สูตรคณิตด้วย KaTeX เฉพาะใน element ที่ระบุ (ไม่เดินทั้ง document.body
+// เพราะตาราง DataTables/ข้อมูลดิบฝั่ง admin ต้องเห็นค่าที่เก็บจริง ไม่ใช่สูตรที่ถูกแปลง)
+window.renderAllMath = function (root) {
+    if (typeof renderMathInElement !== 'function') return;
+    const el = (root && root.jquery) ? root[0] : (root || document.body);
+    if (!el) return;
+    renderMathInElement(el, {
+        delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '$', right: '$', display: false }
+        ],
+        throwOnError: false
+    });
+};
+
+// แปลง Markdown เป็น HTML แบบปลอดภัย (whitelist tags, ไม่มี attribute ใดๆ)
+window.renderMarkdownSafe = function (mdText) {
+    if (mdText == null) return '';
+    var text = String(mdText).replace(/\r\n/g, '\n');
+
+    var escapeHtml = function (s) {
+        return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    };
+
+    var codeStore = [];
+    var mathStore = [];
+    var htmlStore = [];
+
+    text = text.replace(/```[\w-]*\n?([\s\S]*?)```/g, function (_m, code) {
+        codeStore.push({ block: true, code: code.replace(/\n$/, '') });
+        return '\u0000C' + (codeStore.length - 1) + '\u0000';
+    });
+    text = text.replace(/`([^`\n]+)`/g, function (_m, code) {
+        codeStore.push({ block: false, code: code });
+        return '\u0000C' + (codeStore.length - 1) + '\u0000';
+    });
+    // เก็บสูตรทั้ง delimiter ไว้ — KaTeX (renderAllMath) จะอ่านจาก textContent หลัง insert
+    text = text.replace(/\$\$[\s\S]+?\$\$/g, function (m) {
+        mathStore.push(m);
+        return '\u0000M' + (mathStore.length - 1) + '\u0000';
+    });
+    text = text.replace(/\$[^$\n]+?\$/g, function (m) {
+        mathStore.push(m);
+        return '\u0000M' + (mathStore.length - 1) + '\u0000';
+    });
+
+    // เก็บ legacy HTML tags (b/i/br/u/sup/sub/span) — DB มี tag จริงปนมากับคำอธิบาย
+    // เก็บเฉพาะชื่อ tag ทิ้ง attribute ทั้งหมด (กัน onclick/onerror ที่มากับข้อความ AI)
+    text = text.replace(/<(\/?)(b|i|br|u|sup|sub|span)\b[^>]*>/gi, function (_m, slash, tag) {
+        htmlStore.push('<' + slash + tag.toLowerCase() + '>');
+        return "___HTML_TAG_" + (htmlStore.length - 1) + "___";
+    });
+
+    text = escapeHtml(text);
+
+    text = text.replace(/___HTML_TAG_(\d+)___/g, function (_m, n) {
+        return htmlStore[+n];
+    });
+
+    var inlineMd = function (s) {
+        return s
+            .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+            .replace(/(^|[^*\w])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>')
+            .replace(/(^|\s)_([^_\n]+)_/g, '$1<em>$2</em>')
+            .replace(/~~([^~]+)~~/g, '<del>$1</del>');
+    };
+
+    var lines = text.split('\n');
+    var out = [];
+    var para = [];
+    var flushPara = function () {
+        if (para.length) out.push('<p>' + inlineMd(para.join('<br>')) + '</p>');
+        para = [];
+    };
+
+    var i = 0;
+    while (i < lines.length) {
+        var trimmed = lines[i].trim();
+
+        if (!trimmed) { flushPara(); i++; continue; }
+
+        // code block ที่อยู่บรรทัดเดี่ยว — วางนอก <p> กัน nesting เพี้ยน
+        var soloCode = trimmed.match(/^\u0000C(\d+)\u0000$/);
+        if (soloCode && codeStore[+soloCode[1]].block) { flushPara(); out.push(trimmed); i++; continue; }
+
+        if (/^#{1,3}\s+/.test(trimmed)) {
+            flushPara();
+            var tag = trimmed.match(/^(#{1,3})/)[1].length >= 3 ? 'h5' : 'h4';
+            out.push('<' + tag + '>' + inlineMd(trimmed.replace(/^#{1,3}\s+/, '')) + '</' + tag + '>');
+            i++; continue;
+        }
+        if (/^---+$/.test(trimmed)) { flushPara(); out.push('<hr>'); i++; continue; }
+        if (/^&gt;\s?/.test(trimmed)) {
+            flushPara();
+            var bq = [];
+            while (i < lines.length && /^&gt;\s?/.test(lines[i].trim())) {
+                bq.push(lines[i].trim().replace(/^&gt;\s?/, ''));
+                i++;
+            }
+            out.push('<blockquote>' + inlineMd(bq.join('<br>')) + '</blockquote>');
+            continue;
+        }
+        if (/^[-*]\s+/.test(trimmed) || /^\d+[.)]\s+/.test(trimmed)) {
+            flushPara();
+            var ordered = /^\d+[.)]\s+/.test(trimmed);
+            var itemRe = ordered ? /^\d+[.)]\s+/ : /^[-*]\s+/;
+            var items = [];
+            while (i < lines.length && itemRe.test(lines[i].trim())) {
+                items.push('<li>' + inlineMd(lines[i].trim().replace(itemRe, '')) + '</li>');
+                i++;
+            }
+            out.push(ordered ? '<ol>' + items.join('') + '</ol>' : '<ul>' + items.join('') + '</ul>');
+            continue;
+        }
+        if (/^\|.*\|$/.test(trimmed)) {
+            flushPara();
+            var rows = [];
+            while (i < lines.length && /^\|.*\|$/.test(lines[i].trim())) {
+                rows.push(lines[i].trim());
+                i++;
+            }
+            var hasSep = rows.length > 1 && /^\|[\s:|-]+\|$/.test(rows[1]);
+            var tableHtml = '<table>';
+            rows.forEach(function (row, idx) {
+                if (hasSep && idx === 1) return;
+                var cellTag = (hasSep && idx === 0) ? 'th' : 'td';
+                tableHtml += '<tr>' + row.slice(1, -1).split('|').map(function (c) {
+                    return '<' + cellTag + '>' + inlineMd(c.trim()) + '</' + cellTag + '>';
+                }).join('') + '</tr>';
+            });
+            out.push(tableHtml + '</table>');
+            continue;
+        }
+
+        para.push(trimmed);
+        i++;
+    }
+    flushPara();
+
+    var html = out.join('');
+    html = html.replace(/\u0000C(\d+)\u0000/g, function (_m, n) {
+        var c = codeStore[+n];
+        return c.block
+            ? '<pre><code>' + escapeHtml(c.code) + '</code></pre>'
+            : '<code>' + escapeHtml(c.code) + '</code>';
+    });
+    // escape entities ใน math ด้วย — textContent ใน DOM จะกลับเป็นอักขระจริงให้ KaTeX เอง
+    html = html.replace(/\u0000M(\d+)\u0000/g, function (_m, n) {
+        return escapeHtml(mathStore[+n]);
+    });
+    return html;
+};
+
 window.serializeExplain = function (text, mediaArray) {
     const cleanText = (text || "").trim();
     const cleanMedia = (mediaArray || []).filter(s => s && s.trim() !== "");

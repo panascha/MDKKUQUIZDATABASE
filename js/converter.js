@@ -774,18 +774,19 @@ function renderPreview() {
                 `<div class="text-muted" style="font-size:0.78rem">${String.fromCharCode(65 + ci)}. ${c}</div>`
             ).join('');
 
-            // คำอธิบาย (row[5]) — ตัดที่ ~200 ตัวอักษร + ปุ่มดูเพิ่ม, escape กัน HTML แตก
+            // คำอธิบาย (row[5]) — ตัดข้อความดิบที่ ~200 ตัวอักษรก่อน แล้วค่อย render Markdown
+            // (ตัดหลัง render จะทำให้ HTML แหว่ง) — short/full เป็น <div> เพราะ Markdown ให้ block element
             const explainRaw = String(row[5] || '').trim();
             let explainHtml = '';
             if (explainRaw) {
                 const CAP = 200;
                 explainHtml = explainRaw.length > CAP
                     ? `<div class="conv-explain text-muted">
-                         <span class="conv-explain-short">${_convEsc(explainRaw.substring(0, CAP))}…</span>
-                         <span class="conv-explain-full d-none">${_convEsc(explainRaw)}</span>
+                         <div class="conv-explain-short">${window.renderMarkdownSafe(explainRaw.substring(0, CAP) + '…')}</div>
+                         <div class="conv-explain-full d-none">${window.renderMarkdownSafe(explainRaw)}</div>
                          <a href="javascript:void(0)" class="conv-explain-toggle" onclick="event.stopPropagation();toggleConvExplain(this)">ดูเพิ่ม</a>
                        </div>`
-                    : `<div class="conv-explain text-muted">${_convEsc(explainRaw)}</div>`;
+                    : `<div class="conv-explain text-muted">${window.renderMarkdownSafe(explainRaw)}</div>`;
             }
 
             let imgArea = '';
@@ -856,6 +857,7 @@ function renderPreview() {
     }).join('');
 
     body.innerHTML = cardsHtml || '<p class="text-muted small text-center p-3 mb-0">ยังไม่มีข้อมูล</p>';
+    window.renderAllMath(body);
     _convCardSearch = searchIndex;
 
     $('#count-all').text(counts.ALL);

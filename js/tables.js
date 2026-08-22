@@ -361,6 +361,8 @@ function viewDiff(oldValEnc, newValEnc) {
         // 3. Render แต่ละฝั่ง
         $('#diff-container-old').html(renderDiffPanel(oldObj, newObj));
         $('#diff-container-new').html(renderDiffPanel(newObj, oldObj));
+        window.renderAllMath($('#diff-container-old'));
+        window.renderAllMath($('#diff-container-new'));
 
         $('#diffModal').modal('show');
     }
@@ -455,7 +457,7 @@ function renderDiffPanel(data, compare) {
 
         html += `<div class="alert alert-secondary ${explainClass}">
                 <strong>Explanation:</strong> 
-                <span class="d-block mt-1">${escapeHtml(data.explain) || '-'}</span>
+                <span class="d-block mt-1">${data.explain ? window.renderMarkdownSafe(data.explain) : '-'}</span>
              </div>`;
 
         return html;

@@ -53,7 +53,7 @@ function renderReportList() {
             }
 
             let currentAns = dbQuestion.answer || 'ไม่พบข้อมูลใน DB';
-            let explanation = dbQuestion.explain || '(ไม่มีคำอธิบาย)';
+            let explanation = dbQuestion.explain ? window.renderMarkdownSafe(dbQuestion.explain) : '(ไม่มีคำอธิบาย)';
             let choicesStr = r['Choices'] ? r['Choices'].split('\n').map(line => {
                 const trimmedLine = line.trim();
                 // ถ้าในบรรทัดมีโค้ด SVG ให้พยายาม Render ออกมา
@@ -109,7 +109,7 @@ function renderReportList() {
                                     <strong><i class="fas fa-check-circle"></i> Current Answer:</strong> ${currentAns}
                                 </div>
                             </div>
-                            <p class="mt-2 small text-muted"><strong>Explanation:</strong> ${explanation}</p>
+                            <div class="mt-2 small text-muted"><strong>Explanation:</strong> ${explanation}</div>
                             <p class="small text-muted mb-0">Reported by: ${r['From']}</p>
                         </div>
     
@@ -147,6 +147,7 @@ function renderReportList() {
             </div>`;
             container.append(card);
         });
+        window.renderAllMath(container);
         // ... (จบโค้ด renderReportList เดิม) ...
     }
 
