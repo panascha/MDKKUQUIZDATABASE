@@ -74,6 +74,9 @@ async function saveQuestionChanges() {
     const problemText = $('#edit-problem').val().trim();
     const explainText = $('#edit-explanation').val().trim();
     const categories = JSON.parse($('#edit-category-hidden').val() || "[]");
+    // modal ถูกปิดกลางฟังก์ชัน (บรรทัด ~152) และ hidden.bs.modal จะล้าง data ทิ้ง
+    // ต้อง snapshot ตรงนี้ ไม่งั้นตอนอ่านใน STEP 3.4 จะได้ undefined แล้ว report ค้างไม่ถูก resolve
+    const reportData = $('#editQuestionModal').data('reportData');
 
     // Snapshot ข้อมูลภาพโจทย์ (Main)
     const snapshotPendingMain = [...pendingMainImages];
@@ -293,7 +296,7 @@ async function saveQuestionChanges() {
             });
 
             // 3.4 จัดการ Report (ถ้ามี) — อัปเดตทุก report ของ questionId นี้
-            const reportData = $('#editQuestionModal').data('reportData');
+            // ใช้ค่าที่ snapshot ไว้ตอนต้นฟังก์ชัน — ตอนนี้ modal ปิดและ data ถูกล้างไปแล้ว
             if (reportData) {
                 const targetQid = reportData.questionId || qId;
                 const adminNote = reportData.adminNote || 'แก้ไขเรียบร้อยแล้ว';

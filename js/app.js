@@ -232,6 +232,9 @@ $(document).ready(function () {
         syncMainImageGallery();
         syncExplainMediaGallery();
         resetMultiAIPanel();
+        // กัน reportData ของข้อเก่าค้างไปโผล่ใน verify prompt ของข้อถัดไป
+        // (save path snapshot ค่านี้ไว้ตั้งแต่ต้นฟังก์ชันแล้ว จึงล้างตรงนี้ได้)
+        $('#editQuestionModal').removeData('reportData');
     });
 
     // --- 2.1 Image Gallery Controls Binding (Edit Modal) ---
