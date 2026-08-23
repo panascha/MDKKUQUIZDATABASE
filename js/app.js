@@ -928,7 +928,7 @@ function updateDashboard() {
         // อัปเดต Badge ที่ Sidebar ด้วย
         $('#sidebar-report-count').text(pendingCount).toggle(pendingCount > 0);
 
-        $('#stat-resolved-q').text((globalData.report || []).filter(r => String(r.Done).toUpperCase() === 'TRUE').length);
+        $('#stat-resolved-q').text((globalData.report || []).filter(r => !window.isPendingReport(r)).length);
         const requireImgCount = (globalData.questions || []).filter(q =>
             (q.img && q.img.toLowerCase().includes("require_img")) ||
             (q.choices && q.choices.toLowerCase().includes("require_img"))
