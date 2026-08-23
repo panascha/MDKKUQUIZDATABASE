@@ -1633,3 +1633,126 @@ function syncExplainMediaToHiddenInput() {
     const finalResult = Array.from(mediaSet).join('///');
     $('#edit-explain-media').val(finalResult);
 }
+
+/**
+ * Multi-AI verify for edit modal (2-Model + Arbiter) — button in Explanation tab.
+ * Collects form, POSTs verifyQuestionBatch [qData], shows result card + "Apply to Form" button.
+ */
+async function askMultiAIForEditModal() {
+    const qid = $('#edit-q-id').val();
+    const problem = $('#edit-problem').val().trim();
+
+    // สร้าง choices และหา index ของเฉลยใน pass เดียวกัน — กัน index เพี้ยนเมื่อมีแถวรูปภาพ
+    let choices = [];
+    let rowIndexes = [];   // map choices[i] → ลำดับแถวจริงใน DOM (ใช้ตอน Apply to Form)
+    let correctAnswer = -1;
+    $('#dynamic-choices-container .choice-item').each(function (domIdx) {
+        const raw = $(this).find('.choice-text-input').val().trim();
+        if (!raw) return;
+        if ($(this).find('.choice-radio').is(':checked')) correctAnswer = choices.length;
+        // ตัดรูป Drive/SVG ออกก่อนส่งเข้า prompt (invariant เดียวกับ buildExplainPrompt)
+        const isMedia = raw.startsWith('<svg') || raw.includes('drive.google.com') ||
+                        raw.startsWith('http') || raw === '[IMAGE_PENDING]';
+        choices.push(isMedia ? '[รูปภาพ]' : raw);
+        rowIndexes.push(domIdx);
+    });
+
+    if (!problem || choices.length === 0) {
+        Swal.fire('ข้อมูลไม่ครบ', 'กรุณากรอกโจทย์และตัวเลือกก่อน', 'warning');
+        return;
+    }
+    if (correctAnswer < 0) {
+        Swal.fire('ยังไม่ได้เลือกเฉลย', 'กรุณาติ๊กเฉลยปัจจุบันก่อน เพื่อให้ AI เทียบกับ DB ได้', 'warning');
+        return;
+    }
+
+    const btn = $('#btn-multiverify');
+    btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i> AI กำลังตรวจสอบ…');
+
+    const qData = { qid, questionText: problem, choices, correctAnswer };
+    const reportData = $('#editQuestionModal').data('reportData');
+    if (reportData) {
+        qData.suggestedAnswer = reportData.suggestedAnswer || null;
+        qData.reportDetail = reportData.reportDetail || null;
+    }
+
+    try {
+        const res = await sendWithRetry({
+            action: 'verifyQuestionBatch',
+            questions: [qData],
+            username: currentUser.username,
+            adminPass: adminPass,
+            sessionToken: (typeof sessionToken === 'string' && sessionToken) || undefined
+        }, 1);
+
+        if (res.result !== 'success' || !res.verified || res.verified.length === 0) {
+            throw new Error(res.message || 'Verify failed');
+        }
+
+        const v = res.verified[0];
+        renderMultiAIResult(v, choices, rowIndexes);
+    } catch (err) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Verify ล้มเหลว',
+            text: err.message
+        });
+    } finally {
+        btn.prop('disabled', false).html('🤖 ตรวจสอบด้วย Multi-AI (2-Model + Arbiter)');
+    }
+}
+
+function renderMultiAIResult(v, choices, rowIndexes) {
+    const confBadge = v.confidence === 'consensus-verified'
+        ? '<span class="badge bg-success">consensus-verified</span>'
+        : v.confidence === 'debate-resolved'
+            ? '<span class="badge bg-warning text-dark">debate-resolved</span>'
+            : '<span class="badge bg-info">consensus-new</span>';
+    const judgeBadge = v.judgeUsed ? `<span class="badge bg-secondary ms-1">judge: ${v.judgeModel}</span>` : '';
+    const verifiedChoiceText = choices[v.verifiedAnswer] || '?';
+    const rationale = v.rationale || '(no rationale)';
+
+    // judge อาจคืน index นอกช่วง — ปิดปุ่ม Apply แทนที่จะติ๊กผิดข้อ
+    const targetRow = rowIndexes[v.verifiedAnswer];
+    const applyBtn = (targetRow === undefined)
+        ? '<span class="text-danger small">AI คืนหมายเลขตัวเลือกนอกช่วง — ตรวจสอบเอง</span>'
+        : `<button type="button" class="btn btn-sm btn-primary" onclick="applyMultiAIToForm(${targetRow})">
+            <i class="fas fa-magic me-1"></i> Apply to Form
+        </button>`;
+
+    const html = `
+    <div class="alert alert-light border mt-3" id="multiverify-result">
+        <h6 class="fw-bold mb-2"><i class="fas fa-check-circle text-success me-1"></i> Multi-AI Verification Result</h6>
+        <div class="mb-2">
+            <strong>Verified Answer:</strong> ${v.verifiedAnswer}) ${verifiedChoiceText}
+        </div>
+        <div class="mb-2">
+            <strong>Confidence:</strong> ${confBadge} ${judgeBadge}
+        </div>
+        <div class="mb-3">
+            <strong>Rationale:</strong>
+            <pre style="white-space: pre-wrap; font-size: 0.85rem; background: #f8f9fa; padding: 8px; border-radius: 4px;">${rationale}</pre>
+        </div>
+        ${applyBtn}
+    </div>`;
+    const $existing = $('#multiverify-result');
+    if ($existing.length) $existing.replaceWith(html);
+    else $('#edit-explanation').after(html);
+}
+
+function applyMultiAIToForm(choiceIndex) {
+    $('#dynamic-choices-container .choice-item').each(function (i) {
+        $(this).find('.choice-radio').prop('checked', i === choiceIndex);
+    });
+    syncChoicesToHiddenInput();
+    renderChoicePreview($('#dynamic-choices-container .choice-item').eq(choiceIndex).find('.choice-text-input'));
+    Swal.fire({
+        icon: 'success',
+        title: 'เฉลยถูกอัปเดตแล้ว',
+        text: 'ตรวจสอบแล้วกด Save Changes เพื่อบันทึก',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 2000
+    });
+}

@@ -647,7 +647,7 @@ function finalizeDataLoading() {
         updateDashboard();
         populateFilters();
         if (!$('#sec-ai-generate').hasClass('hidden')) renderAiGeneratePanel();
-        //renderReportList();
+                //renderReportList();
 
         refreshTables(true); // true = รักษาหน้าปัจจุบันไว้
 

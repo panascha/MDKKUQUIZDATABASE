@@ -42,7 +42,7 @@ function renderAiGeneratePanel() {
     if (prev && subjects.includes(prev)) sel.val(prev);
 
     renderCatAiPanel(); // categorizer.js — card แยกหัวข้อเลคเชอร์ในหน้าเดียวกัน
-}
+    }
 
 function aiGenSetBusy(busy) {
     aiGenBusy = busy;

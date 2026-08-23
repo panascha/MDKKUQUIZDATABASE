@@ -301,7 +301,9 @@ function openEditReportModal(reportTime) {
         $('#editQuestionModal').data('reportData', {
             timestamp: r['Time'],
             questionId: rQid,
-            adminNote: note
+            adminNote: note,
+            suggestedAnswer: suggestedAnswer,
+            reportDetail: r['ReportDetail']
         });
 
         // *** จุดสำคัญ: ต้องส่ง suggestedAnswer ไปที่ openEditModal ***
