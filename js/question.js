@@ -61,6 +61,7 @@ function openEditModal(id, suggestedAnswer = null) {
 
     renderImagesUI(q.img);
     renderChoicesUI(q.choices, q.answer, suggestedAnswer);
+    resetMultiAIPanel();
 
     $('#editQuestionModal').modal('show');
 }
@@ -1666,6 +1667,7 @@ async function askMultiAIForEditModal() {
         return;
     }
 
+    const requestQid = qid;   // admin อาจสลับข้อระหว่างรอ — ใช้เทียบก่อนเรนเดอร์
     const btn = $('#btn-multiverify');
     btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i> AI กำลังตรวจสอบ…');
 
@@ -1694,9 +1696,13 @@ async function askMultiAIForEditModal() {
             throw new Error(detail);
         }
 
+        // ถ้า admin เปิดข้ออื่นไปแล้ว ผลลัพธ์นี้เป็นของข้อเก่า — ทิ้งเงียบๆ
+        if ($('#edit-q-id').val() !== requestQid) return;
+
         const v = res.verified[0];
         renderMultiAIResult(v, choices, rowIndexes);
     } catch (err) {
+        if ($('#edit-q-id').val() !== requestQid) return;
         Swal.fire({
             icon: 'error',
             title: 'Verify ล้มเหลว',
@@ -1705,6 +1711,17 @@ async function askMultiAIForEditModal() {
     } finally {
         btn.prop('disabled', false).html('🤖 ตรวจสอบด้วย Multi-AI (2-Model + Arbiter)');
     }
+}
+
+/**
+ * ล้าง transcript ของข้อก่อนหน้าออกจาก modal
+ * ใช้ .remove() ไม่ใช่ .empty() — กล่องถูก inject ใหม่ทุกครั้งที่เรนเดอร์
+ * และ stash .data('mv') ต้องถูกทิ้งไปพร้อม element ไม่งั้น Apply to Form
+ * จะยิงเฉลยของข้อเก่าใส่ข้อใหม่
+ */
+function resetMultiAIPanel() {
+    $('#multiverify-result').remove();
+    $('#btn-multiverify').prop('disabled', false).html('🤖 ตรวจสอบด้วย Multi-AI (2-Model + Arbiter)');
 }
 
 /**
@@ -1725,6 +1742,7 @@ function renderMultiAIResult(v, choices, rowIndexes) {
     };
 
     const solvers = Array.isArray(v.solvers) ? v.solvers : [];
+    const solverErrors = Array.isArray(v.solverErrors) ? v.solverErrors : [];
     // สีการ์ด: A=ฟ้า, B=ม่วง (ลำดับตาม solvers ที่ backend ส่งมา)
     const tints = [
         { bg: '#eef5ff', border: '#5b8def', label: 'Model A' },
@@ -1742,9 +1760,20 @@ function renderMultiAIResult(v, choices, rowIndexes) {
         </div>`;
     }).join('');
 
+    const failedCards = solverErrors.map(e => `
+        <div class="mb-2 p-2 rounded" style="background:#f1f3f5; border-left:4px solid #adb5bd; opacity:0.85;">
+            <div class="fw-bold small mb-1 text-muted">
+                <i class="fas fa-triangle-exclamation me-1"></i>${escapeHtml(String(e.model || '?'))} — ตอบไม่สำเร็จ
+            </div>
+            <div class="small text-muted">${escapeHtml(String(e.error || ''))}</div>
+        </div>`).join('');
+
     // tri-state: A===B คือเห็นตรงกัน แม้ judge จะทำงาน (กรณี A===B แต่ต่างจาก DB)
     let verdictBadge;
-    if (solvers.length >= 2) {
+    if (solvers.length === 1 || solverErrors.length > 0) {
+        // โมเดลเดียวตอบสำเร็จ = ไม่มีสัญญาณ consensus เลย ห้ามขึ้น badge เขียวเด็ดขาด
+        verdictBadge = '<span class="badge bg-danger">⚠️ ตรวจได้โมเดลเดียว — ยังไม่ยืนยัน</span>';
+    } else if (solvers.length >= 2) {
         verdictBadge = (solvers[0].choice === solvers[1].choice)
             ? '<span class="badge bg-success">✅ 100% Consensus</span>'
             : '<span class="badge bg-warning text-dark">⚠️ Disagreement → Escalated to Arbiter</span>';
@@ -1753,7 +1782,7 @@ function renderMultiAIResult(v, choices, rowIndexes) {
             ? '<span class="badge bg-warning text-dark">⚠️ Disagreement → Escalated to Arbiter</span>'
             : '<span class="badge bg-success">✅ 100% Consensus</span>';
     }
-    if (!v.judgeUsed) {
+    if (!v.judgeUsed && solvers.length >= 2) {
         verdictBadge += ' <span class="badge bg-secondary ms-1">ตรงกับเฉลยใน DB</span>';
     }
 
@@ -1800,6 +1829,7 @@ function renderMultiAIResult(v, choices, rowIndexes) {
         <h6 class="fw-bold mb-2"><i class="fas fa-comments text-primary me-1"></i> Multi-AI Debate Transcript</h6>
         <div class="mb-2">${verdictBadge}</div>
         ${solverCards}
+        ${failedCards}
         ${arbiterCard}
         ${legacyRationale}
         <div class="mb-2 small"><strong>Verified Answer:</strong> ${choiceLabel(v.verifiedAnswer)}</div>

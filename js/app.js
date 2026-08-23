@@ -231,6 +231,7 @@ $(document).ready(function () {
         $('#explain-media-hidden-input').val('');
         syncMainImageGallery();
         syncExplainMediaGallery();
+        resetMultiAIPanel();
     });
 
     // --- 2.1 Image Gallery Controls Binding (Edit Modal) ---
