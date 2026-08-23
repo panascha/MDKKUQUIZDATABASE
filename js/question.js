@@ -1686,7 +1686,12 @@ async function askMultiAIForEditModal() {
         }, 1);
 
         if (res.result !== 'success' || !res.verified || res.verified.length === 0) {
-            throw new Error(res.message || 'Verify failed');
+            // backend เก็บสาเหตุจริงไว้ใน errors[] (solver คืน JSON เพี้ยน, โควต้าหมด ฯลฯ)
+            // ถ้าโยนแต่ res.message operator จะเห็นแค่ 'Verify failed' ซึ่งบอกอะไรไม่ได้เลย
+            const detail = (Array.isArray(res.errors) && res.errors.length > 0 && res.errors[0].error)
+                || res.message
+                || 'Verify failed';
+            throw new Error(detail);
         }
 
         const v = res.verified[0];
