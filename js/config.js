@@ -314,6 +314,15 @@ window.compressImage = async function (base64Str, maxWidth = 400, maxHeight = 40
         });
     }
 
+// รายงานที่ยัง "ค้าง" จริง ๆ — เช็คทั้ง Done และ Status
+// (แถวเก่าที่ backend AutoResolved ไว้ก่อนแพตช์ Done=TRUE จะมี Done ว่าง จึงต้องกรอง Status ด้วย)
+window.isPendingReport = function (r) {
+        if (!r) return false;
+        const done = r.Done && String(r.Done).toUpperCase() === 'TRUE';
+        const status = String(r.Status || '').trim();
+        return !done && status !== 'AutoResolved' && status !== 'Resolved' && status !== 'Rejected';
+    }
+
 window.formatDate = function (dateString) {
         // ... (โค้ด formatDate เดิม) ...
         if (!dateString) return '';

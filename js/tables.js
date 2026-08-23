@@ -121,7 +121,7 @@ function initAdminTable() {
                 // สร้าง Set ของ questionId ที่มี Report ค้างอยู่ก่อน draw ทุกครั้ง (แทนการ .some() ต่อแถว)
                 _reportedQIds = new Set(
                     (globalData.report || [])
-                        .filter(r => !r.Done || String(r.Done).toUpperCase() === 'FALSE')
+                        .filter(r => window.isPendingReport(r))
                         .map(r => r.QuestionID)
                 );
             },

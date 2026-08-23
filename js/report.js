@@ -19,7 +19,7 @@ function renderReportList() {
         reportCopySource = [];
 
         const filterSubj = $('#report-subject-filter').val();
-        const pending = globalData.report.filter(r => !r.Done || r.Done.toString().toUpperCase() === 'FALSE');
+        const pending = globalData.report.filter(r => window.isPendingReport(r));
 
         let filteredReports = pending;
         if (filterSubj) {
@@ -278,7 +278,7 @@ async function processReport(reportTime, action) {
     }
 
 function openEditReportModal(reportTime) {
-        const pending = globalData.report.filter(r => !r.Done || r.Done.toString().toUpperCase() === 'FALSE');
+        const pending = globalData.report.filter(r => window.isPendingReport(r));
         const r = pending.find(report => report.Time.toString() === reportTime);
 
         const rQid = r['QuestionID'] || "";

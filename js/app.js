@@ -922,7 +922,7 @@ function refreshTables(keepState = false) {
 function updateDashboard() {
         // 1. อัปเดตตัวเลข Stats
         $('#stat-total-q').text(globalData.questions ? globalData.questions.length : "0");
-        const pendingCount = (globalData.report || []).filter(r => !r.Done || String(r.Done).toUpperCase() === 'FALSE').length;
+        const pendingCount = (globalData.report || []).filter(r => window.isPendingReport(r)).length;
         $('#stat-pending-q').text(pendingCount);
 
         // อัปเดต Badge ที่ Sidebar ด้วย
