@@ -1639,6 +1639,22 @@ function syncExplainMediaToHiddenInput() {
 }
 
 /**
+ * ย่อ error ดิบจาก backend ให้ operator อ่านออก
+ * solveWithModel_ ต่อ payload ดิบ 200 ตัวอักษรท้ายข้อความ ("returned non-JSON: {...")
+ * ซึ่งดัน Swal ยาวจนหาสาเหตุจริงไม่เจอ — เก็บส่วนที่บอกสาเหตุ ตัด payload ทิ้ง
+ */
+function cleanVerifyError(raw) {
+    let m = String(raw == null ? '' : raw).trim();
+    if (!m) return 'ไม่ทราบสาเหตุ — กรุณาลองใหม่อีกครั้ง';
+    if (/โควต้า|quota|\b429\b/i.test(m)) return 'โควต้า AI หมดสำหรับวันนี้ — ลองใหม่พรุ่งนี้ หรือเติม API key';
+    m = m.replace(/\s*returned non-JSON\s*:[\s\S]*$/i, ' — ตอบกลับไม่ใช่ JSON')
+         .replace(/\s*returned invalid choice\s*:[\s\S]*$/i, ' — คืนหมายเลขตัวเลือกที่ตีความไม่ได้')
+         .replace(/\s+/g, ' ')
+         .trim();
+    return m.length > 200 ? m.slice(0, 200) + '…' : m;
+}
+
+/**
  * Multi-AI verify for edit modal (2-Model + Arbiter) — button in Explanation tab.
  * Collects form, POSTs verifyQuestionBatch [qData], shows result card + "Apply to Form" button.
  */
@@ -1705,11 +1721,12 @@ async function askMultiAIForEditModal() {
         const v = res.verified[0];
         renderMultiAIResult(v, choices, rowIndexes);
     } catch (err) {
+        // guard เดิมต้องอยู่ก่อน Swal — admin สลับข้อระหว่างรอแล้ว modal ต้องไม่ถูกทับ
         if ($('#edit-q-id').val() !== requestQid) return;
         Swal.fire({
             icon: 'error',
             title: 'Verify ล้มเหลว',
-            text: err.message
+            text: cleanVerifyError(err.message)
         });
     } finally {
         btn.prop('disabled', false).html('🤖 ตรวจสอบด้วย Multi-AI (2-Model + Arbiter)');
@@ -1746,6 +1763,9 @@ function renderMultiAIResult(v, choices, rowIndexes) {
 
     const solvers = Array.isArray(v.solvers) ? v.solvers : [];
     const solverErrors = Array.isArray(v.solverErrors) ? v.solverErrors : [];
+    // arbiter ล่ม/หมดโควต้า → backend ส่งเฉลยเดิมใน DB กลับมาเป็น placeholder ไม่ใช่ผลตรวจ
+    // ต้องกันทุกจุดที่สื่อว่า "ยืนยันแล้ว": badge เขียว, การ์ด Arbiter, ปุ่ม Apply
+    const judgeFailed = v.confidence === 'judge-failed-fallback';
     // สีการ์ด: A=ฟ้า, B=ม่วง (ลำดับตาม solvers ที่ backend ส่งมา)
     const tints = [
         { bg: '#eef5ff', border: '#5b8def', label: 'Model A' },
@@ -1773,7 +1793,11 @@ function renderMultiAIResult(v, choices, rowIndexes) {
 
     // tri-state: A===B คือเห็นตรงกัน แม้ judge จะทำงาน (กรณี A===B แต่ต่างจาก DB)
     let verdictBadge;
-    if (solvers.length === 1 || solverErrors.length > 0) {
+    if (judgeFailed) {
+        // ต้องเป็นสาขาแรก — กรณี A===B แต่ต่างจาก DB แล้ว judge ล่ม จะตกเข้า solvers.length>=2
+        // แล้วขึ้น "✅ 100% Consensus" คู่กับเฉลย DB ที่โมเดลทั้งสองปฏิเสธ
+        verdictBadge = '<span class="badge bg-warning text-dark">⚠️ Arbiter ตัดสินไม่สำเร็จ — ยังไม่ยืนยัน (แสดงเฉลยเดิมใน DB)</span>';
+    } else if (solvers.length === 1 || solverErrors.length > 0) {
         // โมเดลเดียวตอบสำเร็จ = ไม่มีสัญญาณ consensus เลย ห้ามขึ้น badge เขียวเด็ดขาด
         verdictBadge = '<span class="badge bg-danger">⚠️ ตรวจได้โมเดลเดียว — ยังไม่ยืนยัน</span>';
     } else if (solvers.length >= 2) {
@@ -1785,13 +1809,24 @@ function renderMultiAIResult(v, choices, rowIndexes) {
             ? '<span class="badge bg-warning text-dark">⚠️ Disagreement → Escalated to Arbiter</span>'
             : '<span class="badge bg-success">✅ 100% Consensus</span>';
     }
-    if (!v.judgeUsed && solvers.length >= 2) {
+    // judgeFailed ก็มี judgeUsed=false + solvers 2 ตัว — แต่ "ตรงกับเฉลยใน DB" ที่นั่นเป็นเท็จ
+    if (!judgeFailed && !v.judgeUsed && solvers.length >= 2) {
         verdictBadge += ' <span class="badge bg-secondary ms-1">ตรงกับเฉลยใน DB</span>';
     }
 
-    // Arbiter card — มีเฉพาะตอน judge ทำงาน
+    // arbiter ล่ม — บอกสาเหตุตรงๆ แทนการ์ดคำตัดสินที่ไม่มีอยู่จริง
+    const judgeFailCard = judgeFailed ? `
+        <div class="mb-2 p-2 rounded" style="background:#fff4e5; border-left:4px solid #f0ad4e;">
+            <div class="fw-bold small mb-1" style="color:#a1670a;">
+                <i class="fas fa-gavel me-1"></i>Arbiter — ${escapeHtml(String(v.judgeModel || 'judge'))} ตัดสินไม่สำเร็จ
+            </div>
+            <div class="small text-muted">${escapeHtml(String(v.judgeError || 'ไม่ทราบสาเหตุ'))}</div>
+            <div class="small mt-1">เฉลยที่แสดงด้านล่างคือ<strong>เฉลยเดิมใน DB</strong> ยังไม่ผ่านการตรวจสอบ — กรุณาตัดสินเอง หรือกด Verify ใหม่</div>
+        </div>` : '';
+
+    // Arbiter card — มีเฉพาะตอน judge ตัดสินสำเร็จจริง
     let arbiterCard = '';
-    if (v.judgeUsed) {
+    if (v.judgeUsed && !judgeFailed) {
         const rawConf = String(v.judgeConfidence || v.confidence || '').toLowerCase();
         const confBadge = (rawConf === 'high')
             ? '<span class="badge bg-success">Confidence: High</span>'
@@ -1820,10 +1855,13 @@ function renderMultiAIResult(v, choices, rowIndexes) {
         : '';
 
     // judge อาจคืน index นอกช่วง — ปิดปุ่ม Apply แทนที่จะติ๊กผิดข้อ
+    // judgeFailed: targetRow มีค่าจริง (เฉลย DB อยู่ในช่วงเสมอ) เช็ค undefined อย่างเดียวไม่พอ
     const targetRow = rowIndexes[v.verifiedAnswer];
-    const applyBtn = (targetRow === undefined)
-        ? '<span class="text-danger small">AI คืนหมายเลขตัวเลือกนอกช่วง — ตรวจสอบเอง</span>'
-        : `<button type="button" class="btn btn-sm btn-primary" id="btn-apply-multiai">
+    const applyBtn = judgeFailed
+        ? '<span class="text-danger small"><i class="fas fa-triangle-exclamation me-1"></i>ยังไม่ยืนยัน — ไม่มีปุ่ม Apply กรุณาตรวจสอบเอง</span>'
+        : (targetRow === undefined)
+            ? '<span class="text-danger small">AI คืนหมายเลขตัวเลือกนอกช่วง — ตรวจสอบเอง</span>'
+            : `<button type="button" class="btn btn-sm btn-primary" id="btn-apply-multiai">
             <i class="fas fa-magic me-1"></i> Apply to Form
         </button>`;
 
@@ -1833,9 +1871,10 @@ function renderMultiAIResult(v, choices, rowIndexes) {
         <div class="mb-2">${verdictBadge}</div>
         ${solverCards}
         ${failedCards}
+        ${judgeFailCard}
         ${arbiterCard}
         ${legacyRationale}
-        <div class="mb-2 small"><strong>Verified Answer:</strong> ${choiceLabel(v.verifiedAnswer)}</div>
+        <div class="mb-2 small"><strong>${judgeFailed ? 'เฉลยเดิมใน DB (ยังไม่ยืนยัน)' : 'Verified Answer'}:</strong> ${choiceLabel(v.verifiedAnswer)}</div>
         ${applyBtn}
     </div>`;
 
