@@ -1702,53 +1702,148 @@ async function askMultiAIForEditModal() {
     }
 }
 
+/**
+ * แสดง transcript เต็มของ Multi-AI: การ์ด Model A/B, badge consensus/disagreement,
+ * การ์ด Arbiter (ถ้ามีการตัดสิน) และปุ่ม Apply to Form
+ * backend เก่าไม่ส่ง solvers/distractors/judgeConfidence — ทุกบล็อกจึงเรนเดอร์เฉพาะเมื่อมีข้อมูลจริง
+ */
 function renderMultiAIResult(v, choices, rowIndexes) {
-    const confBadge = v.confidence === 'consensus-verified'
-        ? '<span class="badge bg-success">consensus-verified</span>'
-        : v.confidence === 'debate-resolved'
-            ? '<span class="badge bg-warning text-dark">debate-resolved</span>'
-            : '<span class="badge bg-info">consensus-new</span>';
-    const judgeBadge = v.judgeUsed ? `<span class="badge bg-secondary ms-1">judge: ${v.judgeModel}</span>` : '';
-    const verifiedChoiceText = choices[v.verifiedAnswer] || '?';
-    const rationale = v.rationale || '(no rationale)';
+    const md = (t) => (typeof window.renderMarkdownSafe === 'function')
+        ? window.renderMarkdownSafe(t || '')
+        : escapeHtml(String(t == null ? '' : t));
+
+    const choiceLabel = (n) => {
+        const txt = choices[n];
+        return (txt === undefined)
+            ? `<span class="text-danger">${escapeHtml(String(n))}) (นอกช่วงตัวเลือก)</span>`
+            : `${escapeHtml(String(n))}) ${escapeHtml(txt)}`;
+    };
+
+    const solvers = Array.isArray(v.solvers) ? v.solvers : [];
+    // สีการ์ด: A=ฟ้า, B=ม่วง (ลำดับตาม solvers ที่ backend ส่งมา)
+    const tints = [
+        { bg: '#eef5ff', border: '#5b8def', label: 'Model A' },
+        { bg: '#f4eefc', border: '#8e5bd6', label: 'Model B' }
+    ];
+    const solverCards = solvers.map((s, i) => {
+        const t = tints[i] || { bg: '#f8f9fa', border: '#adb5bd', label: 'Model ' + (i + 1) };
+        return `
+        <div class="mb-2 p-2 rounded" style="background:${t.bg}; border-left:4px solid ${t.border};">
+            <div class="fw-bold small mb-1" style="color:${t.border};">
+                <i class="fas fa-robot me-1"></i>${t.label} — ${escapeHtml(String(s.model || '?'))}
+            </div>
+            <div class="small mb-1"><strong>เลือก:</strong> ${choiceLabel(s.choice)}</div>
+            <div class="mv-md small">${md(s.rationale)}</div>
+        </div>`;
+    }).join('');
+
+    // tri-state: A===B คือเห็นตรงกัน แม้ judge จะทำงาน (กรณี A===B แต่ต่างจาก DB)
+    let verdictBadge;
+    if (solvers.length >= 2) {
+        verdictBadge = (solvers[0].choice === solvers[1].choice)
+            ? '<span class="badge bg-success">✅ 100% Consensus</span>'
+            : '<span class="badge bg-warning text-dark">⚠️ Disagreement → Escalated to Arbiter</span>';
+    } else {
+        verdictBadge = v.judgeUsed
+            ? '<span class="badge bg-warning text-dark">⚠️ Disagreement → Escalated to Arbiter</span>'
+            : '<span class="badge bg-success">✅ 100% Consensus</span>';
+    }
+    if (!v.judgeUsed) {
+        verdictBadge += ' <span class="badge bg-secondary ms-1">ตรงกับเฉลยใน DB</span>';
+    }
+
+    // Arbiter card — มีเฉพาะตอน judge ทำงาน
+    let arbiterCard = '';
+    if (v.judgeUsed) {
+        const rawConf = String(v.judgeConfidence || v.confidence || '').toLowerCase();
+        const confBadge = (rawConf === 'high')
+            ? '<span class="badge bg-success">Confidence: High</span>'
+            : (rawConf === 'moderate')
+                ? '<span class="badge bg-warning text-dark">Confidence: Moderate</span>'
+                : '';
+        const d = v.distractors || {};
+        const distractorRows = Object.keys(d).sort((a, b) => Number(a) - Number(b)).map(k => `
+            <li class="mb-1"><strong>${choiceLabel(Number(k))}</strong>
+                <div class="mv-md small text-muted">${md(d[k])}</div>
+            </li>`).join('');
+        arbiterCard = `
+        <div class="mb-2 p-2 rounded" style="background:#fff7e6; border-left:4px solid #d99a00;">
+            <div class="fw-bold small mb-1" style="color:#a67500;">
+                <i class="fas fa-gavel me-1"></i>Arbiter — ${escapeHtml(String(v.judgeModel || 'judge'))} ${confBadge}
+            </div>
+            <div class="small mb-1"><strong>คำตัดสิน:</strong> ${choiceLabel(v.verifiedAnswer)}</div>
+            <div class="mv-md small mb-2">${md(v.rationale)}</div>
+            ${distractorRows ? `<div class="small fw-bold mb-1">ทำไมตัวเลือกอื่นผิด:</div><ul class="ps-3 mb-0">${distractorRows}</ul>` : ''}
+        </div>`;
+    }
+
+    // ไม่มีการ์ด solver (backend เก่า) → ยังต้องเห็น rationale ที่ส่งมา
+    const legacyRationale = (!solvers.length && !v.judgeUsed && v.rationale)
+        ? `<div class="mv-md small mb-2 p-2 rounded" style="background:#f8f9fa;">${md(v.rationale)}</div>`
+        : '';
 
     // judge อาจคืน index นอกช่วง — ปิดปุ่ม Apply แทนที่จะติ๊กผิดข้อ
     const targetRow = rowIndexes[v.verifiedAnswer];
     const applyBtn = (targetRow === undefined)
         ? '<span class="text-danger small">AI คืนหมายเลขตัวเลือกนอกช่วง — ตรวจสอบเอง</span>'
-        : `<button type="button" class="btn btn-sm btn-primary" onclick="applyMultiAIToForm(${targetRow})">
+        : `<button type="button" class="btn btn-sm btn-primary" id="btn-apply-multiai">
             <i class="fas fa-magic me-1"></i> Apply to Form
         </button>`;
 
     const html = `
     <div class="alert alert-light border mt-3" id="multiverify-result">
-        <h6 class="fw-bold mb-2"><i class="fas fa-check-circle text-success me-1"></i> Multi-AI Verification Result</h6>
-        <div class="mb-2">
-            <strong>Verified Answer:</strong> ${v.verifiedAnswer}) ${verifiedChoiceText}
-        </div>
-        <div class="mb-2">
-            <strong>Confidence:</strong> ${confBadge} ${judgeBadge}
-        </div>
-        <div class="mb-3">
-            <strong>Rationale:</strong>
-            <pre style="white-space: pre-wrap; font-size: 0.85rem; background: #f8f9fa; padding: 8px; border-radius: 4px;">${rationale}</pre>
-        </div>
+        <h6 class="fw-bold mb-2"><i class="fas fa-comments text-primary me-1"></i> Multi-AI Debate Transcript</h6>
+        <div class="mb-2">${verdictBadge}</div>
+        ${solverCards}
+        ${arbiterCard}
+        ${legacyRationale}
+        <div class="mb-2 small"><strong>Verified Answer:</strong> ${choiceLabel(v.verifiedAnswer)}</div>
         ${applyBtn}
     </div>`;
+
     const $existing = $('#multiverify-result');
     if ($existing.length) $existing.replaceWith(html);
     else $('#edit-explanation').after(html);
+
+    const $card = $('#multiverify-result');
+    // '///' คือ delimiter ของ explain/media — ถ้าหลุดเข้าช่อง explanation จะทำให้ field แตกตอน save
+    const explainText = String(v.rationale || '').replace(/\/{3,}/g, '/').trim();
+    $card.data('mv', { row: targetRow, explanation: explainText });
+    $card.find('#btn-apply-multiai').on('click', function () { applyMultiAIToForm(); });
+
+    if (typeof window.renderAllMath === 'function') window.renderAllMath($card);
 }
 
-function applyMultiAIToForm(choiceIndex) {
+async function applyMultiAIToForm() {
+    const payload = $('#multiverify-result').data('mv');
+    if (!payload || payload.row === undefined) return;
+    const choiceIndex = payload.row;
+
+    // เขียนทับคำอธิบายเดิม = เสียข้อมูล ถามก่อนเสมอถ้าช่องไม่ว่าง
+    const $exp = $('#edit-explanation');
+    let writeExplain = !!payload.explanation;
+    if (writeExplain && $exp.val().trim() !== '') {
+        const confirmRes = await Swal.fire({
+            icon: 'question',
+            title: 'ทับคำอธิบายเดิม?',
+            text: 'ช่องคำอธิบายมีข้อความอยู่แล้ว ต้องการแทนที่ด้วยคำอธิบายจาก AI หรือไม่',
+            showCancelButton: true,
+            confirmButtonText: 'แทนที่',
+            cancelButtonText: 'เก็บของเดิม'
+        });
+        writeExplain = confirmRes.isConfirmed;
+    }
+
     $('#dynamic-choices-container .choice-item').each(function (i) {
         $(this).find('.choice-radio').prop('checked', i === choiceIndex);
     });
     syncChoicesToHiddenInput();
     renderChoicePreview($('#dynamic-choices-container .choice-item').eq(choiceIndex).find('.choice-text-input'));
+    if (writeExplain) $exp.val(payload.explanation).trigger('input');
+
     Swal.fire({
         icon: 'success',
-        title: 'เฉลยถูกอัปเดตแล้ว',
+        title: writeExplain ? 'อัปเดตเฉลยและคำอธิบายแล้ว' : 'เฉลยถูกอัปเดตแล้ว',
         text: 'ตรวจสอบแล้วกด Save Changes เพื่อบันทึก',
         toast: true,
         position: 'top-end',
