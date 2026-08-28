@@ -550,7 +550,7 @@ function showSection(sectionId) {
         $(`#sec-${sectionId}`).removeClass('hidden');
 
         // ตรวจสอบสิทธิ์สำหรับ Logs และ Admin Manager
-        if (sectionId === 'logs' || sectionId === 'admin-manager') {
+        if (sectionId === 'logs' || sectionId === 'admin-manager' || sectionId === 'reviews' || sectionId === 'donations') {
             if (!isAdmin || currentUser.role !== 'DEVELOPER') {
                 $(`#sec-${sectionId}`).addClass('hidden'); // ซ่อนส่วนที่ไม่ได้รับอนุญาต
                 Swal.fire('Access Denied', 'สิทธิ์เข้าถึงถูกจำกัด: เฉพาะ DEVELOPER เท่านั้น', 'error');
@@ -560,6 +560,10 @@ function showSection(sectionId) {
                 initLogsTable();
             } else if (sectionId === 'admin-manager') {
                 loadAdminManager();
+            } else if (sectionId === 'reviews') {
+                loadReviewsSection();
+            } else if (sectionId === 'donations') {
+                loadDonationsSection();
             }
         } else if (sectionId === 'announcements') {
             renderAnnouncementsList();
@@ -569,10 +573,6 @@ function showSection(sectionId) {
             renderAiModelsPanel();
         } else if (sectionId === 'feedback') {
             loadFeedbackSection();
-        } else if (sectionId === 'reviews') {
-            loadReviewsSection();
-        } else if (sectionId === 'donations') {
-            loadDonationsSection();
         } else if (sectionId === 'dashboard') {
             loadPriorYearAudit();
         }

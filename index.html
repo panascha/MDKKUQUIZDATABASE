@@ -102,10 +102,10 @@
                 <a href="#" class="list-group-item list-group-item-action" onclick="showSection('feedback')">
                     <i class="fas fa-comment-dots"></i> App Feedback
                 </a>
-                <a href="#" class="list-group-item list-group-item-action" onclick="showSection('reviews')">
+                <a href="#" class="list-group-item list-group-item-action developer-only" onclick="showSection('reviews')">
                     <i class="fas fa-star"></i> รีวิววิชา
                 </a>
-                <a href="#" class="list-group-item list-group-item-action" onclick="showSection('donations')">
+                <a href="#" class="list-group-item list-group-item-action developer-only" onclick="showSection('donations')">
                     <i class="fas fa-hand-holding-heart"></i> บริจาค (สลิป)
                 </a>
                 <a href="#" class="list-group-item list-group-item-action developer-only" onclick="showSection('logs')">
@@ -1118,24 +1118,53 @@
                         </button>
                     </div>
                     <div class="card-body">
-                        <p class="small text-muted mb-2"><i class="fas fa-info-circle"></i>
-                            สลิปเป็นภาพส่วนตัวใน Drive (admin เท่านั้นที่เปิดดูได้) — กด "ดูสลิป" เพื่อพรีวิว</p>
-                        <div class="table-responsive">
-                            <table class="table table-bordered table-striped align-middle" style="width:100%" id="donationsTable" data-mobile-card="true">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th style="width: 130px;">เวลา</th>
-                                        <th style="width: 130px;">ผู้บริจาค</th>
-                                        <th style="width: 90px;">จำนวน</th>
-                                        <th style="width: 160px;">อ้างอิง</th>
-                                        <th>ข้อความ</th>
-                                        <th style="width: 150px;">สลิป/สถานะ</th>
-                                        <th style="width: 190px;">จัดการ</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="donations-list-body"><!-- Populated by JS --></tbody>
-                            </table>
+                        <style>
+                            #sec-donations .don-stat{border-radius:12px;padding:14px 16px;height:100%;background:#fff;border:1px solid rgba(0,0,0,.08);box-shadow:0 1px 3px rgba(0,0,0,.06)}
+                            #sec-donations .don-stat .lbl{font-size:.8rem;color:#6c757d;display:flex;align-items:center;gap:6px}
+                            #sec-donations .don-stat .val{font-size:1.5rem;font-weight:700;line-height:1.2;margin-top:4px}
+                            #sec-donations .don-stat.accent-green{border-left:4px solid #198754}
+                            #sec-donations .don-stat.accent-orange{border-left:4px solid #fd7e14}
+                            #sec-donations .don-stat.accent-blue{border-left:4px solid #0d6efd}
+                            #sec-donations .don-stat.accent-teal{border-left:4px solid #20c997}
+                            #sec-donations .don-tab-btn.active{background:#495057;color:#fff;border-color:#495057}
+                            #sec-donations .don-card{display:grid;grid-template-columns:120px 1fr auto;gap:14px;border:1px solid rgba(0,0,0,.1);border-radius:12px;padding:14px;margin-bottom:12px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+                            #sec-donations .don-thumb{width:120px;height:120px;object-fit:cover;border-radius:8px;cursor:zoom-in;background:#f1f3f5}
+                            #sec-donations .don-thumb-empty{width:120px;height:120px;border-radius:8px;background:#f1f3f5;display:flex;align-items:center;justify-content:center;color:#adb5bd;font-size:1.6rem}
+                            #sec-donations .don-amount{font-size:1.35rem;font-weight:700;color:#198754}
+                            #sec-donations .don-msg{background:#f8f9fa;border-radius:8px;padding:6px 10px;margin-top:6px;white-space:pre-wrap;font-size:.9rem}
+                            #sec-donations .don-actions{display:flex;flex-direction:column;gap:6px;min-width:110px}
+                            #sec-donations .pulse{animation:donPulse 1.4s ease-in-out infinite}
+                            @keyframes donPulse{0%,100%{opacity:1}50%{opacity:.5}}
+                            @media(max-width:575px){#sec-donations .don-card{grid-template-columns:1fr}#sec-donations .don-thumb,#sec-donations .don-thumb-empty{width:100%;height:180px}#sec-donations .don-actions{flex-direction:row;flex-wrap:wrap}}
+                        </style>
+                        <!-- KPI summary -->
+                        <div class="row g-2 mb-3">
+                            <div class="col-6 col-lg-3">
+                                <div class="don-stat accent-green"><div class="lbl"><i class="fas fa-sack-dollar"></i> ยอดรวมที่ได้รับ</div><div class="val" id="kpi-total">฿ 0.00</div></div>
+                            </div>
+                            <div class="col-6 col-lg-3">
+                                <div class="don-stat accent-blue"><div class="lbl"><i class="fas fa-users"></i> ผู้บริจาค</div><div class="val" id="kpi-donors">0</div></div>
+                            </div>
+                            <div class="col-6 col-lg-3">
+                                <div class="don-stat accent-orange" id="kpi-pending-card"><div class="lbl"><i class="fas fa-hourglass-half"></i> รอตรวจ</div><div class="val" id="kpi-pending">0</div></div>
+                            </div>
+                            <div class="col-6 col-lg-3">
+                                <div class="don-stat accent-teal"><div class="lbl"><i class="fas fa-circle-check"></i> ยืนยันแล้ว</div><div class="val" id="kpi-verified">0</div></div>
+                            </div>
                         </div>
+                        <p class="small text-muted mb-2"><i class="fas fa-info-circle"></i>
+                            สลิปเป็นภาพส่วนตัวใน Drive (admin เท่านั้นที่เปิดดูได้) — คลิกที่รูปสลิปเพื่อดูภาพเต็ม</p>
+                        <!-- Filter tabs + donor list -->
+                        <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+                            <div class="btn-group flex-wrap" id="don-tabs" role="group">
+                                <button type="button" class="btn btn-sm btn-outline-secondary don-tab-btn" data-tab="pending"><i class="fas fa-hourglass-half me-1"></i>รอตรวจ <span class="badge bg-warning text-dark" id="cnt-pending">0</span></button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary don-tab-btn" data-tab="verified"><i class="fas fa-circle-check me-1"></i>ยืนยันแล้ว <span class="badge bg-success" id="cnt-verified">0</span></button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary don-tab-btn" data-tab="rejected"><i class="fas fa-ban me-1"></i>ปฏิเสธ <span class="badge bg-danger" id="cnt-rejected">0</span></button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary don-tab-btn" data-tab="all"><i class="fas fa-list me-1"></i>ทั้งหมด <span class="badge bg-secondary" id="cnt-all">0</span></button>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-primary ms-auto" id="don-donor-list"><i class="fas fa-clipboard-list me-1"></i>สรุปรายชื่อผู้บริจาค</button>
+                        </div>
+                        <div id="donations-cards"><!-- Populated by JS --></div>
                     </div>
                 </div>
             </div>
