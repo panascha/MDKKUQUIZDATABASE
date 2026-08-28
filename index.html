@@ -102,6 +102,12 @@
                 <a href="#" class="list-group-item list-group-item-action" onclick="showSection('feedback')">
                     <i class="fas fa-comment-dots"></i> App Feedback
                 </a>
+                <a href="#" class="list-group-item list-group-item-action" onclick="showSection('reviews')">
+                    <i class="fas fa-star"></i> รีวิววิชา
+                </a>
+                <a href="#" class="list-group-item list-group-item-action" onclick="showSection('donations')">
+                    <i class="fas fa-hand-holding-heart"></i> บริจาค (สลิป)
+                </a>
                 <a href="#" class="list-group-item list-group-item-action developer-only" onclick="showSection('logs')">
                     <i class="fas fa-list-ul"></i> Activity Logs
                 </a>
@@ -1068,6 +1074,71 @@
                     </div>
                 </div>
             </div>
+            <!-- SECTION: Subject Reviews (Admin — js/reviews-admin.js) -->
+            <div id="sec-reviews" class="content-section hidden">
+                <div class="card card-dashboard">
+                    <div class="card-header-custom">
+                        <span><i class="fas fa-star me-2"></i> รีวิววิชา (จัดการ/ซ่อน/ปฏิเสธ)</span>
+                        <button class="btn btn-outline-primary btn-sm shadow-sm" onclick="loadReviewsSection()">
+                            <i class="fas fa-sync-alt"></i> รีเฟรช
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="btn-group btn-group-sm mb-3" id="reviews-filter-bar" role="group">
+                            <button type="button" class="btn btn-outline-secondary active" data-filter="All" onclick="setReviewFilter('All')">ทั้งหมด</button>
+                            <button type="button" class="btn btn-outline-success" data-filter="Approved" onclick="setReviewFilter('Approved')">Approved</button>
+                            <button type="button" class="btn btn-outline-secondary" data-filter="Hidden" onclick="setReviewFilter('Hidden')">Hidden</button>
+                            <button type="button" class="btn btn-outline-danger" data-filter="Rejected" onclick="setReviewFilter('Rejected')">Rejected</button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-striped align-middle" style="width:100%" id="reviewsTable" data-mobile-card="true">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 130px;">เวลา</th>
+                                        <th style="width: 100px;">วิชา</th>
+                                        <th style="width: 100px;">คะแนน</th>
+                                        <th>รีวิว</th>
+                                        <th style="width: 150px;">สถานะ</th>
+                                        <th style="width: 160px;">จัดการ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="reviews-list-body"><!-- Populated by JS --></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- SECTION: Donations (Admin — js/donations-admin.js) -->
+            <div id="sec-donations" class="content-section hidden">
+                <div class="card card-dashboard">
+                    <div class="card-header-custom">
+                        <span><i class="fas fa-hand-holding-heart me-2"></i> บริจาค — ตรวจสลิป/override สถานะ</span>
+                        <button class="btn btn-outline-primary btn-sm shadow-sm" onclick="loadDonationsSection()">
+                            <i class="fas fa-sync-alt"></i> รีเฟรช
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <p class="small text-muted mb-2"><i class="fas fa-info-circle"></i>
+                            สลิปเป็นภาพส่วนตัวใน Drive (admin เท่านั้นที่เปิดดูได้) — กด "ดูสลิป" เพื่อพรีวิว</p>
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-striped align-middle" style="width:100%" id="donationsTable" data-mobile-card="true">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 130px;">เวลา</th>
+                                        <th style="width: 130px;">ผู้บริจาค</th>
+                                        <th style="width: 90px;">จำนวน</th>
+                                        <th style="width: 160px;">อ้างอิง</th>
+                                        <th>ข้อความ</th>
+                                        <th style="width: 150px;">สลิป/สถานะ</th>
+                                        <th style="width: 190px;">จัดการ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="donations-list-body"><!-- Populated by JS --></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
             <!-- SECTION: AI Generate (Admin) -->
             <div id="sec-ai-generate" class="content-section hidden">
                 <div class="card card-dashboard">
@@ -1929,6 +2000,8 @@
 <script src="js/converter-edit.js"></script>
 <script src="js/announcements.js"></script>
 <script src="js/feedback-admin.js"></script>
+<script src="js/reviews-admin.js"></script>
+<script src="js/donations-admin.js"></script>
 <script src="js/admin-tools.js"></script>
 <script src="js/categorizer.js"></script>
 <script src="js/prior-audit.js"></script>
