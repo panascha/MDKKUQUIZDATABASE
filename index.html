@@ -102,6 +102,9 @@
                 <a href="#" class="list-group-item list-group-item-action" onclick="showSection('feedback')">
                     <i class="fas fa-comment-dots"></i> App Feedback
                 </a>
+                <a href="#" class="list-group-item list-group-item-action" onclick="showSection('discussion')">
+                    <i class="fas fa-comments"></i> กระทู้พูดคุย
+                </a>
                 <a href="#" class="list-group-item list-group-item-action developer-only" onclick="showSection('reviews')">
                     <i class="fas fa-star"></i> รีวิววิชา
                 </a>
@@ -1074,6 +1077,39 @@
                     </div>
                 </div>
             </div>
+            <!-- SECTION: Peer Discussion moderation (Admin — js/discussion-admin.js) -->
+            <div id="sec-discussion" class="content-section hidden">
+                <div class="card card-dashboard">
+                    <div class="card-header-custom">
+                        <span><i class="fas fa-comments me-2"></i> กระทู้พูดคุยรายข้อ (จัดการ/ลบความคิดเห็น)</span>
+                        <button class="btn btn-outline-primary btn-sm shadow-sm" onclick="loadDiscussionSection()">
+                            <i class="fas fa-sync-alt"></i> รีเฟรช
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <p class="small text-muted mb-2"><i class="fas fa-info-circle"></i>
+                            ลบเป็น soft-delete (ตั้งสถานะ <b>deleted</b>) — ความคิดเห็นจะถูกซ่อนจากกระทู้ฝั่งผู้ใช้
+                            แต่ยังแสดงในตารางนี้ (ยังไม่มีปุ่มกู้คืน)</p>
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-striped align-middle" style="width:100%" id="discussionTable" data-mobile-card="true">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 140px;">เวลา</th>
+                                        <th style="width: 110px;">ข้อ</th>
+                                        <th style="width: 200px;">ผู้โพสต์</th>
+                                        <th>ข้อความ</th>
+                                        <th style="width: 110px;">สถานะ</th>
+                                        <th style="width: 90px;">จัดการ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="discussion-list-body">
+                                    <!-- Populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
             <!-- SECTION: Subject Reviews (Admin — js/reviews-admin.js) -->
             <div id="sec-reviews" class="content-section hidden">
                 <div class="card card-dashboard">
@@ -2029,6 +2065,7 @@
 <script src="js/converter-edit.js"></script>
 <script src="js/announcements.js"></script>
 <script src="js/feedback-admin.js"></script>
+<script src="js/discussion-admin.js"></script>
 <script src="js/reviews-admin.js"></script>
 <script src="js/donations-admin.js"></script>
 <script src="js/admin-tools.js"></script>

@@ -535,7 +535,7 @@ function confirmAdmin() {
 
 function showSection(sectionId) {
 
-        const adminSections = ['report-inbox', 'database', 'structure', 'converter', 'logs', 'admin-manager', 'announcements', 'ai-generate', 'ai-models', 'feedback', 'reviews', 'donations'];
+        const adminSections = ['report-inbox', 'database', 'structure', 'converter', 'logs', 'admin-manager', 'announcements', 'ai-generate', 'ai-models', 'feedback', 'discussion', 'reviews', 'donations'];
 
         if (adminSections.includes(sectionId) && !isAdmin) {
             checkAuthBeforeAction(() => showSection(sectionId));
@@ -573,6 +573,8 @@ function showSection(sectionId) {
             renderAiModelsPanel();
         } else if (sectionId === 'feedback') {
             loadFeedbackSection();
+        } else if (sectionId === 'discussion') {
+            loadDiscussionSection();
         } else if (sectionId === 'dashboard') {
             loadPriorYearAudit();
         }
