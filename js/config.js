@@ -10,11 +10,9 @@ window.APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwqv5BXxGOvTKO1D
 window.SUPABASE_URL = 'https://nqczccbhjrzjlwirmjot.supabase.co';
 window.SUPABASE_ANON_KEY = 'sb_publishable_lbCmPZ0_OfQ-DwBjgU4Fnw_wDN8Vsa6';
 
-// สวิตช์ย้อนกลับของ Phase 1 (แผน §7: "Rollback = flip reads back to GAS, one line")
-// ⚠️ ค่าเริ่มต้น false โดยเจตนา: GAS dual-write ยังเป็น no-op จนกว่าจะ seed ScriptProperties
-//    (SUPABASE_URL + SUPABASE_SERVICE_KEY) ⇒ ตาราง questions ใน Postgres ยังค้างที่ตอน migration load
-//    เปิดเป็น true ได้ก็ต่อเมื่อ mirror ทำงานจริงแล้วและ checkSupabaseMirror() ตรงกับชีท
-window.USE_SUPABASE_QUESTIONS = false;
+// Phase 1 go-live 2026-09-04: mirror ทำงานจริง (cursor advance + 23,400/23,399 ตรงกัน)
+//    δ = 1 soft-deleted row (KUB_52FMT2_29) ที่ sweep ตามทัน — delta view = sheet count
+window.USE_SUPABASE_QUESTIONS = true;
 
 // PostgREST ตัดผลลัพธ์ที่ 1000 แถวเสมอ (§8.7 ข้อ 2) — ทั้ง view และ RPC
 window.SUPABASE_PAGE_SIZE = 1000;
