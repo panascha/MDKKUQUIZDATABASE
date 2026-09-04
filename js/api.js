@@ -234,3 +234,108 @@ async function hashPassword(password) {
         return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
         // ... (จบโค้ด hashPassword เดิม) ...
     }
+
+
+// ─────────────────────────────────────────────────────
+// SUPABASE READ LAYER — Phase 1, slice `questions` เท่านั้น
+//
+// slice เล็กอีก 7 ตัว (structure/category/report/votes/logs/admins/announcements) ยังอยู่บน GAS
+// ตาม sequencing constraint ใน §9.11: write surface ไหนที่ยังไม่ถูก mirror จะค้างให้เห็นในแดชบอร์ด
+// ทันทีที่แอดมินแตะ — และ `admins` ต้องอยู่บน GAS ตลอดไป (§2 ชั้น "never")
+//
+// ทุกฟังก์ชันในบล็อกนี้เป็น no-op ถ้า window.USE_SUPABASE_QUESTIONS = false
+// ─────────────────────────────────────────────────────
+
+// §8.7(5): PostgREST บังคับ header `apikey` — Authorization: Bearer เปล่าๆ ถูกปฏิเสธ 401
+function sbHeaders() {
+    return {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: 'Bearer ' + SUPABASE_ANON_KEY,
+        Accept: 'application/json'
+    };
+}
+
+async function sbFetch(path, init, retries = 3) {
+    const BASE_MS = 500;
+    const CAP_MS = 8000;
+
+    for (let i = 0; i < retries; i++) {
+        let response;
+        try {
+            response = await fetch(SUPABASE_URL + '/rest/v1/' + path, init);
+        } catch (netErr) {
+            if (i === retries - 1) throw netErr;
+            const nd = Math.random() * Math.min(BASE_MS * Math.pow(2, i), CAP_MS);
+            console.warn('[sbFetch] Network error attempt ' + (i + 1) + '. Retry in ' + Math.round(nd) + 'ms');
+            await new Promise(r => setTimeout(r, nd));
+            continue;
+        }
+
+        // 4xx = คำขอผิดเอง (คีย์ผิด/คอลัมน์ผิด/RLS) — ยิงซ้ำได้ผลเดิม
+        if (response.status >= 400 && response.status < 500) {
+            throw new Error('[sbFetch] HTTP ' + response.status + ' ' + path + ' — ' + (await response.text()).slice(0, 200));
+        }
+        if (!response.ok) {
+            if (i === retries - 1) throw new Error('[sbFetch] HTTP ' + response.status + ' after ' + retries + ' attempts');
+            const hd = Math.random() * Math.min(BASE_MS * Math.pow(2, i), CAP_MS);
+            console.warn('[sbFetch] HTTP ' + response.status + ' attempt ' + (i + 1) + '. Retry in ' + Math.round(hd) + 'ms');
+            await new Promise(r => setTimeout(r, hd));
+            continue;
+        }
+
+        return response.json();
+    }
+}
+
+// §8.7(2): ผลลัพธ์ถูกตัดที่ 1000 แถวเสมอ และ "ต้อง" ใช้ ?limit=&offset= — header Range ถูกเมิน
+// pathWithQuery ต้องมี order= ที่ unique อยู่แล้ว ไม่งั้น offset ข้ามแถว/ซ้ำแถวเงียบๆ
+async function sbFetchPaged(pathWithQuery) {
+    const pageSize = SUPABASE_PAGE_SIZE;
+    const init = { headers: sbHeaders() };
+    const out = [];
+
+    for (let offset = 0; ; offset += pageSize) {
+        const page = await sbFetch(pathWithQuery + '&limit=' + pageSize + '&offset=' + offset, init);
+        if (!Array.isArray(page)) throw new Error('[sbFetchPaged] ไม่ได้ array จาก ' + pathWithQuery);
+        out.push(...page);
+        if (page.length < pageSize) return out;
+    }
+}
+
+// cursor ของ delta — อ่านจาก DB เสมอ ห้ามใช้ Date.now() ของเครื่อง client
+// คืน { questions: <ISO|null>, serverTime: <ISO>, questionCount: <int> }
+async function fetchSupabaseDataVersion() {
+    return sbFetch('rpc/data_version', {
+        method: 'POST',
+        headers: { ...sbHeaders(), 'Content-Type': 'application/json' },
+        body: '{}'
+    });
+}
+
+// watermark → cursor ที่จะเก็บ: ถอยหลัง SAFETY_MS กัน updated_at ไม่ monotone (§9.12 ท้ายหัวข้อ)
+function sbCursorFrom(dataVersion) {
+    const raw = (dataVersion && (dataVersion.questions || dataVersion.serverTime)) || null;
+    const ms = raw ? Date.parse(raw) : NaN;
+    if (isNaN(ms)) return null;
+    return new Date(ms - SUPABASE_CURSOR_SAFETY_MS).toISOString();
+}
+
+// โหลด questions เต็มก้อน — order=questionId (PRIMARY KEY, unique) ให้ offset เดินหน้าได้จริง
+// คืน { rows, dataVersion } โดย dataVersion ถูกอ่าน "ก่อน" เดินหน้า pagination:
+// แถวที่ commit ระหว่างเดินหน้าจะมี updatedAt > cursor ที่เก็บ ⇒ รอบ delta ถัดไปเก็บตกเอง
+async function fetchSupabaseQuestionsFull() {
+    const dataVersion = await fetchSupabaseDataVersion();
+    const rows = await sbFetchPaged('v_questions?select=*&order=questionId');
+    return { rows, dataVersion };
+}
+
+// delta ตั้งแต่ cursor — ใช้ v_questions_delta เพราะ view นี้ "ไม่กรอง" แถวที่ถูกลบอ่อน (D16)
+// แถวที่ deletedAt ไม่ null คือ tombstone: client ต้องถอดออกจาก cache
+// order=updatedAt,questionId — updatedAt ตัวเดียวไม่ unique, offset จะข้ามแถว
+async function fetchSupabaseQuestionsDelta(sinceIso) {
+    const dataVersion = await fetchSupabaseDataVersion();
+    const rows = await sbFetchPaged(
+        'v_questions_delta?select=*&updatedAt=gt.' + encodeURIComponent(sinceIso) + '&order=updatedAt,questionId'
+    );
+    return { rows, dataVersion };
+}

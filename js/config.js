@@ -4,6 +4,26 @@
 
 window.APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwqv5BXxGOvTKO1DJoahJSTgn74_lPnRq_opqrUndXhJC3TAt7PHv6B_PbMvxzrAAIl/exec';
 
+// ── Supabase (Phase 1: อ่าน slice `questions` เท่านั้น) ─────────────────────────
+// anon key เป็น publishable key โดยเจตนา (D2) — RLS ปิดทางเขียนไว้แล้ว ตรวจแล้ว 198/198 ในฐานะ anon
+// ห้ามใส่ sb_secret_… ที่นี่เด็ดขาด ไฟล์นี้ขึ้น GitHub Pages
+window.SUPABASE_URL = 'https://nqczccbhjrzjlwirmjot.supabase.co';
+window.SUPABASE_ANON_KEY = 'sb_publishable_lbCmPZ0_OfQ-DwBjgU4Fnw_wDN8Vsa6';
+
+// สวิตช์ย้อนกลับของ Phase 1 (แผน §7: "Rollback = flip reads back to GAS, one line")
+// ⚠️ ค่าเริ่มต้น false โดยเจตนา: GAS dual-write ยังเป็น no-op จนกว่าจะ seed ScriptProperties
+//    (SUPABASE_URL + SUPABASE_SERVICE_KEY) ⇒ ตาราง questions ใน Postgres ยังค้างที่ตอน migration load
+//    เปิดเป็น true ได้ก็ต่อเมื่อ mirror ทำงานจริงแล้วและ checkSupabaseMirror() ตรงกับชีท
+window.USE_SUPABASE_QUESTIONS = false;
+
+// PostgREST ตัดผลลัพธ์ที่ 1000 แถวเสมอ (§8.7 ข้อ 2) — ทั้ง view และ RPC
+window.SUPABASE_PAGE_SIZE = 1000;
+
+// กันเคส updated_at ไม่ monotone กับลำดับ commit (§9.12 ท้ายหัวข้อ): now() คือเวลา "เริ่ม" transaction
+// batch ยาวที่เริ่ม T1 แล้ว commit ตอน T3 จะถูก delta ที่ `> T2` ข้ามไปตลอด — ถอยหลัง 60 วิ over-fetch ทางเดียว
+// 60 วิ กว้างกว่ารอบ pagination เต็มก้อน (~5 วิ) มาก จึงคลุมช่องว่างระหว่างอ่านหลายหน้าด้วย
+window.SUPABASE_CURSOR_SAFETY_MS = 60000;
+
 window.globalData = {
         questions: [],
         structure: [],

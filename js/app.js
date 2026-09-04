@@ -468,7 +468,7 @@ $(document).ready(function () {
             // Stage 3: choose path — if baseline+auth exist → delta (syncData), else → full (fetchData)
             const localVer = await getCacheDB('global_admin_ver');
             const lastSyncTs = await getCacheDB('global_admin_sync_ts');
-            const hasAuth = !!(currentUser && (currentUser.username || currentUser.email) && (adminPass || (isAdmin && sessionToken)));
+            const hasAuth = hasAdminAuth();
 
             if (globalData.questions.length && localVer && lastSyncTs && hasAuth) {
                 // Returning admin with baseline → delta sync
@@ -499,6 +499,12 @@ $('#cancel-report, #btn-close-vote-modal').on('click', function () {
         setTimeout(handleDeferredUpdate, 400);
     });
 
+// auth ได้สองแบบ: username+adminPass (แบบเดิม) หรือ Google sessionToken (แอดมิน whitelist —
+// token แนบอัตโนมัติใน sendWithRetry). ใช้ทั้งใน initApp, fetchData และ syncData จึงต้องเป็นตัวเดียวกัน
+function hasAdminAuth() {
+    return !!(currentUser && (currentUser.username || currentUser.email) && (adminPass || (isAdmin && sessionToken)));
+}
+
 // Hydrate from IndexedDB + paint (no network) — instant first-paint before auth/sync
 async function hydrateCacheAndRender() {
     const cacheKey = 'global_admin_data';
@@ -526,40 +532,21 @@ async function fetchData(forceRefresh = false, isAutoPoll = false) {
     }
 
     try {
-        // --- ตรรกะบีบอัด Round-trip: เรียกข้อมูลชุดเดียวแบบผูกตรวจเช็คเวอร์ชัน (ลดเวลาโหลดลง 50%) ---
-        const urlBuilder = () => `${APPSCRIPT_URL}?action=getAllData${(!forceRefresh && localData && localVer) ? `&clientVer=${localVer}` : ''}&_=${Date.now()}`;
-        const resJson = await fetchGAS(urlBuilder);
+        // Phase 1: questions มาจาก Supabase, slice เล็กอีก 7 ตัวยังมาจาก GAS
+        // เงื่อนไข hasAdminAuth() ไม่ใช่เรื่อง security แต่เป็นเรื่อง egress: getAdminSync (ทางเดียวที่ได้
+        // slice เล็กโดยไม่ลาก questions มาด้วย) ต้อง auth — ถ้าปล่อยให้ผู้ที่ยังไม่ล็อกอินมาทางนี้
+        // จะกลายเป็น getAllData 26MB + Supabase 27.7MB ในโหลดเดียว แย่กว่าเส้นทางเดิมสองเท่า
+        const loaded = (USE_SUPABASE_QUESTIONS && hasAdminAuth())
+            ? await loadFullFromSupabase(isAutoPoll)
+            : await loadFullFromGAS(forceRefresh, localData, localVer, isAutoPoll);
 
-        // --- กรณีที่ 1: เวอร์ชันตรงกัน (เซิร์ฟเวอร์ดีด NOT_MODIFIED ทันทีโดยไม่ประมวลผลต่อ) ---
-        if (resJson.status === 'NOT_MODIFIED') {
-            if (!isAutoPoll) {
-                // แจ้งเตือนแอดมินเบาๆ ว่าข้อมูลล่าสุดแล้ว (เฉพาะตอนกด Refresh เอง)
-                Swal.fire({
-                    icon: 'success', title: 'ข้อมูลเป็นปัจจุบันแล้ว',
-                    toast: true, position: 'top-end', showConfirmButton: false, timer: 2000
-                });
-            }
+        // null = NOT_MODIFIED, error, หรืออ่านได้ไม่ครบ — คง globalData/cache เดิมไว้ ห้ามเขียนทับ
+        if (!loaded) {
             isFetching = false;
             return;
         }
 
-        // เซิร์ฟเวอร์ยังคำนวณ getAllData 26MB อยู่ (inflight guard) หรือเกิน 90s timeout guard — คง globalData/cache เดิมไว้ ห้ามเขียนทับด้วย questions ว่าง
-        if (resJson.result === 'error') {
-            console.warn('[fetchData] getAllData error:', resJson.message);
-            if (!isAutoPoll) {
-                Swal.fire({
-                    icon: 'warning', title: 'โหลดข้อมูลไม่สำเร็จ', text: resJson.message,
-                    toast: true, position: 'top-end', showConfirmButton: false, timer: 4000
-                });
-            }
-            isFetching = false;
-            return;
-        }
-
-        const serverVersion = resJson.v || new Date().getTime().toString();
-        const data = resJson;
-
-        // --- กรณีที่ 2: พบเวอร์ชันใหม่ ---
+        // --- พบเวอร์ชันใหม่ ---
         const updateToast = Swal.mixin({
             toast: true, position: 'top-end', showConfirmButton: false, timerProgressBar: true
         });
@@ -568,33 +555,16 @@ async function fetchData(forceRefresh = false, isAutoPoll = false) {
             updateToast.fire({ icon: 'info', title: 'พบเวอร์ชันใหม่ กำลังซิงค์ข้อมูล...' });
         }
 
-        // ประมวลผลข้อมูล (Logic เดิม)
-        const processedQuestions = (data.questions || []).map(q => {
-            if (typeof q.category === 'string' && q.category.startsWith('[')) {
-                try { q.category = JSON.parse(q.category.replace(/'/g, '"')); }
-                catch (e) { q.category = [q.category]; }
-            } else if (typeof q.category === 'string') {
-                q.category = [q.category];
-            }
-            return q;
-        });
-
-        const newData = {
-            questions: processedQuestions,
-            report: data.report || [],
-            structure: data.structure || [],
-            category: data.category || [],
-            votes: data.votes || [],
-            logs: data.logs || [],
-            admins: data.admins || [],
-            announcements: data.announcements || []
-        };
+        const newData = loaded.newData;
 
         // บันทึกลง Cache (IndexedDB) ทันที
         await setCacheDB(cacheKey, newData);
-        await setCacheDB(verKey, serverVersion);
+        await setCacheDB(verKey, loaded.serverVersion);
         // seed จุดอ้างอิงเวลาสำหรับ getAdminSync delta (serverTime จาก cache อาจเก่าได้สูงสุด 30 นาที — ปลอดภัย: over-fetch ทิศทางเดียว)
-        await setCacheDB('global_admin_sync_ts', data.serverTime || Date.now());
+        await setCacheDB('global_admin_sync_ts', loaded.syncTs);
+        // cursor ของ questions แยกจาก GAS โดยเจตนา — คนละแหล่ง คนละนาฬิกา
+        // ค่านี้มาจาก data_version() ของ DB เท่านั้น ห้าม fallback เป็น Date.now() ของเครื่อง client
+        if (loaded.questionsCursor) await setCacheDB('global_questions_ts', loaded.questionsCursor);
 
             // 3. ตรวจสอบว่าแอดมินกำลังยุ่งอยู่หรือไม่ (เปิด Modal ใดๆ อยู่)
             const isUserBusy = $('.modal.show').length > 0 ||
@@ -633,6 +603,124 @@ async function fetchData(forceRefresh = false, isAutoPoll = false) {
             $('#loading-overlay').hide(); // เผื่อกรณีค้าง
         }
     }
+
+// เส้นทางเดิม: getAllData ก้อนเดียวผูกตรวจเช็คเวอร์ชัน (GET, ไม่ต้อง auth)
+// คืน null = ไม่มีอะไรให้เขียนทับ (NOT_MODIFIED หรือ error)
+async function loadFullFromGAS(forceRefresh, localData, localVer, isAutoPoll) {
+    // --- ตรรกะบีบอัด Round-trip: เรียกข้อมูลชุดเดียวแบบผูกตรวจเช็คเวอร์ชัน (ลดเวลาโหลดลง 50%) ---
+    const urlBuilder = () => `${APPSCRIPT_URL}?action=getAllData${(!forceRefresh && localData && localVer) ? `&clientVer=${localVer}` : ''}&_=${Date.now()}`;
+    const resJson = await fetchGAS(urlBuilder);
+
+    // --- กรณีที่ 1: เวอร์ชันตรงกัน (เซิร์ฟเวอร์ดีด NOT_MODIFIED ทันทีโดยไม่ประมวลผลต่อ) ---
+    if (resJson.status === 'NOT_MODIFIED') {
+        if (!isAutoPoll) {
+            // แจ้งเตือนแอดมินเบาๆ ว่าข้อมูลล่าสุดแล้ว (เฉพาะตอนกด Refresh เอง)
+            Swal.fire({
+                icon: 'success', title: 'ข้อมูลเป็นปัจจุบันแล้ว',
+                toast: true, position: 'top-end', showConfirmButton: false, timer: 2000
+            });
+        }
+        return null;
+    }
+
+    // เซิร์ฟเวอร์ยังคำนวณ getAllData 26MB อยู่ (inflight guard) หรือเกิน 90s timeout guard — คง globalData/cache เดิมไว้ ห้ามเขียนทับด้วย questions ว่าง
+    if (resJson.result === 'error') {
+        console.warn('[fetchData] getAllData error:', resJson.message);
+        if (!isAutoPoll) {
+            Swal.fire({
+                icon: 'warning', title: 'โหลดข้อมูลไม่สำเร็จ', text: resJson.message,
+                toast: true, position: 'top-end', showConfirmButton: false, timer: 4000
+            });
+        }
+        return null;
+    }
+
+    const data = resJson;
+
+    // ประมวลผลข้อมูล (Logic เดิม)
+    const processedQuestions = (data.questions || []).map(q => {
+        if (typeof q.category === 'string' && q.category.startsWith('[')) {
+            try { q.category = JSON.parse(q.category.replace(/'/g, '"')); }
+            catch (e) { q.category = [q.category]; }
+        } else if (typeof q.category === 'string') {
+            q.category = [q.category];
+        }
+        return q;
+    });
+
+    return {
+        serverVersion: data.v || new Date().getTime().toString(),
+        syncTs: data.serverTime || Date.now(),
+        questionsCursor: null, // เส้นทางนี้ไม่แตะ Supabase
+        newData: {
+            questions: processedQuestions,
+            report: data.report || [],
+            structure: data.structure || [],
+            category: data.category || [],
+            votes: data.votes || [],
+            logs: data.logs || [],
+            admins: data.admins || [],
+            announcements: data.announcements || []
+        }
+    };
+}
+
+// เส้นทางใหม่: questions จาก Supabase (PostgREST, anon key) + slice เล็กจาก GAS getAdminSync
+async function loadFullFromSupabase(isAutoPoll) {
+    const { rows, dataVersion } = await fetchSupabaseQuestionsFull();
+
+    // §8.7(2): หน้าที่หายไปหนึ่งหน้าจะ "เร็วและดูถูกต้อง" ทุกประการ — นับเทียบกับ DB คือทางเดียวที่จับได้
+    const expected = Number(dataVersion && dataVersion.questionCount);
+    if (!isNaN(expected) && rows.length !== expected) {
+        console.warn('[fetchData] Supabase อ่านได้ไม่ครบ: ' + rows.length + ' แถว คาด ' + expected + ' — ไม่เขียนทับ cache');
+        if (!isAutoPoll) {
+            Swal.fire({
+                icon: 'warning', title: 'โหลดข้อสอบไม่ครบ',
+                text: 'ได้ ' + rows.length + ' จาก ' + expected + ' ข้อ — ระบบคงข้อมูลเดิมไว้',
+                toast: true, position: 'top-end', showConfirmButton: false, timer: 4000
+            });
+        }
+        return null;
+    }
+
+    // slice เล็ก: ไม่ส่ง clientVer เพื่อบังคับให้ได้ทั้งก้อน (โหลดเต็มไม่ต้องการ NOT_MODIFIED)
+    // since = เวลาปัจจุบัน ⇒ changedQuestions ว่างเสมอ (getChangedSinceTimestamp ใช้ parseInt มิลลิวินาที)
+    // ตั้งใจทิ้ง question delta ของ GAS ทั้งก้อน — questions มาจาก Supabase แล้ว
+    const resJson = await sendWithRetry({
+        action: 'getAdminSync',
+        username: currentUser.username,
+        adminPass: adminPass,
+        since: Date.now()
+    });
+
+    if (resJson.result !== 'success') {
+        console.warn('[fetchData] getAdminSync error:', resJson.message);
+        if (!isAutoPoll) {
+            Swal.fire({
+                icon: 'warning', title: 'โหลดข้อมูลไม่สำเร็จ', text: resJson.message,
+                toast: true, position: 'top-end', showConfirmButton: false, timer: 4000
+            });
+        }
+        return null;
+    }
+
+    // §9.9: v_questions คืน category เป็น JSON array จริงอยู่แล้ว — ไม่ต้องผ่าน processedQuestions
+    return {
+        serverVersion: resJson.v,
+        syncTs: resJson.serverTime,
+        questionsCursor: sbCursorFrom(dataVersion),
+        newData: {
+            questions: rows,
+            report: resJson.report || [],
+            structure: resJson.structure || [],
+            category: resJson.category || [],
+            votes: resJson.votes || [],
+            logs: resJson.logs || [],
+            admins: resJson.admins || [],
+            announcements: resJson.announcements || []
+        }
+    };
+}
 
 function handleDeferredUpdate() {
         const isUserBusy = $('.modal.show').length > 0 ||
@@ -677,18 +765,99 @@ function scheduleSync(delayMs = 3000) {
 //   ใช้กับ auto-poll + กลับมาโฟกัสแท็บ: ถ้าเครื่องยังไม่มี baseline การ poll จะลาก 26MB ซ้ำทุกครั้ง
 //   → execution หนักซ้อนกันจนคิวของบัญชีเจ้าของเต็ม แล้วไปตายที่เพดาน 6 นาที
 //   โหลดเต็มทำครั้งเดียวตอนเข้าหน้า (initApp → fetchData) หรือกดรีเฟรชเองเท่านั้น
+// merge delta แบบเดิม: GAS อนุมานการลบจาก "id อยู่ใน changedIds แต่ไม่มีแถวส่งกลับมา"
+function mergeQuestionDeltaFromGAS(resJson) {
+    // ประมวลผล category แบบเดียวกับ fetchData
+    const changed = (resJson.changedQuestions || []).map(q => {
+        if (typeof q.category === 'string' && q.category.startsWith('[')) {
+            try { q.category = JSON.parse(q.category.replace(/'/g, '"')); }
+            catch (e) { q.category = [q.category]; }
+        } else if (typeof q.category === 'string') {
+            q.category = [q.category];
+        }
+        return q;
+    });
+    const changedMap = new Map(changed.map(q => [String(q.questionId).trim(), q]));
+    const changedIdSet = new Set((resJson.changedIds || []).map(id => String(id).trim()));
+
+    const merged = [];
+    for (const q of globalData.questions) {
+        const qid = String(q.questionId).trim();
+        if (changedMap.has(qid)) {
+            merged.push(changedMap.get(qid)); // แถวใหม่จาก server ทับของเดิม
+            changedMap.delete(qid);
+        } else if (changedIdSet.has(qid)) {
+            // log บอกว่าเปลี่ยน แต่ server ไม่ส่งแถวกลับมา ⇒ ถูกลบแล้ว — drop
+        } else {
+            merged.push(q);
+        }
+    }
+    // ข้อใหม่ที่ local ยังไม่มี (เพิ่ม/import ใหม่)
+    for (const q of changedMap.values()) merged.push(q);
+
+    return { merged, changedCount: changed.length, nextQuestionsCursor: null };
+}
+
+// merge delta จาก Supabase: การลบเปลี่ยนรูปไปเลย — แถวที่ถูกลบ "ถูกส่งกลับมา" พร้อม deletedAt (D16)
+// v_questions_delta ไม่กรองแถวที่ลบอ่อนออก จึงเป็น view เดียวที่เห็น tombstone
+async function mergeQuestionDeltaFromSupabase(sinceIso) {
+    const { rows, dataVersion } = await fetchSupabaseQuestionsDelta(sinceIso);
+
+    // rows เรียงตาม updatedAt แล้ว — สถานะสุดท้ายของแต่ละ id คือตัวที่ชนะ
+    const changedMap = new Map();
+    const tombstones = new Set();
+    for (const q of rows) {
+        const qid = String(q.questionId).trim();
+        if (q.deletedAt) {
+            tombstones.add(qid);
+            changedMap.delete(qid);
+        } else {
+            changedMap.set(qid, q);
+            tombstones.delete(qid);
+        }
+    }
+
+    const merged = [];
+    for (const q of globalData.questions) {
+        const qid = String(q.questionId).trim();
+        if (tombstones.has(qid)) continue; // ถูกลบแล้ว — ถอดออกจาก cache
+        if (changedMap.has(qid)) {
+            merged.push(changedMap.get(qid));
+            changedMap.delete(qid);
+        } else {
+            merged.push(q);
+        }
+    }
+    // ข้อใหม่ที่ local ยังไม่มี — tombstone ของ id ที่ไม่เคยมีใน cache ไม่ตกมาถึงตรงนี้ (ไม่อยู่ใน changedMap)
+    for (const q of changedMap.values()) merged.push(q);
+
+    return { merged, changedCount: rows.length, nextQuestionsCursor: sbCursorFrom(dataVersion) };
+}
+
 async function syncData(allowFullReload = true) {
     if (isFetching) return;
 
     const localVer = await getCacheDB('global_admin_ver');
     const lastSyncTs = await getCacheDB('global_admin_sync_ts');
     // auth ได้สองแบบ: username+adminPass (แบบเดิม) หรือ Google sessionToken (แอดมิน whitelist — token แนบอัตโนมัติใน sendWithRetry)
-    const hasAuth = !!(currentUser && (currentUser.username || currentUser.email) && (adminPass || (isAdmin && sessionToken)));
+    const hasAuth = hasAdminAuth();
 
     // ไม่มี local copy / ไม่มีจุดอ้างอิงเวลา / ยังไม่ล็อกอิน → เส้นทาง getAllData เดิม (version-gated GET)
     if (!globalData.questions.length || !localVer || !lastSyncTs || !hasAuth) {
         if (!allowFullReload) {
             console.log('[Sync] ข้ามรอบนี้ — ยังไม่มี baseline สำหรับ delta sync และ auto-poll ไม่ดึง getAllData เต็มก้อน');
+            return;
+        }
+        return fetchData(false, true);
+    }
+
+    // เครื่องที่ cache เกิดก่อนสวิตช์นี้จะมี global_admin_sync_ts แต่ยังไม่มี global_questions_ts
+    // initApp Stage 3 ดูแค่ตัวแรก จึงส่งมาที่ syncData — ถ้าปล่อยตกไป full pull ตอน auto-poll
+    // จะกลายเป็น 27.7MB ทุก 60 วินาที (โควตา egress 5GB/เดือน) fence เดียวกับข้างบนจึงต้องคุมด้วย
+    const questionsCursor = USE_SUPABASE_QUESTIONS ? await getCacheDB('global_questions_ts') : null;
+    if (USE_SUPABASE_QUESTIONS && !questionsCursor) {
+        if (!allowFullReload) {
+            console.log('[Sync] ข้ามรอบนี้ — ยังไม่มี cursor ของ questions (Supabase) และ auto-poll ไม่ดึงเต็มก้อน');
             return;
         }
         return fetchData(false, true);
@@ -711,33 +880,10 @@ async function syncData(allowFullReload = true) {
         }
         if (resJson.result !== 'success') throw new Error(resJson.message || 'getAdminSync error');
 
-        // 1. merge question delta ตาม questionId (ประมวลผล category แบบเดียวกับ fetchData)
-        const changed = (resJson.changedQuestions || []).map(q => {
-            if (typeof q.category === 'string' && q.category.startsWith('[')) {
-                try { q.category = JSON.parse(q.category.replace(/'/g, '"')); }
-                catch (e) { q.category = [q.category]; }
-            } else if (typeof q.category === 'string') {
-                q.category = [q.category];
-            }
-            return q;
-        });
-        const changedMap = new Map(changed.map(q => [String(q.questionId).trim(), q]));
-        const changedIdSet = new Set((resJson.changedIds || []).map(id => String(id).trim()));
-
-        const merged = [];
-        for (const q of globalData.questions) {
-            const qid = String(q.questionId).trim();
-            if (changedMap.has(qid)) {
-                merged.push(changedMap.get(qid)); // แถวใหม่จาก server ทับของเดิม
-                changedMap.delete(qid);
-            } else if (changedIdSet.has(qid)) {
-                // log บอกว่าเปลี่ยน แต่ server ไม่ส่งแถวกลับมา ⇒ ถูกลบแล้ว — drop
-            } else {
-                merged.push(q);
-            }
-        }
-        // ข้อใหม่ที่ local ยังไม่มี (เพิ่ม/import ใหม่)
-        for (const q of changedMap.values()) merged.push(q);
+        // 1. merge question delta ตาม questionId
+        const { merged, changedCount, nextQuestionsCursor } = USE_SUPABASE_QUESTIONS
+            ? await mergeQuestionDeltaFromSupabase(questionsCursor)
+            : mergeQuestionDeltaFromGAS(resJson);
 
         // 2. replace small slices ทั้งก้อน
         const newData = {
@@ -754,6 +900,7 @@ async function syncData(allowFullReload = true) {
         await setCacheDB('global_admin_data', newData);
         await setCacheDB('global_admin_ver', resJson.v);
         await setCacheDB('global_admin_sync_ts', resJson.serverTime || Date.now());
+        if (nextQuestionsCursor) await setCacheDB('global_questions_ts', nextQuestionsCursor);
 
         globalData = newData;
 
@@ -762,7 +909,7 @@ async function syncData(allowFullReload = true) {
             $('#vote-category-modal').is(':visible');
 
         if (isUserBusy) {
-            console.log('[syncData] Delta merged (' + changed.length + ' changed). UI update deferred.');
+            console.log('[syncData] Delta merged (' + changedCount + ' changed). UI update deferred.');
         } else {
             finalizeDataLoading();
         }
