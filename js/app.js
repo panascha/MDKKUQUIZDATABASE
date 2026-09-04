@@ -667,22 +667,10 @@ async function loadFullFromGAS(forceRefresh, localData, localVer, isAutoPoll) {
 
 // เส้นทางใหม่: questions จาก Supabase (PostgREST, anon key) + slice เล็กจาก GAS getAdminSync
 async function loadFullFromSupabase(isAutoPoll) {
-    const { rows, dataVersion } = await fetchSupabaseQuestionsFull();
-
-    // §8.7(2): หน้าที่หายไปหนึ่งหน้าจะ "เร็วและดูถูกต้อง" ทุกประการ — นับเทียบกับ DB คือทางเดียวที่จับได้
-    const expected = Number(dataVersion && dataVersion.questionCount);
-    if (!isNaN(expected) && rows.length !== expected) {
-        console.warn('[fetchData] Supabase อ่านได้ไม่ครบ: ' + rows.length + ' แถว คาด ' + expected + ' — ไม่เขียนทับ cache');
-        if (!isAutoPoll) {
-            Swal.fire({
-                icon: 'warning', title: 'โหลดข้อสอบไม่ครบ',
-                text: 'ได้ ' + rows.length + ' จาก ' + expected + ' ข้อ — ระบบคงข้อมูลเดิมไว้',
-                toast: true, position: 'top-end', showConfirmButton: false, timer: 4000
-            });
-        }
-        return null;
-    }
-
+    // ลำดับสำคัญ: ยิง GAS (ถูก) ก่อน Supabase (27.7MB) เสมอ
+    // sendWithRetry "throw" เมื่อเจอ 4xx หรือ retry หมด — ถ้าดึง Supabase ก่อน ค่า egress ก้อนใหญ่
+    // จะถูกจ่ายไปแล้วทั้งที่รอบนี้ล้มแน่นอน auth หลุด/GAS ล่ม ⇒ ต้องไม่เสีย byte สักก้อน
+    //
     // slice เล็ก: ไม่ส่ง clientVer เพื่อบังคับให้ได้ทั้งก้อน (โหลดเต็มไม่ต้องการ NOT_MODIFIED)
     // since = เวลาปัจจุบัน ⇒ changedQuestions ว่างเสมอ (getChangedSinceTimestamp ใช้ parseInt มิลลิวินาที)
     // ตั้งใจทิ้ง question delta ของ GAS ทั้งก้อน — questions มาจาก Supabase แล้ว
@@ -698,6 +686,22 @@ async function loadFullFromSupabase(isAutoPoll) {
         if (!isAutoPoll) {
             Swal.fire({
                 icon: 'warning', title: 'โหลดข้อมูลไม่สำเร็จ', text: resJson.message,
+                toast: true, position: 'top-end', showConfirmButton: false, timer: 4000
+            });
+        }
+        return null;
+    }
+
+    const { rows, dataVersion } = await fetchSupabaseQuestionsFull();
+
+    // §8.7(2): หน้าที่หายไปหนึ่งหน้าจะ "เร็วและดูถูกต้อง" ทุกประการ — นับเทียบกับ DB คือทางเดียวที่จับได้
+    const expected = Number(dataVersion && dataVersion.questionCount);
+    if (!isNaN(expected) && rows.length !== expected) {
+        console.warn('[fetchData] Supabase อ่านได้ไม่ครบ: ' + rows.length + ' แถว คาด ' + expected + ' — ไม่เขียนทับ cache');
+        if (!isAutoPoll) {
+            Swal.fire({
+                icon: 'warning', title: 'โหลดข้อสอบไม่ครบ',
+                text: 'ได้ ' + rows.length + ' จาก ' + expected + ' ข้อ — ระบบคงข้อมูลเดิมไว้',
                 toast: true, position: 'top-end', showConfirmButton: false, timer: 4000
             });
         }
