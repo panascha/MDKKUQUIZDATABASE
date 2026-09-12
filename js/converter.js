@@ -493,7 +493,8 @@ function processAll() {
                     extractedName = catKey; // ชื่อหมวดหมู่ตรงกับ CategoryID ทั้งหมด
 
                     // ตัดตัวเลขปีด้านหน้าออก (เช่น 51MCQ1 -> MCQ1, 51LAB -> LAB) เพื่อใช้ทำ AccordionGroup
-                    groupName = parts[1].replace(/^\d+/, '');
+                    // "xx" = ปีที่ไม่ทราบ — ต้องตัดด้วย ไม่งั้นได้ AccordionGroup แยก (เช่น "COMMED2 xxMCQ1")
+                    groupName = parts[1].replace(/^(?:\d+|xx)/, '');
                 } else if (parts.length >= 3) {
                     // ----------------------------------------------------
                     // กฎข้อที่ 2: กลุ่มหัวข้อวิชาบรรยาย (เช่น CVS_PHYSIO_Arterial & Venous systems)

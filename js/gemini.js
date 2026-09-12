@@ -526,9 +526,10 @@ function stripExplainIntro(explain) {
 
 // Validate category[0] format post-parse — warn if malformed (non-blocking)
 // Expected: SubjectCode_YearPrefix+Group (e.g. GI_51MCQ1, CVS_50FMT, RESP_52QUIZ2)
+// "xx" แทนปีที่ไม่ทราบ (เช่น COMMED2_xxMCQ1) — ถือว่าถูกรูปแบบ ไม่ต้องเตือน
 function validateCategoryFormat(questions) {
     if (!Array.isArray(questions) || questions.length === 0) return;
-    const pattern = /^\w+_\d{2}[A-Z]+\d*$/; // SubjectCode_YearGroup format
+    const pattern = /^\w+_(?:\d{2}|xx)[A-Z]+\d*$/; // SubjectCode_YearGroup format
     const malformed = [];
     questions.forEach((q, i) => {
         if (Array.isArray(q.category) && q.category[0] && !pattern.test(q.category[0])) {
