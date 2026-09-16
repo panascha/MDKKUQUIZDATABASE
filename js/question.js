@@ -2,6 +2,89 @@
 // JS/QUESTION.JS
 // ─────────────────────────────────────────────────────
 
+// ปลายทางโฟลเดอร์ของรูป (MD > Y[ปี] > [วิชา]) — ส่งไปกับ uploadImage เสมอ
+// ถ้าไม่ส่ง backend จะรัน getQuestionRoutingInfo ซึ่งอ่านชีต Questions/Category/Structure ทั้งใบ "ต่อรูป" ใต้ admin lock
+function getUploadRouteHints(categories) {
+    const subject = getSubjectFromCategory(categories);
+    if (!subject || subject === '-') return { subject: '', year: '' };
+    const row = (globalData.structure || []).find(s => String(s.SubjectID).trim() === String(subject).trim());
+    return { subject: String(subject).trim(), year: String((row && row.Year) || '').trim() };
+}
+
+// ย่อรูปก่อนส่ง — ภาพจากสแกนเนอร์/มือถือมักกว้าง 3000-4000px ทำให้ base64 ใหญ่หลาย MB
+// ต้นทางของทั้งอาการ UI ค้าง และ payload ของ uploadImagesBatch บวมจนเกินขนาดที่ GAS รับไหว
+// PDF/SVG ย่อไม่ได้ → คืนของเดิม; ถ้าย่อแล้วไม่เล็กลงก็คืนของเดิมเช่นกัน
+// 1800/0.85 ไม่ใช่ค่ามาตรฐานทั่วไป — ตั้งสูงกว่าปกติเพราะภาพเป็น histopath/imaging ที่รายละเอียดคือตัววินิจฉัย
+// เป้าหมายคือตัด payload หลาย MB ทิ้ง ไม่ใช่บีบให้เล็กที่สุด (ภาพสแกน 4000px → ~500KB ก็พอแล้ว)
+const IMG_MAX_WIDTH = 1800;
+const IMG_JPEG_QUALITY = 0.85;
+const IMG_BATCH_SIZE = 5;
+
+function compressImageBase64(base64) {
+    return new Promise(resolve => {
+        if (typeof base64 !== 'string' || !base64.startsWith('data:image/') || base64.startsWith('data:image/svg')) {
+            resolve(base64);
+            return;
+        }
+        const img = new Image();
+        img.onload = () => {
+            try {
+                const scale = Math.min(1, IMG_MAX_WIDTH / img.naturalWidth);
+                if (scale === 1 && base64.length < 600000) { resolve(base64); return; }
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.round(img.naturalWidth * scale);
+                canvas.height = Math.round(img.naturalHeight * scale);
+                const ctx = canvas.getContext('2d');
+                // JPEG ไม่มี alpha — ถมขาวก่อน ไม่งั้นพื้นโปร่งของ PNG จะกลายเป็นดำ
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                const out = canvas.toDataURL('image/jpeg', IMG_JPEG_QUALITY);
+                resolve(out.length < base64.length ? out : base64);
+            } catch (e) {
+                resolve(base64);
+            }
+        };
+        img.onerror = () => resolve(base64);
+        img.src = base64;
+    });
+}
+
+// ส่งรูปเป็นชุด (ชุดละ IMG_BATCH_SIZE) แทนการยิงทีละรูปเรียงแถว
+// นโยบายความล้มเหลวคงเดิม: รูปใดรูปหนึ่งพังถือว่าทั้งการบันทึกล้มเหลว แล้วให้ตัวเรียก rollback
+// (uploadImagesBatch ฝั่ง backend คืน { error } รายรายการโดยไม่ทำให้ทั้ง batch ล้ม จึงต้องเช็คเอง)
+async function uploadImagesInBatches(items, qId, routeHints, onProgress) {
+    const urls = [];
+    for (let i = 0; i < items.length; i += IMG_BATCH_SIZE) {
+        const chunk = items.slice(i, i + IMG_BATCH_SIZE);
+        if (onProgress) onProgress(Math.min(i + chunk.length, items.length), items.length);
+
+        const res = await sendWithRetry({
+            action: 'uploadImagesBatch',
+            username: currentUser.username,
+            adminPass: adminPass,
+            images: chunk.map(it => ({
+                base64: it.base64,
+                questionId: qId,
+                type: it.type,
+                subject: routeHints.subject,
+                year: routeHints.year
+            }))
+        });
+
+        if (res.result !== 'success' || !Array.isArray(res.urls)) {
+            throw new Error(res.message || 'อัปโหลดรูปภาพล้มเหลว');
+        }
+        res.urls.forEach((u, k) => {
+            if (typeof u !== 'string' || !u) {
+                throw new Error(`อัปโหลดรูปที่ ${i + k + 1} ล้มเหลว: ${(u && u.error) || 'ไม่ทราบสาเหตุ'}`);
+            }
+            urls.push(u);
+        });
+    }
+    return urls;
+}
+
 function showQuestionDetail(id) {
         // ... (โค้ด showQuestionDetail เดิม) ...
         const q = globalData.questions.find(x => x.questionId == id);
@@ -74,6 +157,7 @@ async function saveQuestionChanges() {
     const problemText = $('#edit-problem').val().trim();
     const explainText = $('#edit-explanation').val().trim();
     const categories = JSON.parse($('#edit-category-hidden').val() || "[]");
+    const routeHints = getUploadRouteHints(categories);
     // modal ถูกปิดกลางฟังก์ชัน (บรรทัด ~152) และ hidden.bs.modal จะล้าง data ทิ้ง
     // ต้อง snapshot ตรงนี้ ไม่งั้นตอนอ่านใน STEP 3.4 จะได้ undefined แล้ว report ค้างไม่ถูก resolve
     const reportData = $('#editQuestionModal').data('reportData');
@@ -171,67 +255,47 @@ async function saveQuestionChanges() {
     (async () => {
         try {
             activeUploadsCount++;
-            const delay = ms => new Promise(res => setTimeout(res, ms));
-            let currentImageCount = 0;
 
-            // 3.1 อัปโหลดรูปโจทย์ (Main Images)
+            // 3.1 รวมรูปที่รออัปโหลดทั้งหมด (โจทย์ + คำอธิบาย + ตัวเลือก) แล้วส่งเป็นชุดครั้งเดียว
+            // เดิมยิงทีละรูปพร้อมหน่วง 400ms ต่อรูป — 6 รูปกินเวลา 18 วิ และพังกลางคันได้ง่าย
+            const pendingUploads = [];
+            snapshotPendingMain.forEach(b => pendingUploads.push({ base64: b, type: 'Main' }));
+            snapshotPendingExplain.forEach(b => pendingUploads.push({ base64: b, type: 'Explain' }));
+            rowsSnapshot.forEach(row => {
+                if (row.isPending) pendingUploads.push({ base64: row.imageData, type: 'Choice' });
+            });
+
+            let uploadedUrls = [];
+            if (pendingUploads.length > 0) {
+                bgToast.fire({ icon: 'info', title: `กำลังย่อรูป ${pendingUploads.length} ภาพ...`, timer: 60000 });
+                for (const item of pendingUploads) {
+                    item.base64 = await compressImageBase64(item.base64);
+                }
+
+                uploadedUrls = await uploadImagesInBatches(pendingUploads, qId, routeHints, (done, total) => {
+                    bgToast.fire({
+                        icon: 'info',
+                        title: `กำลังอัปโหลดรูป ${done}/${total}`,
+                        timer: 60000
+                    });
+                });
+            }
+
+            let urlCursor = 0;
+
             let serverMainUrls = [...snapshotExistingMain];
             if (snapshotPendingMain.length > 0) {
                 // กรองคำว่า require_img ออกถ้ากำลังจะมีรูปจริงมาแทน
                 serverMainUrls = serverMainUrls.filter(u => !u.toLowerCase().includes('require_img'));
-
-                for (const base64 of snapshotPendingMain) {
-                    currentImageCount++;
-                    bgToast.fire({
-                        icon: 'info',
-                        title: `กำลังอัปโหลดรูปที่ ${currentImageCount}/${totalImagesToUpload}`,
-                        text: 'ส่วนของ: รูปภาพโจทย์',
-                        timer: 60000
-                    });
-
-                    const res = await sendWithRetry({
-                        action: 'uploadImage',
-                        username: currentUser.username, adminPass: adminPass,
-                        data: { base64: base64, questionId: qId, type: 'Main' }
-                    });
-
-                    if (res.result === 'success') {
-                        serverMainUrls.push(res.url);
-                        await delay(400); // หน่วงเวลาสั้นลง (400ms) เพื่อความเร็ว
-                    } else {
-                        throw new Error(`รูปโจทย์ภาพที่ ${currentImageCount} ล้มเหลว`);
-                    }
-                }
+                serverMainUrls = serverMainUrls.concat(uploadedUrls.slice(urlCursor, urlCursor + snapshotPendingMain.length));
+                urlCursor += snapshotPendingMain.length;
             }
 
-            // 3.1.2 อัปโหลดสื่อประกอบคำอธิบาย (Explain Media)
-            let serverExplainUrls = [...snapshotExistingExplain];
-            if (snapshotPendingExplain.length > 0) {
-                for (const base64 of snapshotPendingExplain) {
-                    currentImageCount++;
-                    bgToast.fire({
-                        icon: 'info',
-                        title: `กำลังอัปโหลดรูปที่ ${currentImageCount}/${totalImagesToUpload}`,
-                        text: 'ส่วนของ: สื่อประกอบคำอธิบาย',
-                        timer: 60000
-                    });
+            const serverExplainUrls = [...snapshotExistingExplain]
+                .concat(uploadedUrls.slice(urlCursor, urlCursor + snapshotPendingExplain.length));
+            urlCursor += snapshotPendingExplain.length;
 
-                    const res = await sendWithRetry({
-                        action: 'uploadImage',
-                        username: currentUser.username, adminPass: adminPass,
-                        data: { base64: base64, questionId: qId, type: 'Explain' }
-                    });
-
-                    if (res.result === 'success') {
-                        serverExplainUrls.push(res.url);
-                        await delay(400);
-                    } else {
-                        throw new Error(`สื่อประกอบคำอธิบายไฟล์ที่ ${currentImageCount} ล้มเหลว`);
-                    }
-                }
-            }
-
-            // 3.2 อัปโหลดรูปตัวเลือก (Choice Images)
+            // 3.2 ประกอบตัวเลือก (รูปที่เพิ่งอัปโหลดเรียงตามลำดับแถวเดิม)
             const serverChoicesArray = [];
             let finalAnswerServer = "";
 
@@ -239,26 +303,7 @@ async function saveQuestionChanges() {
                 let finalVal = "";
 
                 if (row.isPending) {
-                    currentImageCount++;
-                    bgToast.fire({
-                        icon: 'info',
-                        title: `กำลังอัปโหลดรูปที่ ${currentImageCount}/${totalImagesToUpload}`,
-                        text: 'ส่วนของ: ตัวเลือก',
-                        timer: 60000
-                    });
-
-                    const res = await sendWithRetry({
-                        action: 'uploadImage',
-                        username: currentUser.username, adminPass: adminPass,
-                        data: { base64: row.imageData, questionId: qId, type: 'Choice' }
-                    });
-
-                    if (res.result === 'success') {
-                        finalVal = res.url;
-                        await delay(400);
-                    } else {
-                        throw new Error(`รูปตัวเลือกที่ ${currentImageCount} ล้มเหลว`);
-                    }
+                    finalVal = uploadedUrls[urlCursor++];
                 } else if (row.isExisting) {
                     finalVal = row.imageData; // URL เดิม
                 } else {
@@ -1150,7 +1195,10 @@ async function handleFileUpload(input, type) {
                     action: 'uploadImage',
                     username: currentUser.username,
                     adminPass: adminPass,
-                    data: { base64: base64, questionId: qId, type: type }
+                    data: Object.assign(
+                        { base64: base64, questionId: qId, type: type },
+                        getUploadRouteHints(JSON.parse($('#edit-category-hidden').val() || "[]"))
+                    )
                 });
 
                 if (res.result === 'success' && res.url) {
