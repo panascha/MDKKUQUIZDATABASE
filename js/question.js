@@ -149,6 +149,21 @@ function openEditModal(id, suggestedAnswer = null) {
     $('#editQuestionModal').modal('show');
 }
 
+// อัปเดตแถวเดียวใน DataTable แบบ in-place แทนการ clear+rows.add ทั้ง 24k แถว (ต้นเหตุ UI ค้าง)
+function updateQuestionRowInTables(qId) {
+    const q = globalData.questions.find(x => x.questionId === qId);
+    if (!q) return;
+
+    ['#adminTable', '#publicTable'].forEach(sel => {
+        if (!$.fn.DataTable.isDataTable(sel)) return;
+        const table = $(sel).DataTable();
+        const row = table.row((idx, d) => d && d.questionId === qId);
+        if (row.length) {
+            row.data(q).draw(false);
+        }
+    });
+}
+
 async function saveQuestionChanges() {
     if (!confirmAdmin()) return;
 
@@ -231,7 +246,7 @@ async function saveQuestionChanges() {
 
         // บันทึกลง IndexedDB เบื้องต้น (ปล่อยให้เขียนลงไฟล์ในเบื้องหลัง เพื่อไม่ให้บล็อก UI การทำงาน)
         setCacheDB('global_admin_data', globalData).catch(e => console.warn("Cache write failed:", e));
-        refreshTables(true); // รีเฟรชตารางทันทีด้วยข้อมูลใหม่
+        updateQuestionRowInTables(qId); // อัปเดตแถวเดียว แทนการ redraw ตารางทั้งหมด 24k แถว
         updateDashboard();
     }
 
@@ -346,13 +361,14 @@ async function saveQuestionChanges() {
                 const targetQid = reportData.questionId || qId;
                 const adminNote = reportData.adminNote || 'แก้ไขเรียบร้อยแล้ว';
 
-                // ใช้ sendAdminAction เพื่อให้ optimistic update + cache + refresh ทำงาน
+                // ใช้ sendAdminAction เพื่อให้ optimistic update ของ report ทำงาน
+                // skipTableRefresh=true: saveQuestionChanges อัปเดตแถวคำถาม + cache เองอยู่แล้ว ไม่ต้อง redraw 24k แถวซ้ำ
                 await sendAdminAction('updateReportStatus', {
                     questionId: targetQid,
                     adminNote: adminNote,
                     status: 'Resolved',
                     done: 'TRUE'
-                }, true);
+                }, true, true);
 
                 // ลบ Report Cards ทั้งหมดของ questionId นี้ออกจากหน้าจอ (Optimistic UI)
                 globalData.report.forEach(rep => {
@@ -380,7 +396,7 @@ async function saveQuestionChanges() {
                     globalData.questions[qIndex].answer = finalAnswerServer;
 
                     setCacheDB('global_admin_data', globalData).catch(e => console.warn("Cache write failed:", e));
-                    refreshTables(true);
+                    updateQuestionRowInTables(qId);
                 }
 
                 bgToast.fire({
@@ -401,7 +417,7 @@ async function saveQuestionChanges() {
             if (qIndex !== -1 && originalQuestionBackup) {
                 globalData.questions[qIndex] = originalQuestionBackup;
                 setCacheDB('global_admin_data', globalData).catch(e => console.warn("Cache rollback failed:", e));
-                refreshTables(true);
+                updateQuestionRowInTables(qId);
                 updateDashboard();
             }
 

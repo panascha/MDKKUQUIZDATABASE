@@ -141,7 +141,7 @@ async function sendWithRetry(payload, retries = 3, signal = null) {
     }
 }
 
-async function sendAdminAction(actionName, dataObj, skipReload = false) {
+async function sendAdminAction(actionName, dataObj, skipReload = false, skipTableRefresh = false) {
         // 1. OPTIMISTIC UPDATE: แก้ไขข้อมูลในเครื่องทันทีตามประเภท Action
         if (actionName === 'deleteQuestion') {
             globalData.questions = globalData.questions.filter(q => q.questionId !== dataObj.id);
@@ -172,9 +172,12 @@ async function sendAdminAction(actionName, dataObj, skipReload = false) {
         // เพิ่มเติมสำหรับการลบ Subject หรือ Group ได้ตามต้องการ...
 
         // 2. บันทึกผลลง Cache และวาดตารางใหม่ทันที (User จะเห็นความเปลี่ยนแปลงทันที)
-        await setCacheDB('global_admin_data', globalData);
-        refreshTables();
-        updateDashboard();
+        // skipTableRefresh: ผู้เรียก (เช่น saveQuestionChanges) จัดการ cache/table ของตัวเองอยู่แล้ว ไม่ต้องทำซ้ำ
+        if (!skipTableRefresh) {
+            await setCacheDB('global_admin_data', globalData);
+            refreshTables();
+            updateDashboard();
+        }
 
         // 3. เตรียมส่งข้อมูลไปที่ Server (Background Process)
         try {
