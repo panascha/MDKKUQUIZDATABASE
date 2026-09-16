@@ -955,12 +955,12 @@ function startVersionPolling() {
             return;
         }
 
-        console.log('[Polling] Switching admin check interval to ' + targetMode + ' (' + INTERVALS[targetMode] + 'ms)');
+        if (window.DEBUG) console.log('[Polling] Switching admin check interval to ' + targetMode + ' (' + INTERVALS[targetMode] + 'ms)');
         window._currentPollingMode = targetMode;
 
         if (versionCheckInterval) clearInterval(versionCheckInterval);
         versionCheckInterval = setInterval(function () {
-            console.log("Auto-checking for data updates...");
+            if (window.DEBUG) console.log("Auto-checking for data updates...");
             syncData(false); // auto-poll: delta เท่านั้น ห้ามลาก getAllData 26MB
         }, INTERVALS[targetMode]);
     }

@@ -24,7 +24,7 @@ async function fetchGAS(buildUrl, retries = 3) {
             if (i === retries - 1) throw netErr;
             if (Date.now() - attemptStart > GAS_SLOW_FAIL_MS) throw netErr;
             const nd = Math.random() * Math.min(BASE_MS * Math.pow(2, i), CAP_MS);
-            console.warn('[fetchGAS] Network error attempt ' + (i + 1) + '. Retry in ' + Math.round(nd) + 'ms');
+            if (window.DEBUG) console.warn('[fetchGAS] Network error attempt ' + (i + 1) + '. Retry in ' + Math.round(nd) + 'ms');
             await new Promise(r => setTimeout(r, nd));
             continue;
         }
@@ -36,7 +36,7 @@ async function fetchGAS(buildUrl, retries = 3) {
                 throw new Error('[fetchGAS] HTTP ' + response.status + ' after ' + Math.round((Date.now() - attemptStart) / 1000) + 's — ไม่ retry (เซิร์ฟเวอร์ยังประมวลผลคำขอเดิมอยู่)');
             }
             const hd = Math.random() * Math.min(BASE_MS * Math.pow(2, i), CAP_MS);
-            console.warn('[fetchGAS] HTTP ' + response.status + ' attempt ' + (i + 1) + '. Retry in ' + Math.round(hd) + 'ms');
+            if (window.DEBUG) console.warn('[fetchGAS] HTTP ' + response.status + ' attempt ' + (i + 1) + '. Retry in ' + Math.round(hd) + 'ms');
             await new Promise(r => setTimeout(r, hd));
             continue;
         }
@@ -53,7 +53,7 @@ async function fetchGAS(buildUrl, retries = 3) {
             if (i === retries - 1) throw new SyntaxError('[fetchGAS] Got HTML instead of JSON after ' + retries + ' attempts');
             if (Date.now() - attemptStart > GAS_SLOW_FAIL_MS) throw new SyntaxError('[fetchGAS] Got HTML body หลังรอ ' + Math.round((Date.now() - attemptStart) / 1000) + 's — ไม่ retry');
             const pd = Math.random() * Math.min(BASE_MS * Math.pow(2, i), CAP_MS);
-            console.warn('[fetchGAS] Got HTML body attempt ' + (i + 1) + '. Retry in ' + Math.round(pd) + 'ms');
+            if (window.DEBUG) console.warn('[fetchGAS] Got HTML body attempt ' + (i + 1) + '. Retry in ' + Math.round(pd) + 'ms');
             await new Promise(r => setTimeout(r, pd));
             continue;
         }
@@ -88,7 +88,7 @@ async function sendWithRetry(payload, retries = 3, signal = null) {
             if (i === retries - 1) throw networkErr;
             if (Date.now() - attemptStart > POST_SLOW_FAIL_MS) throw networkErr;
             const netDelay = Math.random() * Math.min(BASE_MS * Math.pow(2, i), CAP_MS);
-            console.warn(`Attempt ${i + 1} failed (network). Retrying in ${Math.round(netDelay)}ms...`);
+            if (window.DEBUG) console.warn(`Attempt ${i + 1} failed (network). Retrying in ${Math.round(netDelay)}ms...`);
             await new Promise(res => setTimeout(res, netDelay));
             continue;
         }
@@ -112,7 +112,7 @@ async function sendWithRetry(payload, retries = 3, signal = null) {
             } else {
                 retryDelay = Math.random() * Math.min(BASE_MS * Math.pow(2, i), CAP_MS);
             }
-            console.warn(`Attempt ${i + 1} failed (${status}). Retrying in ${Math.round(retryDelay)}ms...`);
+            if (window.DEBUG) console.warn(`Attempt ${i + 1} failed (${status}). Retrying in ${Math.round(retryDelay)}ms...`);
             await new Promise(res => setTimeout(res, retryDelay));
             continue;
         }
@@ -123,7 +123,7 @@ async function sendWithRetry(payload, retries = 3, signal = null) {
         } catch (parseErr) {
             if (i === retries - 1) throw parseErr;
             const parseDelay = Math.random() * Math.min(BASE_MS * Math.pow(2, i), CAP_MS);
-            console.warn(`Attempt ${i + 1} failed (bad JSON). Retrying in ${Math.round(parseDelay)}ms...`);
+            if (window.DEBUG) console.warn(`Attempt ${i + 1} failed (bad JSON). Retrying in ${Math.round(parseDelay)}ms...`);
             await new Promise(res => setTimeout(res, parseDelay));
             continue;
         }

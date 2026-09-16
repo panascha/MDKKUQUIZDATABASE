@@ -4,6 +4,10 @@
 
 window.APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwqv5BXxGOvTKO1DJoahJSTgn74_lPnRq_opqrUndXhJC3TAt7PHv6B_PbMvxzrAAIl/exec';
 
+// เปิดเพื่อดู log ที่ปกติเงียบในโปรดักชัน (retry warning ของ api.js, polling log ของ app.js)
+// สลับด้วย console: window.DEBUG = true
+window.DEBUG = false;
+
 // ── Supabase (Phase 1: อ่าน slice `questions` เท่านั้น) ─────────────────────────
 // anon key เป็น publishable key โดยเจตนา (D2) — RLS ปิดทางเขียนไว้แล้ว ตรวจแล้ว 198/198 ในฐานะ anon
 // ห้ามใส่ sb_secret_… ที่นี่เด็ดขาด ไฟล์นี้ขึ้น GitHub Pages

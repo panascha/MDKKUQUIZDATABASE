@@ -56,27 +56,33 @@ function promptStudentIdDb(user) {
 }
 
 // กู้คืน session ร่วมจากหน้า MDKKUQUIZ (ถ้าเคยล็อกอิน Google ไว้ที่ฝั่งไหนก็ตาม)
+// เรียกจากทั้ง auth-google.js ($(function) ด้านล่าง) และ app.js (async init IIFE) โดยตั้งใจให้ independent —
+// window._isResumingSession แคช promise เดียวกันไว้กันสองจุดนี้ยิง verifySession ซ้อนกันตอนโหลดหน้า
 async function resumeSharedGoogleSession() {
-    const token = localStorage.getItem(SHARED_TOKEN_KEY);
-    if (!token) return;
-    try {
-        const res = await sendWithRetry({ action: 'verifySession', sessionToken: token });
-        if (res.result === 'success') {
-            applyGoogleSessionDb(res.user, token);
-            console.log('🔐 Google session (ร่วมกับ MDKKUQUIZ) กู้คืนสำเร็จ: ' + res.user.displayName + ' [' + res.user.role + ']');
-            promptStudentIdDb(res.user);
-        } else if (res.result === 'error' &&
-                   (res.message === 'session_expired' || res.message === 'token_expired' || res.message === 'Session หมดอายุ กรุณาล็อกอินใหม่')) {
-            // token หมดอายุ/ถูกเพิกถอน — ล้างทิ้งทั้งสองแอปจะได้ไม่ยิง token ตายซ้ำ
-            localStorage.removeItem(SHARED_TOKEN_KEY);
-            if (sessionToken === token) sessionToken = '';
-        } else {
-            // transient error (เครือข่าย/overload) — เก็บ token ไว้ลองใหม่
-            console.warn('verifySession transient error, keeping token:', res && res.message);
+    if (window._isResumingSession) return window._isResumingSession;
+    window._isResumingSession = (async () => {
+        const token = localStorage.getItem(SHARED_TOKEN_KEY);
+        if (!token) return;
+        try {
+            const res = await sendWithRetry({ action: 'verifySession', sessionToken: token });
+            if (res.result === 'success') {
+                applyGoogleSessionDb(res.user, token);
+                console.log('🔐 Google session (ร่วมกับ MDKKUQUIZ) กู้คืนสำเร็จ: ' + res.user.displayName + ' [' + res.user.role + ']');
+                promptStudentIdDb(res.user);
+            } else if (res.result === 'error' &&
+                       (res.message === 'session_expired' || res.message === 'token_expired' || res.message === 'Session หมดอายุ กรุณาล็อกอินใหม่')) {
+                // token หมดอายุ/ถูกเพิกถอน — ล้างทิ้งทั้งสองแอปจะได้ไม่ยิง token ตายซ้ำ
+                localStorage.removeItem(SHARED_TOKEN_KEY);
+                if (sessionToken === token) sessionToken = '';
+            } else {
+                // transient error (เครือข่าย/overload) — เก็บ token ไว้ลองใหม่
+                console.warn('verifySession transient error, keeping token:', res && res.message);
+            }
+        } catch (e) {
+            console.warn('Google session resume ล้มเหลว (เครือข่าย?):', e);
         }
-    } catch (e) {
-        console.warn('Google session resume ล้มเหลว (เครือข่าย?):', e);
-    }
+    })();
+    return window._isResumingSession;
 }
 
 // รับ credential จาก Google Identity Services → แลก session token 30 วันจาก GAS
@@ -164,10 +170,27 @@ function setupGoogleSsoDb() {
     }
 }
 
+// กัน setupGoogleSsoDb() ถูกเริ่มจากสองจุด (resume-path ด้านล่าง + เปิด login modal) พร้อมกัน
+// ตัว retry loop ภายใน setupGoogleSsoDb เองยังเรียกซ้ำได้ปกติ — guard นี้กันแค่จุดเริ่มต้นซ้อน
+let _gsiInitStarted = false;
+function ensureGsiInitDb() {
+    if (_gsiInitStarted) return;
+    _gsiInitStarted = true;
+    setupGoogleSsoDb();
+}
+
 $(function () {
     // resume ไม่ต้องรอ GIS โหลด — ใช้ token ที่มีอยู่ได้ทันที (ทับ session แบบ username/password เดิมถ้าสำเร็จ)
-    resumeSharedGoogleSession();
-    setTimeout(setupGoogleSsoDb, 500);
-    // ปุ่ม Google อยู่ใน modal — render ซ้ำทุกครั้งที่เปิด (กันกรณี GIS โหลดเสร็จหลัง modal เคยเปิด)
-    $('#loginModal').on('shown.bs.modal', renderGoogleButtonDb);
+    resumeSharedGoogleSession().then(() => {
+        // resume สำเร็จแล้ว (sessionToken ถูกตั้งใน applyGoogleSessionDb) → ไม่ต้อง init GSI ทันที
+        // GSI iframe (ทั้ง initialize + renderButton) เป็นที่มาของ COOP warning ใน console แม้ไม่มีการเรียก prompt()
+        // เลื่อนไป init ตอนเปิด login modal จริง ๆ แทน (เช่น สลับบัญชี) กันเสียง noise ให้แอดมินที่ล็อกอินค้างอยู่แล้ว
+        if (!sessionToken) setTimeout(ensureGsiInitDb, 500);
+    });
+    // ปุ่ม Google อยู่ใน modal — ถ้ายังไม่ init GSI (เช่น resume เจอ session แล้วข้ามไป) ให้ init ตอนเปิด modal ครั้งแรก
+    // ถ้า init แล้วก็แค่ render ซ้ำ (กันกรณี GIS โหลดเสร็จหลัง modal เคยเปิด)
+    $('#loginModal').on('shown.bs.modal', function () {
+        if (_gsiReady) renderGoogleButtonDb();
+        else ensureGsiInitDb();
+    });
 });
