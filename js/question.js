@@ -437,8 +437,17 @@ async function deleteQuestion() {
         if (!confirmAdmin()) return;
         if (!confirm('Are you sure you want to DELETE this question?')) return;
 
-        const payload = { id: $('#edit-q-id').val() };
-        await sendAdminAction('deleteQuestion', payload);
+        const qId = $('#edit-q-id').val();
+        const payload = { id: qId };
+        if ($.fn.DataTable.isDataTable('#adminTable')) {
+            const table = $('#adminTable').DataTable();
+            table.row((idx, d) => d && (d.questionId === qId || d[0] === qId)).remove().draw(false);
+        }
+        if ($.fn.DataTable.isDataTable('#publicTable')) {
+            const table = $('#publicTable').DataTable();
+            table.row((idx, d) => d && (d.questionId === qId || d[0] === qId)).remove().draw(false);
+        }
+        await sendAdminAction('deleteQuestion', payload, false, true);
         $('#editQuestionModal').modal('hide');
         // ... (จบโค้ด deleteQuestion เดิม) ...
     }

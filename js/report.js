@@ -261,7 +261,7 @@ async function processReport(reportTime, action) {
                     } else {
                         payload.timestamp = r['Time'];
                     }
-                    await sendAdminAction('updateReportStatus', payload, true);
+                    await sendAdminAction('updateReportStatus', payload, true, true);
 
                     await setCacheDB('global_admin_data', globalData);
                 } catch (e) {

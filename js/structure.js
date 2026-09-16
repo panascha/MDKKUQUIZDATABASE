@@ -432,7 +432,8 @@ async function crudAction(type, id1, id2) {
         }
 
         if (payload.action) {
-            await sendAdminAction(payload.action, payload.data);
+            await sendAdminAction(payload.action, payload.data, false, true);
+            renderStructureTree($('#struct-subject-filter').val());
         }
     }
 
@@ -484,7 +485,8 @@ async function saveNewCategory() {
             AccordionGroup: $('#new-category-group').val(),
             CategoryName: $('#new-category-name').val()
         };
-        await sendAdminAction('addCategory', payload);
+        await sendAdminAction('addCategory', payload, false, true);
+        renderStructureTree($('#struct-subject-filter').val());
         $('#addCategoryModal').modal('hide');
         // ... (จบโค้ด saveNewCategory เดิม) ...
     }
