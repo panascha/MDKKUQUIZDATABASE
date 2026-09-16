@@ -1182,6 +1182,8 @@ function populateFilters() {
 
         // อัปเดต HTML ของ Category Select
         $('#search-category-filter, #db-category-filter').html(categoryOpts);
+        // Edit Mode แสดงเฉพาะหมวดหลัก; globalData.category ยังเก็บข้อมูลครบถ้วน
+        updateCategoryDropdown('', '#db-category-filter');
 
         // --- 4. คืนค่าเดิมที่ User เคยเลือกไว้ (The "Remember" Logic) ---
 
@@ -1236,9 +1238,18 @@ function updateCategoryDropdown(subjectId, targetSelector) {
         // ... (โค้ด updateCategoryDropdown เดิม) ...
         let options = '<option value="">All Categories</option>';
 
-        const filteredCats = subjectId
+        let filteredCats = subjectId
             ? globalData.category.filter(c => c.SubjectRef === subjectId)
             : globalData.category;
+
+        // กรองหมวดย่อย/Extracted ออกจาก dropdown จัดการคลังข้อสอบ (Edit Mode)
+        // ไม่แตะ globalData.category และไม่กระทบ DataTables search
+        if (targetSelector === '#db-category-filter') {
+            filteredCats = filteredCats.filter(c => {
+                return !String(c.CategoryID).includes('_Extracted')
+                    && !String(c.AccordionGroup || '').includes('(Extracted)');
+            });
+        }
 
         filteredCats.sort((a, b) => a.CategoryID.localeCompare(b.CategoryID));
 
