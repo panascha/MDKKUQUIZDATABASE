@@ -10,8 +10,9 @@
 // ─────────────────────────────────────────────────────
 
 // เป้าหมายจำนวนข้อต่อ 1 คำขอ — ยิ่งขอเยอะต่อครั้ง โมเดลยิ่งออกข้อไม่ครบ
-const CONV_MAX_Q_PER_BATCH = 15;
-const CONV_MIN_PAGES_PER_BATCH = 2;
+// 2026-09-24: 15 → 10 — ชุด 15 ข้อ (6 หน้า) ชน GAS 360s timeout จริง (HTTP 404 กลางคันที่ชุด 2/4)
+// Gemini ออก 15 ข้อ + explain ยาว ใช้เวลาหลายนาที ถ้า retry ซ้ำอีกรอบก็เกิน 6 นาที
+const CONV_MAX_Q_PER_BATCH = 10;
 const CONV_MAX_PAGES_PER_BATCH = 6;
 // ใช้เมื่อนับจำนวนข้อไม่ได้ (PDF สแกน ไม่มี text layer) — ตรงกับขนาดชุดของเส้นทางกู้คืน RECITATION เดิม
 const CONV_FALLBACK_PAGES_PER_BATCH = 4;
@@ -59,35 +60,48 @@ async function detectQuestionCount(pdfDoc) {
     return { expected: expect - 1, contentPages: perPage.size, perPage };
 }
 
-// คำนวณจำนวนหน้าต่อชุดจากความหนาแน่นของข้อ (ข้อ/หน้า) ให้ได้ ~CONV_MAX_Q_PER_BATCH ข้อต่อชุด
-function pagesPerBatchFor(detected) {
-    if (!detected || detected.expected <= 0 || detected.contentPages <= 0) {
-        return CONV_FALLBACK_PAGES_PER_BATCH;
-    }
-    const density = detected.expected / detected.contentPages; // ข้อต่อหน้า (เฉพาะหน้าที่มีข้อ)
-    const per = Math.floor(CONV_MAX_Q_PER_BATCH / density);
-    if (!isFinite(per) || per < 1) return CONV_MIN_PAGES_PER_BATCH;
-    return Math.max(CONV_MIN_PAGES_PER_BATCH, Math.min(CONV_MAX_PAGES_PER_BATCH, per));
-}
-
 // Returns an array of batch descriptors [{start, end}].
 // ไฟล์เล็ก/ข้อน้อย → ชุดเดียว (คงเส้นทาง native PDF ที่คุณภาพ OCR ดีที่สุดไว้เหมือนเดิม)
-// ไฟล์ที่ข้อเกิน CONV_MAX_Q_PER_BATCH → ซอยตามความหนาแน่นของข้อ
+// ไฟล์ที่ข้อเกิน CONV_MAX_Q_PER_BATCH → อัดหน้าทีละหน้าจาก perPage จริง (ไม่ใช้ความหนาแน่นเฉลี่ย)
+// เพดานจริง: ชุดใดข้อเกิน 10 ได้เฉพาะเมื่อ "หน้าเดียว" มีเกิน 10 ข้อ (ตัดกลางหน้าไม่ได้)
+// เดิมใช้ค่าเฉลี่ย + ขั้นต่ำ 2 หน้า → หน้าแน่น 8 ข้อ × 2 หน้า = 16 ข้อ/ชุด หลุดเพดาน
 async function checkAndSplitPDF(pdfDoc, detected) {
     const total = pdfDoc.numPages;
-
-    // นับข้อได้ และน้อยกว่าเพดานต่อชุด → ส่งทีเดียวได้ ไม่ต้องซอย
-    if (detected && detected.expected > 0 && detected.expected <= CONV_MAX_Q_PER_BATCH) {
-        return [{ start: 1, end: total }];
-    }
-
-    const per = pagesPerBatchFor(detected);
-    if (total <= per) return [{ start: 1, end: total }];
+    const counted = detected && detected.expected > 0 && detected.perPage;
 
     const batches = [];
-    for (let s = 1; s <= total; s += per) {
-        batches.push({ start: s, end: Math.min(s + per - 1, total) });
+    if (!counted) {
+        // นับไม่ได้ (PDF สแกน) — ชุดละ CONV_FALLBACK_PAGES_PER_BATCH หน้าเท่าเดิม
+        if (total <= CONV_FALLBACK_PAGES_PER_BATCH) return [{ start: 1, end: total }];
+        for (let s = 1; s <= total; s += CONV_FALLBACK_PAGES_PER_BATCH) {
+            batches.push({ start: s, end: Math.min(s + CONV_FALLBACK_PAGES_PER_BATCH - 1, total) });
+        }
+        return batches;
     }
+
+    // การนับหยุดที่เลขข้อแรกที่อ่านไม่ได้ (เช่นเลขข้อเป็นรูป) → หน้าหลังจากนั้นดูเหมือน 0 ข้อทั้งที่เต็มไปด้วยข้อสอบ
+    // หน้าหลังหน้าสุดท้ายที่นับได้ → ประมาณด้วยความหนาแน่นเฉลี่ย (หน้าท้ายที่เป็นเฉลยจริงแค่ทำให้ชุดเล็กลง ไม่เสียหาย)
+    const lastCounted = Math.max(...detected.perPage.keys());
+    const avgPerPage = Math.ceil(detected.expected / detected.perPage.size);
+    const weight = p => detected.perPage.get(p) || (p > lastCounted ? avgPerPage : 0);
+
+    // ประมาณทั้งไฟล์ได้ไม่เกินเพดานต่อชุด → ส่งทีเดียว (native PDF คุณภาพ OCR ดีสุด)
+    let estTotal = 0;
+    for (let p = 1; p <= total; p++) estTotal += weight(p);
+    if (estTotal <= CONV_MAX_Q_PER_BATCH) return [{ start: 1, end: total }];
+
+    let start = 1, qCount = 0;
+    for (let p = 1; p <= total; p++) {
+        const n = weight(p);
+        const pagesInBatch = p - start;
+        if (pagesInBatch > 0 && (qCount + n > CONV_MAX_Q_PER_BATCH || pagesInBatch >= CONV_MAX_PAGES_PER_BATCH)) {
+            batches.push({ start, end: p - 1 });
+            start = p;
+            qCount = 0;
+        }
+        qCount += n;
+    }
+    batches.push({ start, end: total });
     return batches;
 }
 

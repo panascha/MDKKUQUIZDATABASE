@@ -160,7 +160,11 @@ ${lines}
 // allowedCats: หัวข้อบรรยายจริงของวิชานี้ — ถ้ามี จะบังคับ category[1] ให้เลือกจากรายการ
 // forcedCat0: examGroup ที่ผู้ใช้เลือกจากชิป (edit 3) — บังคับ category[0] ชนะการเดาจากชื่อไฟล์
 // expectCount: จำนวนข้อที่นับได้จาก text layer ของชุดนี้ — บอกโมเดลตรง ๆ ว่าต้องได้กี่ข้อ
-function buildConverterPrompt(additionalPrompt, pageNote, allowedCats, forcedCat0, expectCount) {
+// qFrom: เลขข้อแรกของชุดนี้ (จาก detectQuestionCount) — ใส่ช่วง "ข้อ X ถึงอย่างน้อยข้อ Y" ให้โมเดลไล่ครบ
+function buildConverterPrompt(additionalPrompt, pageNote, allowedCats, forcedCat0, expectCount, qFrom) {
+    const rangeNote = (expectCount > 0 && qFrom > 0)
+        ? `\n   ชุดนี้เริ่มที่ข้อ ${qFrom} และไปถึงอย่างน้อยข้อ ${qFrom + expectCount - 1} — ต้องสกัดให้ครบทุกข้อตามลำดับ ห้ามข้ามข้อโดยเด็ดขาด`
+        : '';
     const prompt = `คุณเป็น AI แปลงข้อสอบแพทย์จาก PDF เป็น JSON
 ส่งกลับ JSON object นี้เท่านั้น — ไม่มี markdown, ไม่มีข้อความอื่น:
 {
@@ -214,7 +218,7 @@ function buildConverterPrompt(additionalPrompt, pageNote, allowedCats, forcedCat
 9. ถ้าโจทย์ต้นฉบับไม่สมบูรณ์ (ประโยคขาดหาย/พิมพ์ตกหล่น/อ่านไม่ครบ) และคุณต้องเติมข้อความให้สมบูรณ์เพื่อให้อ่านเข้าใจได้
    ให้ต่อท้าย problem ด้วย " [⚠️ เพิ่มเติมเพื่อความสมบูรณ์: <สรุปสั้นๆ ว่าเติมอะไรไป>]" เพื่อให้ผู้ตรวจทานรู้ว่าส่วนนั้น AI เติมเอง ไม่ใช่ต้นฉบับ
    ข้อความ [⚠️ ...] นี้ใช้ได้เฉพาะต่อท้าย problem เท่านั้น ห้ามใส่ลงใน choices เด็ดขาด — ถ้าตัวเลือกขาดหายให้เว้นไว้ตามกฎข้อ 1${expectCount > 0 ? `\n\n**จำนวนข้อขั้นต่ำ:** ชุดนี้นับได้ "อย่างน้อย" ${expectCount} ข้อ (อาจมีมากกว่านี้)
-   ต้องคืน questions ไม่น้อยกว่า ${expectCount} รายการ และถ้าเห็นข้อมากกว่านั้น ให้คืนมาให้ครบทุกข้อที่เห็น — ห้ามหยุดที่ ${expectCount}` : ''}${forcedCat0 ? `\n\n**บังคับใช้แทนกฎข้อ 5:** category[0] ของทุกข้อต้องเป็น "${forcedCat0}" เท่านั้น — คัดลอกตรงเป๊ะ ห้ามเปลี่ยน` : ''}${buildAllowedTopicsBlock(allowedCats)}${pageNote ? '\n' + pageNote : ''}${additionalPrompt ? '\n' + additionalPrompt : ''}`;
+   ต้องคืน questions ไม่น้อยกว่า ${expectCount} รายการ และถ้าเห็นข้อมากกว่านั้น ให้คืนมาให้ครบทุกข้อที่เห็น — ห้ามหยุดที่ ${expectCount}${rangeNote}` : ''}${forcedCat0 ? `\n\n**บังคับใช้แทนกฎข้อ 5:** category[0] ของทุกข้อต้องเป็น "${forcedCat0}" เท่านั้น — คัดลอกตรงเป๊ะ ห้ามเปลี่ยน` : ''}${buildAllowedTopicsBlock(allowedCats)}${pageNote ? '\n' + pageNote : ''}${additionalPrompt ? '\n' + additionalPrompt : ''}`;
 
     return prompt;
 }
@@ -546,6 +550,34 @@ function validateCategoryFormat(questions) {
     }
 }
 
+// ตรวจความต่อเนื่องของเลขข้อ (กฎข้อ 1.2 ของ prompt สั่งให้คงเลขข้อเดิมไว้ใน problem)
+// คืน array เลขข้อที่หายไป — [] ถ้าไม่พบช่องโหว่ หรือมีเลขข้ออ่านได้ไม่ถึง 80% (ไม่พอจะตัดสิน กันเตือนผิด)
+// expected: ค่าขั้นต่ำจาก detectQuestionCount — ใช้ขยายขอบบนเฉพาะเมื่อเลขเริ่มที่ 1 (ไฟล์ส่วนที่ 2 เริ่มข้อ 51 ได้)
+function findQuestionNumberGaps(questions, expected) {
+    if (!Array.isArray(questions) || questions.length === 0) return [];
+    const nums = [];
+    questions.forEach(q => {
+        const m = String(q.problem || '').match(/^\s*(?:ข้อ(?:ที่)?\s*)?(\d{1,3})\s*[.)]/);
+        if (m) nums.push(parseInt(m[1], 10));
+    });
+    if (nums.length < questions.length * 0.8) return [];
+    const seen = new Set(nums);
+    // เลขซ้ำเกิน 10% = โมเดลเริ่มนับ 1 ใหม่ทุกชุด (ไม่คงเลขเดิม) — เลขใช้ตัดสินไม่ได้ ข้ามดีกว่าเตือนผิดยกไฟล์
+    if (nums.length - seen.size > nums.length * 0.1) return [];
+    const min = Math.min(...nums);
+    const max = Math.max(...nums);
+    const upper = min === 1 ? Math.max(max, expected || 0) : max;
+    if (upper - min > 500) return []; // เลขเพี้ยน (ค่า lab/ปี พ.ศ.) — ไม่ใช่เลขข้อจริง
+    const gaps = [];
+    for (let n = min; n <= upper; n++) if (!seen.has(n)) gaps.push(n);
+    return gaps;
+}
+
+// ตัด /// ที่หลุดมาในเนื้อความ — /// คือตัวคั่นของชีต (choices/img) ถ้าอยู่ในโจทย์/ตัวเลือกจะแตกเป็นหลายช่อง
+function stripDelimiter(text) {
+    return String(text == null ? '' : text).replace(/\/{3,}/g, '/');
+}
+
 // Group questions by category[0], fill #jsonInput, call processAll(), then populate pageHintMap
 function groupAndFeedToProcessAll(questions, fileStem) {
     const grouped = {};
@@ -578,6 +610,15 @@ function expectedForBatch(detected, batch) {
     return n;
 }
 
+// เลขข้อแรกของชุดนี้ — detectQuestionCount รับเฉพาะเลขที่ไล่ 1,2,3,… จึงเท่ากับ 1 + จำนวนข้อในหน้าก่อนหน้า
+// 0 = นับไม่ได้ (ไม่ใส่ช่วงเลขข้อใน prompt)
+function firstQuestionForBatch(detected, batch) {
+    if (!detected || !detected.perPage || detected.expected <= 0) return 0;
+    let before = 0;
+    for (let p = 1; p < batch.start; p++) before += (detected.perPage.get(p) || 0);
+    return before + 1;
+}
+
 // แปลงแบบชุดรูปหน้ากระดาษหลายชุด — ทน RECITATION รายชุด: ชุดที่โดนตัวกรองตายชุดเดียว ชุดอื่นรอด
 // error อื่น (auth/network/quota) โยนต่อทันที — ไม่เผา quota กับชุดที่เหลือ
 // detected: ผลจาก detectQuestionCount — ใช้บอกโมเดลว่าชุดนี้ควรได้กี่ข้อ + ตรวจชุดที่ได้ไม่ครบ
@@ -585,6 +626,7 @@ async function convertImageBatches(batches, additionalPrompt, statusEl, allowedC
     const questions = [];
     const failed = [];
     const shortBatches = []; // ชุดที่ได้ข้อน้อยกว่าที่นับได้จาก PDF
+    const truncatedBatches = []; // ชุดที่ JSON ถูกตัด (MAX_TOKENS) — ข้อท้ายที่ปิดไม่ครบถูกทิ้งแล้ว ต้องแปลงช่วงนี้ซ้ำ
     let truncated = false;
     let aborted = null; // error กลางทางที่ไม่ใช่ recitation — หยุดแต่เก็บของที่แปลงได้แล้ว
     for (let b = 0; b < batches.length; b++) {
@@ -595,11 +637,11 @@ async function convertImageBatches(batches, additionalPrompt, statusEl, allowedC
         const pageNote = `หมายเหตุ: รูปที่แนบมาคือหน้า ${batch.start} ถึง ${batch.end} ของ PDF (เรียงตามลำดับ) — pageHint ต้องใช้เลขหน้าจริงเหล่านี้`;
         statusEl.textContent = `ชุดที่ ${b + 1}/${batches.length} — กำลังส่งให้ระบบแปลง…`;
         try {
-            const raw = await convertBatchViaGAS(buildConverterPrompt(additionalPrompt, pageNote, allowedCats, forcedCat0, expect), {
+            const raw = await convertBatchViaGAS(buildConverterPrompt(additionalPrompt, pageNote, allowedCats, forcedCat0, expect, firstQuestionForBatch(detected, batch)), {
                 images: pages.map(p => p.dataUrl)
             });
             const parsed = parseGeminiResponse(raw);
-            if (parsed.meta && parsed.meta.source === 'partial') truncated = true;
+            if (parsed.meta && parsed.meta.source === 'partial') { truncated = true; truncatedBatches.push(batch); }
             const qs = parsed.questions;
             questions.push(...qs);
             if (expect > 0 && qs.length < expect) shortBatches.push({ start: batch.start, end: batch.end, got: qs.length, expect });
@@ -629,7 +671,7 @@ async function convertImageBatches(batches, additionalPrompt, statusEl, allowedC
             });
         }
     }
-    return { questions, failed, truncated, shortBatches, aborted };
+    return { questions, failed, truncated, truncatedBatches, shortBatches, aborted };
 }
 
 // ─── Autonomous AI Self-Correction Loop (Uncategorized questions) ──────────
@@ -765,6 +807,7 @@ async function runGeminiConversion(file, filename) {
     let shortBatches = [];
     let aborted = null;
     let truncated = false; // JSON ถูกตัดกลางคัน (MAX_TOKENS) แล้วกู้มาได้บางส่วน = ข้อมูลไม่ครบ
+    let truncatedBatches = []; // ช่วงหน้าที่ถูกตัด — บอกผู้ใช้ให้แปลงซ้ำเฉพาะช่วงนี้
     try {
         if (batches.length === 1 && !forceImagePath) {
             // ── ทั้งไฟล์ในครั้งเดียว: native PDF ผ่าน proxy ──
@@ -777,9 +820,12 @@ async function runGeminiConversion(file, filename) {
             });
             statusEl.textContent = 'กำลังส่ง PDF ให้ระบบแปลง (key กลาง)…';
             try {
-                const raw = await convertBatchViaGAS(buildConverterPrompt(additionalPrompt, '', allowedCats, forcedCat0, detected.expected), { pdfB64 });
+                const raw = await convertBatchViaGAS(buildConverterPrompt(additionalPrompt, '', allowedCats, forcedCat0, detected.expected, 1), { pdfB64 });
                 const parsed = parseGeminiResponse(raw);
-                if (parsed.meta && parsed.meta.source === 'partial') truncated = true;
+                if (parsed.meta && parsed.meta.source === 'partial') {
+                    truncated = true;
+                    truncatedBatches = [{ start: 1, end: currentPdfDoc.numPages }];
+                }
                 allQuestions.push(...parsed.questions);
             } catch (err) {
                 if (!String(err.message).includes('RECITATION')) throw err;
@@ -794,6 +840,7 @@ async function runGeminiConversion(file, filename) {
                 shortBatches = res.shortBatches;
                 aborted = res.aborted || null;
                 if (res.truncated) truncated = true;
+                truncatedBatches = res.truncatedBatches;
                 if (allQuestions.length === 0) throw err; // โดนทุกชุด — โยน error เดิมพร้อมคำแนะนำ
             }
         } else {
@@ -814,6 +861,7 @@ async function runGeminiConversion(file, filename) {
             shortBatches = res.shortBatches;
             aborted = res.aborted || null;
             if (res.truncated) truncated = true;
+            truncatedBatches = res.truncatedBatches;
             if (allQuestions.length === 0 && failedBatches.length > 0) {
                 throw new Error('ทุกชุดโดนตัวกรอง recitation ของ Gemini — ลองกดแปลงซ้ำอีกครั้ง');
             }
@@ -825,6 +873,11 @@ async function runGeminiConversion(file, filename) {
     // Sanitize every question's category — คง CategoryID ที่ตรงกับหัวข้อจริงไว้ทั้งดุ้น
     // จุดรวมทุกเส้นทาง (native PDF / image batches / กู้คืน MAX_TOKENS) — ล้างโจทย์ที่นี่ที่เดียว
     allQuestions.forEach(q => {
+        // ตัวคั่น /// — choices แบบ array (บางรุ่นคืนมาแบบนี้) ล้างทีละตัวก่อน join; แบบ string แยกไม่ได้ว่า /// ตัวไหนเป็นตัวคั่น จึงปล่อยไว้
+        if (Array.isArray(q.choices)) q.choices = q.choices.map(stripDelimiter).join('///');
+        q.answer = stripDelimiter(q.answer);
+        q.problem = stripDelimiter(q.problem);
+        q.explain = stripDelimiter(q.explain);
         q.problem = stripImagePlaceholder(stripChoiceTail(q.problem, q.choices));
         q.choices = stripChoiceLetters(q.choices);
         q.answer = sanitizeAnswer(q.answer, q.choices);
@@ -851,6 +904,12 @@ async function runGeminiConversion(file, filename) {
     // เทียบจำนวนที่นับได้จาก PDF กับที่แปลงได้จริง — detected.expected เป็นค่าขั้นต่ำ
     // ถ้ายังขาด แปลว่าโมเดลออกข้อไม่ครบ (ไม่ใช่แค่ถูกตัด) — ต้องบอกผู้ใช้ ห้ามรายงานว่าสำเร็จเฉย ๆ
     const missing = detected.expected > 0 ? Math.max(0, detected.expected - allQuestions.length) : 0;
+    // เลขข้อขาดช่วง — จับเคสที่ "จำนวนรวมถึงเกณฑ์" แต่ข้อตรงกลางหาย (โมเดลข้ามข้อ/ออกซ้ำ)
+    const numberGaps = findQuestionNumberGaps(allQuestions, detected.expected);
+    if (numberGaps.length > 0) {
+        convDiagnostics.push({ label: 'number-gaps', missingNumbers: numberGaps });
+        console.warn(`⚠️ ตรวจพบข้อสอบตกหล่น: ข้อ ${numberGaps.join(', ')} หายไป`);
+    }
 
     statusEl.textContent = aborted
         ? `⚠️ หยุดกลางคันที่ชุด ${aborted.atBatch}/${aborted.totalBatches} — เก็บได้ ${allQuestions.length} ข้อ (${aborted.message})`
@@ -860,12 +919,16 @@ async function runGeminiConversion(file, filename) {
             ? `⚠️ แปลงได้ ${allQuestions.length} ข้อ — คำตอบถูกตัดกลางคัน ข้อมูลอาจไม่ครบ`
             : missing > 0
                 ? `⚠️ แปลงได้ ${allQuestions.length} ข้อ จากที่นับได้ ${detected.expected} ข้อ — ขาดไป ${missing} ข้อ`
-                : `✅ แปลงสำเร็จ ${allQuestions.length} ข้อ`;
+                : numberGaps.length > 0
+                    ? `⚠️ แปลงได้ ${allQuestions.length} ข้อ — ตรวจพบข้อสอบตกหล่น: ข้อ ${numberGaps.slice(0, 10).join(', ')} หายไป`
+                    : `✅ แปลงสำเร็จ ${allQuestions.length} ข้อ`;
 
     return {
         total: allQuestions.length,
         failedBatches: failedBatches,
         truncated: truncated,
+        truncatedBatches: truncatedBatches,
+        numberGaps: numberGaps,
         expected: detected.expected,
         missing: missing,
         shortBatches: shortBatches,

@@ -480,6 +480,9 @@ function processAll() {
             // ฟังก์ชันช่วยวิเคราะห์และลงทะเบียน Category และ Structure ตาม Pattern หลักสูตรแพทย์
             function registerCategoryAndStructure(catKey) {
                 if (!catKey) return;
+                // SUBJ_Uncategorized = ป้าย fallback ของ enforceKnownTopic (gemini.js) ไม่ใช่หัวข้อจริง
+                // ห้ามสร้างแถว Category/Structure ให้ ไม่งั้นได้กลุ่ม "SUBJ Uncategorized" ค้างในตาราง Structure
+                if (/_Uncategorized$/.test(String(catKey))) return;
                 if (categoryRows.some(row => row[0] === catKey)) return;
 
                 const parts = catKey.split('_');
@@ -1021,9 +1024,16 @@ async function importConvertedData() {
             let importLog = "";
             const sheetStats = {}; // key -> { added, updated, count, skipped }
 
+            // ข้อที่ยัง Uncategorized — หมวดนี้ไม่ถูกสร้างใน Category/Structure (registerCategoryAndStructure)
+            // เตือนในกล่องยืนยันเลย (toast แยกจะถูก Swal ตัวนี้ปิดทับทันที เพราะ SweetAlert2 แสดงได้ทีละกล่อง)
+            const uncatCount = (converterStorage.ques || []).filter(r => /_Uncategorized\b/.test(String(r[6] || ''))).length;
+            const uncatHtml = uncatCount > 0
+                ? `<br><br><span class="text-warning fw-bold">⚠️ มี ${uncatCount} ข้อที่ยังไม่มีหัวข้อ (Uncategorized)</span><br>
+                   <small>ระบบจะไม่สร้างหมวด Uncategorized ในโครงสร้าง — เลือกหัวข้อจาก dropdown ในหน้าตัวอย่างก่อนนำเข้าจะดีที่สุด</small>`
+                : '';
             const isConfirmed = await Swal.fire({
                 title: 'ยืนยันการนำเข้าข้อมูล?',
-                text: `ระบบจะกรองนำเข้าเฉพาะข้อมูลใหม่และข้อมูลที่มีการอัปเดตเท่านั้น โดยข้อมูลที่ซ้ำซ้อนหรือเหมือนเดิมจะถูกข้ามให้แบบอัตโนมัติ`,
+                html: `ระบบจะกรองนำเข้าเฉพาะข้อมูลใหม่และข้อมูลที่มีการอัปเดตเท่านั้น โดยข้อมูลที่ซ้ำซ้อนหรือเหมือนเดิมจะถูกข้ามให้แบบอัตโนมัติ${uncatHtml}`,
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonText: 'ใช่, เริ่มนำเข้า'
@@ -1651,6 +1661,23 @@ async function startPDFConversion() {
     const subjId = (document.getElementById('subjID').value.trim() ||
         parseFilenameMetadata(filename).subjectCode).trim();
 
+    // category[0] ต้องมีเลขรุ่นนำหน้า (CVS_52MCQ1) — ไม่มีแล้วข้อสอบหลายรุ่นปนกลุ่มเดียวกัน
+    // เตือนเฉย ๆ ให้แอดมินข้ามได้ (ข้อสอบ NL/legacy ไม่มีรุ่น) — "xx" = รุ่นไม่ทราบ ถือว่าตั้งใจแล้ว
+    const effGroup = getEffectiveExamGroup(filename).group;
+    if (!/^(?:\d{2}|xx)/i.test(effGroup)) {
+        const yr = await Swal.fire({
+            icon: 'warning',
+            title: 'กลุ่มข้อสอบยังไม่มีเลขรุ่น',
+            html: `กลุ่มข้อสอบที่จะบันทึก: <b>${_convEsc(effGroup || '(ว่าง)')}</b><br>
+                   ควรมีเลขรุ่นนำหน้า เช่น <code>${_convEsc(subjId.toUpperCase() || 'CVS')}_52MCQ1</code> — เลือกรุ่นในช่องกลุ่มข้อสอบก่อน<br>
+                   <small class="text-muted">ข้อสอบ NL / legacy ที่ไม่มีรุ่น กด "แปลงต่อ" ได้เลย</small>`,
+            showCancelButton: true,
+            confirmButtonText: 'แปลงต่อ (ไม่มีเลขรุ่น)',
+            cancelButtonText: 'กลับไปเลือกรุ่น'
+        });
+        if (!yr.isConfirmed) return;
+    }
+
     const proceed = await reviewCategoriesBeforeConvert(subjId);
     if (!proceed) return;
 
@@ -1695,12 +1722,21 @@ async function showConversionSummary(res) {
         return;
     }
     // คำตอบถูกตัดกลางคัน (MAX_TOKENS) แล้วกู้มาได้บางส่วน — ห้ามบอกว่า "ครบถ้วน" เช่นเดียวกับกรณี recitation
+    // เลขข้อที่หายไปตรงกลาง (findQuestionNumberGaps, gemini.js) — ต่อท้ายทุกกล่องเตือนด้านล่าง
+    const gaps = (res && res.numberGaps) || [];
+    const gapHtml = gaps.length > 0
+        ? `<br><br>⚠️ ตรวจพบข้อสอบตกหล่น: <b>ข้อ ${_convEsc(gaps.slice(0, 20).join(', '))}${gaps.length > 20 ? ' …' : ''}</b> หายไป`
+        : '';
     if (res && res.truncated) {
+        const tb = res.truncatedBatches || [];
+        const tbHtml = tb.length > 0
+            ? `<br>ช่วงที่ถูกตัด: <b>หน้า ${_convEsc(tb.map(b => `${b.start}-${b.end}`).join(', '))}</b> — ข้อท้ายที่ไม่สมบูรณ์ถูกทิ้งไปแล้ว`
+            : '';
         await Swal.fire({
             icon: 'warning',
             title: `แปลงได้ ${total} ข้อ — คำตอบถูกตัดกลางคัน`,
-            html: `AI ตอบยาวเกินขีดจำกัดจึงถูกตัด ระบบกู้มาได้ ${total} ข้อ — <b>ข้อมูลอาจไม่ครบ</b><br>
-                   กรุณาเทียบจำนวนข้อกับต้นฉบับ PDF ถ้าขาด ให้แบ่ง PDF ให้เล็กลงแล้วแปลงส่วนที่ขาดซ้ำ`
+            html: `AI ตอบยาวเกินขีดจำกัดจึงถูกตัด ระบบกู้มาได้ ${total} ข้อ — <b>ข้อมูลอาจไม่ครบ</b>${tbHtml}<br>
+                   แปลงซ้ำเฉพาะช่วงหน้านั้นเพื่อเก็บข้อที่ขาด${gapHtml}`
         });
         return;
     }
@@ -1717,8 +1753,17 @@ async function showConversionSummary(res) {
             title: `แปลงได้ ${total} ข้อ — ขาดไป ${missing} ข้อ`,
             html: `นับจากไฟล์ PDF ได้ <b>${res.expected} ข้อ</b> แต่ AI คืนมา <b>${total} ข้อ</b>${shortHtml}<br><br>
                    AI ออกข้อไม่ครบ ไม่ใช่ระบบตัดทิ้ง — กดแปลงซ้ำอีกครั้งมักได้ครบขึ้น
-                   หรือแบ่ง PDF เป็นไฟล์ย่อยแล้วแปลงทีละส่วน<br>
+                   หรือแบ่ง PDF เป็นไฟล์ย่อยแล้วแปลงทีละส่วน${gapHtml}<br>
                    <small class="text-muted">ดูรายละเอียดการวินิจฉัยได้ที่ console: <code>convDiagnostics</code></small>`
+        });
+        return;
+    }
+    if (gaps.length > 0) {
+        await Swal.fire({
+            icon: 'warning',
+            title: `แปลงได้ ${total} ข้อ — เลขข้อไม่ต่อเนื่อง`,
+            html: `จำนวนรวมถึงเกณฑ์ แต่เลขข้อขาดช่วง${gapHtml}<br><br>
+                   AI อาจข้ามข้อหรือออกข้อซ้ำ — เทียบกับต้นฉบับ PDF แล้วแปลงหน้าที่มีข้อเหล่านั้นซ้ำ`
         });
         return;
     }
