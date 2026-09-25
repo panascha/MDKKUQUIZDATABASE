@@ -1684,6 +1684,7 @@ async function startPDFConversion() {
     document.getElementById('btn-convert-pdf').disabled = true;
     try {
         const convResult = await runGeminiConversion(window._pdfFile, filename);
+        await addVectorFallbackImages();
         autoMatchByPage();
         saveCheckpoint();
         await showConversionSummary(convResult); // สรุปจำนวนข้อให้ตรวจความครบถ้วน
@@ -2119,6 +2120,16 @@ function removeAssignment(rowIndex, imgIndex) {
 function extractFigureNumber(text) {
     const m = String(text || '').match(/(?:figure|fig\.?|รูปที่|รูปภาพที่|รูป)\s*(\d{1,2})/i);
     return m ? parseInt(m[1], 10) : null;
+}
+
+// require_img + หน้านั้นไม่มีรูปจริงเลย → render ทั้งหน้าเป็นรูปสำรองให้ autoMatchByPage จับคู่ได้
+async function addVectorFallbackImages() {
+    if (!currentPdfDoc) return;
+    const rasterPages = new Set(extractedImages.filter(img => !img.decorative).map(img => img.page));
+    const pages = [...new Set(converterStorage.ques
+        .map((row, i) => row && String(row[2]).trim() === 'require_img' ? pageHintMap.get(i) : null)
+        .filter(p => p != null && p >= 1 && p <= currentPdfDoc.numPages && !rasterPages.has(p)))];
+    if (pages.length) await renderFallbackPages(currentPdfDoc, pages);
 }
 
 function autoMatchByPage() {

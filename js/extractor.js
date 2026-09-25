@@ -37,7 +37,9 @@ async function extractObjectsFromPage(pdfPage, pageNum) {
         if (!imgData) continue;
 
         const { width, height } = imgData;
-        if (!width || !height || width < 50 || height < 50) continue;
+        // ตัด noise: ไอคอน/bullet/เส้นคั่น — เล็กกว่า 100px หรือพื้นที่ < 15,000px² หรือสัดส่วนสุดโต่ง (เส้น/แถบ)
+        if (!width || !height || width < 100 || height < 100 || width * height < 15000) continue;
+        if (width / height > 10 || width / height < 0.1) continue;
 
         try {
             const canvas = document.createElement('canvas');
@@ -131,6 +133,10 @@ async function extractImagesFromPDF(pdfDoc) {
         img.decorative = pages.size >= 2;
         img.pageCount = pages.size;
     });
+    // โผล่ ≥3 หน้า = watermark/โลโก้แน่นอน → ตัดทิ้งเลย (2 หน้ายังเก็บไว้ในถาดรูปประดับเหมือนเดิม)
+    const beforePurge = extractedImages.length;
+    extractedImages = extractedImages.filter(img => img.pageCount < 3);
+    const purged = beforePurge - extractedImages.length;
 
     // ลำดับการปรากฏของรูปจริงทั้งเอกสาร (1-based, global ไม่ใช่รีเซ็ตต่อหน้า) — ตรงกับธรรมเนียมเลข
     // Figure ในเอกสารสอบทั่วไปที่นับต่อเนื่องทั้งไฟล์ ไม่ใช่รีเซ็ตทุกหน้า converter.js ใช้จับคู่กับ
@@ -144,6 +150,20 @@ async function extractImagesFromPDF(pdfDoc) {
 
     const decoCount = extractedImages.filter(i => i.decorative).length;
     statusEl.textContent = `✅ ดึงภาพสำเร็จ ${extractedImages.length - decoCount} รูป` +
-        (decoCount > 0 ? ` (แยกรูปประดับ ${decoCount} รูป)` : '');
+        (decoCount > 0 ? ` (แยกรูปประดับ ${decoCount} รูป)` : '') +
+        (purged > 0 ? ` (ตัด watermark ${purged} รูป)` : '');
     renderPreviewCards();
+}
+
+// Vector-figure fallback: หน้าที่มีข้อ require_img แต่ไม่มีรูป raster (กราฟ/diagram วาดด้วย path) → render ทั้งหน้า
+async function renderFallbackPages(pdfDoc, pages) {
+    for (const p of pages) {
+        try {
+            const img = await renderPageAsFallback(await pdfDoc.getPage(p), p);
+            img.decorative = false;
+            extractedImages.push(img);
+        } catch (e) {
+            console.warn(`extractor: fallback render page ${p} failed:`, e.message);
+        }
+    }
 }
