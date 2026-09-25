@@ -111,30 +111,27 @@ function saveConverterEdit() {
     const row = converterStorage.ques[_convEditRow];
     if (!row) return;
 
-    const problem = document.getElementById('conv-edit-problem').value.trim();
+    const problem = stripDelimiter(document.getElementById('conv-edit-problem').value.trim());
     if (!problem) { Swal.fire('ยังไม่ครบ', 'กรุณากรอกโจทย์', 'warning'); return; }
 
-    // choices — เก็บช่องที่ไม่ว่าง, ห้ามมี /// ในตัวเลือกเดียว (กันคั่นข้อมูลเพี้ยน)
+    // choices — เก็บช่องที่ไม่ว่าง, ตัด /// ในตัวเลือกออก (กันคั่นข้อมูลเพี้ยน)
     const choices = [];
     let answer = '';
-    let badSep = false;
     $('#conv-edit-choices .conv-choice-row').each(function () {
-        const text = $(this).find('.conv-choice-text').val().trim();
+        const text = stripDelimiter($(this).find('.conv-choice-text').val().trim());
         if (text === '') return;
-        if (text.includes('///')) badSep = true;
         choices.push(text);
         if ($(this).find('.conv-choice-radio').is(':checked')) answer = text;
     });
 
-    if (badSep) { Swal.fire('รูปแบบผิด', 'ห้ามมีเครื่องหมาย /// ภายในตัวเลือกเดียว (เป็นตัวคั่นข้อมูล)', 'error'); return; }
     if (choices.length < 2) { Swal.fire('ยังไม่ครบ', 'ต้องมีตัวเลือกอย่างน้อย 2 ตัว', 'warning'); return; }
     if (!answer) { Swal.fire('ยังไม่เลือกคำตอบ', 'กรุณาติ๊กวงกลมหน้าตัวเลือกที่เป็นคำตอบที่ถูก', 'warning'); return; }
 
     // category
-    const cat0 = document.getElementById('conv-edit-cat0').value.trim();
+    const cat0 = stripDelimiter(document.getElementById('conv-edit-cat0').value.trim());
     const selVal = document.getElementById('conv-edit-cat1-select').value;
     const cat1 = (selVal === '__custom__')
-        ? document.getElementById('conv-edit-cat1-custom').value.trim()
+        ? stripDelimiter(document.getElementById('conv-edit-cat1-custom').value.trim())
         : selVal.trim();
     const cats = [cat0 || (choices[0] || ''), cat1 || cat0 || (choices[0] || '')];
 
@@ -146,7 +143,7 @@ function saveConverterEdit() {
     row[1] = problem;
     row[3] = choices.join('///');
     row[4] = answer;
-    row[5] = document.getElementById('conv-edit-explain').value.trim();
+    row[5] = stripDelimiter(document.getElementById('conv-edit-explain').value.trim());
     row[6] = JSON.stringify(cats);
 
     _convEditModal().hide();
