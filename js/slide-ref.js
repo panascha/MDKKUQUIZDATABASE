@@ -368,12 +368,17 @@ ${slideBlock}
 [บันทึกเสริม — ห้ามอ้างว่าเป็นสไลด์]
 ${notesBlock}
 
-[INSTRUCTION & WRITING STYLE]
+${slideStyleRules(q.answer)}`;
+}
+
+// กติกาการเขียนเฉลย ใช้ร่วมกันระหว่าง Regenerate กับ Auto-Pilot — แก้ที่เดียว
+function slideStyleRules(answer) {
+    return `[INSTRUCTION & WRITING STYLE]
 - ภาษา: ใช้โทนเป็นกันเอง อธิบายอย่างมีเหตุมีผลคล้ายคุณหมอรุ่นพี่หรืออาจารย์แพทย์ที่ใจดีกำลังสอนบอร์ด อธิบายอย่างชัดเจน มีความลื่นไหลเป็นเนื้อเดียวกัน
 - ความยาว: 6 - 8 ประโยคเท่านั้น ห้ามเกินนี้เด็ดขาด
 - รูปแบบ: ย่อหน้าเดียวต่อเนื่อง มีการเชื่อมประโยคอย่างลื่นไหล ไม่มีพอยต์ย่อย ไม่มีขึ้นบรรทัดใหม่สำหรับตัวเลือก โดยใช้ประโยคเชื่อมโยงธรรมชาติ เช่น "ส่วนข้อ B ผิดเพราะ... (due to...)", "ข้อ C ผิดเพราะ..."
 - ลำดับการอธิบาย:
-  1. เริ่มต้นวิเคราะห์ทันทีด้วยการชี้ diagnostic clues ในโจทย์ที่นำไปสู่คำตอบ "${q.answer}" ตามด้วย causal chain ของกลไกทางพยาธิสรีรวิทยา (Pathophysiology) หรือโครงสร้างทางกายวิภาคที่เกี่ยวข้องแบบเหตุ-ผลต่อเนื่องกัน (A → B → C) โดยอิงเนื้อหาจากสไลด์
+  1. เริ่มต้นวิเคราะห์ทันทีด้วยการชี้ diagnostic clues ในโจทย์ที่นำไปสู่คำตอบ "${answer}" ตามด้วย causal chain ของกลไกทางพยาธิสรีรวิทยา (Pathophysiology) หรือโครงสร้างทางกายวิภาคที่เกี่ยวข้องแบบเหตุ-ผลต่อเนื่องกัน (A → B → C) โดยอิงเนื้อหาจากสไลด์
   2. เปรียบเทียบและชี้แจงเหตุผลของตัวเลือกอื่นๆ ที่เหลือให้ชัดเจนว่าเป็นพยาธิสภาพของอะไร หรือทำไมจึงยังไม่ถูกต้องในบริบทของโจทย์ข้อนี้
 
 [STRICT RULES]
@@ -441,5 +446,144 @@ async function applySlideRegenerate(pages) {
     } finally {
         btn.html('✨ เขียนเฉลยใหม่จากสไลด์');
         slideRefUpdateButtons();
+    }
+}
+
+// ---- Mode 3: 1-Click Auto-Pilot — BM25 top-3 → Gemini เลือกหน้า + เขียนเฉลย → preview → ใส่ให้ ----
+
+const SLIDE_AUTO_CANDIDATES = 3;
+
+function buildSlideAutoPrompt(q, pages, notesById) {
+    const slideBlock = pages.map(p =>
+        `[pageId: ${p.pageId}] ${p.source} หน้า ${p.pageNo} — ${p.title}\n${p.slideText}`).join('\n\n');
+    // notes ของหน้าใน section เดียวกันมักซ้ำกันทั้งก้อน → ใส่ครั้งเดียว ติดป้ายทุกหน้าที่ใช้
+    const byNote = new Map();
+    pages.forEach(p => {
+        const n = String(notesById[p.pageId] || '').slice(0, 4000).trim();
+        if (!n) return;
+        if (!byNote.has(n)) byNote.set(n, []);
+        byNote.get(n).push(p.pageId);
+    });
+    const notesBlock = [...byNote].map(([n, ids]) => `[${ids.join(', ')}]\n${n}`).join('\n\n') || '(ไม่มี)';
+
+    return `คุณคืออาจารย์แพทย์ผู้เชี่ยวชาญด้านแพทยศาสตรศึกษา (Medical Education Expert) ที่มีทักษะการสอนที่ยอดเยี่ยม
+[TASK]
+1. จากสไลด์ผู้สมัคร ${pages.length} หน้าด้านล่าง เลือก "หนึ่งหน้า" ที่มีเนื้อหาสนับสนุนคำตอบที่ถูกต้องได้ตรงที่สุด ถ้าไม่มีหน้าใดสนับสนุนคำตอบจริง ให้ selectedPageId เป็น null
+2. เขียนคำอธิบายเฉลย (Explanation) เป็นภาษาไทย prose ผสมภาษาอังกฤษ (Medical Terminology) 1 ย่อหน้า โดยยึดเนื้อหาจากสไลด์หน้าที่เลือกเป็นหลัก ถ้า selectedPageId เป็น null ให้เขียนจากความรู้ทั่วไปและห้ามอ้างว่ามาจากสไลด์
+
+[DATA]
+- โจทย์: "${q.problem}"
+- ตัวเลือกทั้งหมด: ${q.choices.map((c, i) => `${String.fromCharCode(65 + i)}. ${c}`).join(', ')}
+- คำตอบที่ถูกต้องที่ระบุไว้: "${q.answer}"
+
+[CANDIDATE SLIDES]
+${slideBlock}
+
+[บันทึกเสริม — ห้ามอ้างว่าเป็นสไลด์]
+${notesBlock}
+
+${slideStyleRules(q.answer)}
+
+[OUTPUT FORMAT]
+ตอบเป็น JSON object เดียวเท่านั้น ไม่มีข้อความอื่นนอก JSON:
+{"selectedPageId": "<pageId จากรายการด้านบน หรือ null>", "explanation": "<ย่อหน้าคำอธิบาย>"}`;
+}
+
+// คืน { page: หน้าที่เลือก | null, explanation } — ถ้ารูปแบบผิดหรือ pageId ไม่อยู่ในผู้สมัคร ให้ throw
+function parseSlideAutoResponse(raw, pages) {
+    const s = String(raw || '').replace(/```(?:json)?/gi, '');
+    const a = s.indexOf('{'), b = s.lastIndexOf('}');
+    if (a < 0 || b <= a) throw new Error('AI ไม่ได้ตอบเป็น JSON');
+    let obj;
+    try { obj = JSON.parse(s.slice(a, b + 1)); } catch (e) { throw new Error('อ่าน JSON จาก AI ไม่ได้: ' + e.message); }
+
+    const id = obj.selectedPageId;
+    let page = null;
+    if (id !== null && id !== undefined && String(id).trim() !== '' && String(id).trim().toLowerCase() !== 'null') {
+        page = pages.find(p => String(p.pageId) === String(id).trim());
+        if (!page) throw new Error('AI เลือก pageId ที่ไม่อยู่ในผู้สมัคร: ' + id);
+    }
+    const explanation = cleanSlideRegenText(obj.explanation);
+    if (!explanation) throw new Error('AI ไม่ได้เขียนคำอธิบาย');
+    return { page, explanation };
+}
+
+async function slideAutoPilot() {
+    const q = readEditModalQuestion();
+    if (!q.problem || !q.choices.length || !q.answer) {
+        Swal.fire('ข้อมูลไม่ครบ', 'ต้องมีโจทย์ ตัวเลือก และคำตอบที่ติ๊กไว้ก่อน', 'warning');
+        return;
+    }
+    const subject = String(getSubjectFromCategory(q.categories) || '').trim().toUpperCase();
+    if (!subject || subject === '-') {
+        Swal.fire('ไม่ทราบวิชา', 'ใส่ category ของโจทย์ก่อน เพื่อให้รู้ว่าต้องค้นสไลด์วิชาไหน', 'warning');
+        return;
+    }
+    const btn = $('#btn-slide-auto');
+    btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i> Auto-Pilot...');
+    try {
+        // ใช้ index เดิมถ้า panel โหลดวิชาเดียวกันไว้แล้ว ไม่งั้นโหลดเอง (ไม่ต้องเปิด panel ก่อน)
+        if (slideRefState.subject !== subject || !slideRefState.index) {
+            const data = await loadKBPages(subject, false);
+            if (!data.pages.length) throw new Error('ยังไม่มีสไลด์ของวิชา ' + subject + ' ใน KB_Pages');
+            slideRefState = { subject, pages: data.pages, meta: data.meta || {}, index: buildBm25(data.pages), results: [], selected: [] };
+        }
+        const st = slideRefState;
+        // query + boost เดียวกับ panel ตอนไม่พิมพ์คำค้น (ไม่สน filter lecture/คำค้นเองใน panel)
+        const cands = scoreSlides(slideQueryTokens(q.problem, q.answer), st.index, st.pages, q.categories, st.meta.topic_map)
+            .filter(r => r.score > 0)
+            .slice(0, SLIDE_AUTO_CANDIDATES)
+            .map(r => st.pages[r.i]);
+        if (!cands.length) throw new Error('ไม่พบหน้าสไลด์ที่เกี่ยวข้องกับโจทย์นี้');
+
+        const nres = await sendWithRetry({
+            action: 'getKBPageNotes', pageIds: cands.map(p => p.pageId),
+            username: currentUser.username, adminPass: adminPass
+        }, 2);
+        if (!nres || nres.result !== 'success') throw new Error((nres && nres.message) || 'getKBPageNotes ล้มเหลว');
+        const notesById = {};
+        (nres.notes || []).forEach(n => { notesById[n.pageId] = n.notesMd; });
+
+        const res = await sendWithRetry({
+            action: 'askAIExpert', provider: 'Gemini',
+            prompt: buildSlideAutoPrompt(q, cands, notesById),
+            username: currentUser.username, adminPass: adminPass
+        }, 1);
+        if (!res || res.result !== 'success') throw new Error((res && res.message) || 'AI ไม่สามารถประมวลผลได้');
+        if (res.quota) $('#ai-quota-badge').html(`<i class="fas fa-bolt text-warning"></i> AI Quota: ${res.quota}`).fadeIn();
+
+        const { page, explanation } = parseSlideAutoResponse(res.answer, cands);
+        const oldText = $('#edit-explanation').val();
+        // ไม่มีหน้าที่รองรับ → เฉลยทั่วไป ไม่มีบรรทัดอ้างอิง ไม่แนบภาพ
+        const newText = page ? slideWithCitation(explanation, [page]) : explanation;
+
+        const thumb = page && page.imageFileId ? transformUrl(slideDriveUrl(page.imageFileId)) : '';
+        const pickHtml = page
+            ? `<div class="d-flex gap-2 align-items-start text-start small mb-2">
+                   ${thumb ? `<img src="${slideEsc(thumb)}" style="width:160px;height:auto;border:1px solid #ddd;border-radius:4px">` : ''}
+                   <div><strong>AI เลือก:</strong> ${slideEsc(page.source)} · หน้า ${slideEsc(page.pageNo)}<br>${slideEsc(page.title)}</div>
+               </div>`
+            : `<div class="alert alert-warning small text-start mb-2">⚠️ ไม่มีสไลด์ผู้สมัครหน้าใดรองรับคำตอบนี้ — เฉลยเขียนจากความรู้ทั่วไป จะไม่แนบภาพและไม่ใส่บรรทัดอ้างอิง</div>`;
+        const col = (h, t) => `<div style="flex:1;min-width:260px"><div class="fw-bold mb-1">${h}</div>
+            <div class="border rounded p-2 text-start small" style="white-space:pre-wrap;max-height:50vh;overflow:auto">${slideEsc(t) || '<span class="text-muted">(ว่าง)</span>'}</div></div>`;
+        const ok = await Swal.fire({
+            title: '🤖 Auto-Pilot — เทียบเฉลยเดิม / ใหม่',
+            html: pickHtml + `<div class="d-flex flex-wrap gap-2">${col('เดิม', oldText)}${col(page ? 'ใหม่ (จากสไลด์)' : 'ใหม่ (ความรู้ทั่วไป)', newText)}</div>`,
+            width: 1000, showCancelButton: true,
+            confirmButtonText: 'ใช้เฉลยใหม่', cancelButtonText: 'ยกเลิก'
+        });
+        if (!ok.isConfirmed) return;
+        $('#edit-explanation').val(newText);
+        if (page) {
+            slideInjectMedia([page]);
+            Swal.fire({ icon: 'success', title: 'ใส่เฉลย + สไลด์อ้างอิงแล้ว', text: 'อย่าลืมกดบันทึก', toast: true, position: 'top-end', showConfirmButton: false, timer: 2000 });
+        } else {
+            Swal.fire({ icon: 'warning', title: 'ไม่พบสไลด์ที่รองรับ', text: 'ใส่เฉลยทั่วไปแล้ว (ไม่มีภาพ/อ้างอิง) — อย่าลืมกดบันทึก', toast: true, position: 'top-end', showConfirmButton: false, timer: 4000 });
+        }
+    } catch (e) {
+        console.error('slide auto-pilot', e);
+        Swal.fire('Auto-Pilot ไม่สำเร็จ', e.message, 'error');
+    } finally {
+        btn.prop('disabled', false).html('🤖 Auto-Pilot');
     }
 }

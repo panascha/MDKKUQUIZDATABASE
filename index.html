@@ -1872,6 +1872,11 @@
                                         id="btn-slide-ref" onclick="openSlideRefPanel()">
                                         🔍 ค้นสไลด์อ้างอิง
                                     </button>
+                                    <!-- BM25 top-3 → Gemini เลือกหน้า + เขียนเฉลย → preview (js/slide-ref.js) -->
+                                    <button type="button" class="btn btn-sm btn-outline-primary px-3 rounded-pill shadow-sm ms-2"
+                                        id="btn-slide-auto" onclick="slideAutoPilot()">
+                                        🤖 Auto-Pilot
+                                    </button>
                                     <!-- NEW: Multi-AI verify button (2-Model + Arbiter) -->
                                     <button type="button" class="btn btn-sm btn-outline-warning px-3 rounded-pill shadow-sm ms-2"
                                         id="btn-multiverify" onclick="askMultiAIForEditModal()" title="DeepSeek + Claude consensus → Gemini judge if disagree">
