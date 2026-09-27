@@ -131,6 +131,17 @@ function openEditModal(id, suggestedAnswer = null) {
     const q = globalData.questions.find(x => x.questionId == id);
     if (!q) return;
 
+    // ระหว่างรีเฟรชข้อมูลเบื้องหลัง globalData.category อาจว่าง → dropdown หมวดจะว่าง แล้ว Save จะล้างหมวดทิ้ง
+    if (isFetching || !(globalData.category || []).length) {
+        // report.js ตั้ง reportData ไว้ก่อนเรียกเรา — modal ไม่ได้เปิดจึงไม่มี hidden.bs.modal มาล้าง ต้องล้างเอง
+        $('#editQuestionModal').removeData('reportData');
+        Swal.fire({
+            icon: 'info', title: 'กำลังซิงค์ข้อมูล', text: 'รอสักครู่แล้วเปิดใหม่อีกครั้ง',
+            toast: true, position: 'top-end', showConfirmButton: false, timer: 3000
+        });
+        return;
+    }
+
     $('#edit-q-id').val(q.questionId);
 
     let currentCategories = Array.isArray(q.category) ? q.category : [q.category];
@@ -172,6 +183,16 @@ async function saveQuestionChanges() {
     const problemText = $('#edit-problem').val().trim();
     const explainText = $('#edit-explanation').val().trim();
     const categories = JSON.parse($('#edit-category-hidden').val() || "[]");
+    // กันหมวดหายจาก modal ที่เปิดตอน globalData.category ยังว่าง (ข้อเดิมมีหมวด แต่ส่งมาเป็น [])
+    const origQ = globalData.questions.find(x => x.questionId == qId);
+    const origCats = origQ ? (Array.isArray(origQ.category) ? origQ.category : [origQ.category]).filter(c => c) : [];
+    if (categories.length === 0 && origCats.length > 0) {
+        Swal.fire({
+            icon: 'warning', title: 'ยกเลิกการบันทึก',
+            text: 'หมวดหมู่ว่างเปล่า แต่ข้อนี้เดิมมี ' + origCats.length + ' หมวด — อาจเปิดหน้าต่างตอนระบบกำลังซิงค์ ปิดแล้วเปิดใหม่อีกครั้ง'
+        });
+        return;
+    }
     const routeHints = getUploadRouteHints(categories);
     // modal ถูกปิดกลางฟังก์ชัน (บรรทัด ~152) และ hidden.bs.modal จะล้าง data ทิ้ง
     // ต้อง snapshot ตรงนี้ ไม่งั้นตอนอ่านใน STEP 3.4 จะได้ undefined แล้ว report ค้างไม่ถูก resolve
