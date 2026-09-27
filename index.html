@@ -1867,6 +1867,11 @@
                                         id="btn-ask-ai" onclick="askAIExpert()">
                                         <i class="fas fa-robot me-1"></i> ใช้ AI ช่วยเขียน & ตรวจโจทย์
                                     </button>
+                                    <!-- ค้นหน้าสไลด์อ้างอิงจาก KB_Pages (js/slide-ref.js) -->
+                                    <button type="button" class="btn btn-sm btn-outline-success px-3 rounded-pill shadow-sm ms-2"
+                                        id="btn-slide-ref" onclick="openSlideRefPanel()">
+                                        🔍 ค้นสไลด์อ้างอิง
+                                    </button>
                                     <!-- NEW: Multi-AI verify button (2-Model + Arbiter) -->
                                     <button type="button" class="btn btn-sm btn-outline-warning px-3 rounded-pill shadow-sm ms-2"
                                         id="btn-multiverify" onclick="askMultiAIForEditModal()" title="DeepSeek + Claude consensus → Gemini judge if disagree">
@@ -1877,6 +1882,7 @@
 
                             <textarea class="form-control" id="edit-explanation" rows="6"
                                 placeholder="พิมพ์คำอธิบาย หรือกดปุ่ม AI ด้านบนเพื่อช่วยเขียน..."></textarea>
+                            <div id="slide-ref-panel" class="mt-2" style="display:none;"></div>
                             
                             <!-- ข้อความสถานะขณะ AI กำลังทำงาน -->
                             <div id="ai-status-text" class="small text-primary mt-2 fw-bold" style="display:none;">
@@ -2055,6 +2061,7 @@
 <script src="js/auth-google.js"></script>
 <script src="js/tables.js"></script>
 <script src="js/question.js"></script>
+<script src="js/slide-ref.js"></script>
 <script src="js/vote.js"></script>
 <script src="js/report.js"></script>
 <script src="js/structure.js"></script>
