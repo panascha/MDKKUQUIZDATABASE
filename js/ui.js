@@ -325,8 +325,10 @@ function confirmAdmin() {
     }
 
 function showSection(sectionId) {
+        // หน้า AI Generate ถูกย้ายเข้าแท็บ Structure แล้ว — ค่า last-section เก่าใน localStorage ยังชี้มาที่นี่ได้
+        if (sectionId === 'ai-generate') sectionId = 'structure';
 
-        const adminSections = ['report-inbox', 'database', 'structure', 'converter', 'logs', 'admin-manager', 'announcements', 'ai-generate', 'ai-models', 'feedback', 'discussion', 'reviews', 'donations'];
+        const adminSections = ['report-inbox', 'database', 'structure', 'converter', 'logs', 'admin-manager', 'announcements', 'ai-models', 'feedback', 'discussion', 'reviews', 'donations'];
 
         if (adminSections.includes(sectionId) && !isAdmin) {
             checkAuthBeforeAction(() => showSection(sectionId));
@@ -361,8 +363,8 @@ function showSection(sectionId) {
             }
         } else if (sectionId === 'announcements') {
             renderAnnouncementsList();
-        } else if (sectionId === 'ai-generate') {
-            renderAiGeneratePanel();
+        } else if (sectionId === 'structure') {
+            renderAiGeneratePanel(); // เติม dropdown วิชาของ AI Categorize + Maintenance jobs ที่ย้ายมาอยู่หน้านี้
         } else if (sectionId === 'feedback') {
             loadFeedbackSection();
         } else if (sectionId === 'discussion') {

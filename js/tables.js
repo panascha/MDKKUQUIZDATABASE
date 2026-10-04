@@ -45,6 +45,22 @@ $(document).on('click', '.js-q-edit', function () {
     const qid = $(this).attr('data-qid');
     checkAuthBeforeAction(() => openEditModal(qid));
 });
+// ป้าย REPORT ในตาราง Database → ไป Report Inbox แล้วกรองเหลือเฉพาะข้อนั้น
+$(document).on('click', '.js-q-report', function () {
+    const qid = $(this).attr('data-qid');
+    showSection('report-inbox');
+    $('#report-search-input').val(qid);
+    applyReportSearch();
+});
+
+// questionId ของข้อที่มี Report ค้างอยู่ — ใช้ทั้งป้าย REPORT และตัวกรอง "มี Report ค้าง"
+function buildReportedQIds() {
+    return new Set(
+        (globalData.report || [])
+            .filter(r => window.isPendingReport(r))
+            .map(r => r.QuestionID)
+    );
+}
 
 function initPublicTable() {
         // ... (โค้ด initPublicTable เดิม) ...
@@ -136,21 +152,18 @@ function initAdminTable() {
             data: globalData.questions,
             preDrawCallback: function () {
                 // สร้าง Set ของ questionId ที่มี Report ค้างอยู่ก่อน draw ทุกครั้ง (แทนการ .some() ต่อแถว)
-                _reportedQIds = new Set(
-                    (globalData.report || [])
-                        .filter(r => window.isPendingReport(r))
-                        .map(r => r.QuestionID)
-                );
+                _reportedQIds = buildReportedQIds();
             },
             columns: [
                 {
                     data: null,
                     render: function (data, type, row) {
                         // --- เพิ่มส่วนเช็ค Report ค้าง ---
-                        const hasReport = _reportedQIds.has(row.questionId);
+                        // ป้ายเฉพาะตอนแสดงผล — ไม่ให้ HTML/qid ของป้ายปนเข้าข้อมูล search/sort ของคอลัมน์วิชา
+                        const hasReport = type === 'display' && _reportedQIds.has(row.questionId);
 
                         const reportBadge = hasReport
-                            ? `<span class="badge bg-primary pulse-animation" title="มีรายงานปัญหาค้างอยู่"><i class="fas fa-exclamation-circle"></i> REPORT</span> `
+                            ? `<button type="button" class="badge bg-primary border-0 pulse-animation js-q-report" data-qid="${escapeHtml(row.questionId)}" title="มีรายงานปัญหาค้างอยู่ — คลิกเพื่อเปิดใน Report Inbox"><i class="fas fa-exclamation-circle"></i> REPORT</button> `
                             : '';
 
                         const subj = getSubjectFromCategory(row.category);
@@ -252,24 +265,44 @@ function initAdminTable() {
             table.column(1).search(this.value).draw();
         });
 
-        // --- ส่วนที่เพิ่มใหม่: Logic กรอง Require Img ---
+        // --- Quick filters: กรองจากข้อมูลแถว (rowData) ไม่ใช่ข้อความ HTML ที่ render แล้ว ---
+        // อ่านสถานะตัวกรองครั้งเดียวต่อ draw (ตอน change) ไม่ query DOM ต่อแถว — ตารางมีข้อทั้งคลัง
+        const quickFilters = { requireImg: false, noImg: false, hasReport: false, source: '' };
+        const readQuickFilters = () => {
+            quickFilters.requireImg = $('#db-require-img-filter').is(':checked');
+            quickFilters.noImg = $('#db-no-img-filter').is(':checked');
+            quickFilters.hasReport = $('#db-has-report-filter').is(':checked');
+            quickFilters.source = $('#db-source-filter').val() || '';
+            if (quickFilters.hasReport) _reportedQIds = buildReportedQIds(); // ext.search รันก่อน preDrawCallback
+        };
+        readQuickFilters();
+
         $.fn.dataTable.ext.search.push(
-            function (settings, data, dataIndex) {
+            function (settings, data, dataIndex, row) {
                 // ทำงานเฉพาะกับตาราง adminTable เท่านั้น
                 if (settings.nTable.id !== 'adminTable') return true;
+                const f = quickFilters;
+                if (!f.requireImg && !f.noImg && !f.hasReport && !f.source) return true;
 
-                const isChecked = $('#db-require-img-filter').is(':checked');
-                if (!isChecked) return true; // ถ้าไม่ได้ติ๊ก ให้แสดงทุกแถวตามปกติ
-
-                // ดึงข้อมูลใน Column "Img" (index ที่ 3)
-                const imgCol = data[3] || "";
-                const ansCol = data[4] || "";
-                return imgCol.includes('รอรูปโจทย์') || ansCol.includes('รอรูปช้อยส์');
+                if (f.requireImg) {
+                    const waiting = String(row.img || '').toLowerCase().includes('require_img') ||
+                        String(row.choices || '').toLowerCase().includes('require_img');
+                    if (!waiting) return false;
+                }
+                if (f.noImg && String(row.img || '').trim() !== '') return false;
+                if (f.hasReport && !_reportedQIds.has(row.questionId)) return false;
+                if (f.source) {
+                    // ไม่มีฟิลด์ "สร้างโดย AI" — อนุมานจาก category id ที่มีคำว่า "by AI"
+                    const cats = Array.isArray(row.category) ? row.category : [row.category];
+                    const isAi = cats.some(c => String(c || '').includes('by AI'));
+                    if (isAi !== (f.source === 'ai')) return false;
+                }
+                return true;
             }
         );
 
-        // สั่งให้ตารางวาดใหม่เมื่อมีการคลิก Checkbox
-        $('#db-require-img-filter').on('change', function () {
+        $('#db-require-img-filter, #db-no-img-filter, #db-has-report-filter, #db-source-filter').on('change', function () {
+            readQuickFilters();
             table.draw();
         });
         // ------------------------------------------

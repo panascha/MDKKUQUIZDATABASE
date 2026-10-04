@@ -179,7 +179,7 @@ async function runCatAiClassify() {
     if (!res.isConfirmed) return;
 
     catAiBusy = true;
-    $('#sec-ai-generate .cat-ai-btn, #cat-ai-subject').prop('disabled', true);
+    $('#sec-structure .cat-ai-btn, #cat-ai-subject').prop('disabled', true);
     catAiProposals = [];
     $('#cat-ai-review').empty();
 
@@ -222,7 +222,7 @@ async function runCatAiClassify() {
         renderCatAiReview();
     } finally {
         catAiBusy = false;
-        $('#sec-ai-generate .cat-ai-btn, #cat-ai-subject').prop('disabled', false);
+        $('#sec-structure .cat-ai-btn, #cat-ai-subject').prop('disabled', false);
     }
 }
 
@@ -287,7 +287,7 @@ async function applyCatAiProposals() {
     if (!res.isConfirmed) return;
 
     catAiBusy = true;
-    $('#sec-ai-generate .cat-ai-btn').prop('disabled', true);
+    $('#sec-structure .cat-ai-btn').prop('disabled', true);
 
     let applied = 0, skipped = 0, failed = 0;
     try {
@@ -334,6 +334,6 @@ async function applyCatAiProposals() {
         $('#cat-ai-review').empty();
     } finally {
         catAiBusy = false;
-        $('#sec-ai-generate .cat-ai-btn').prop('disabled', false);
+        $('#sec-structure .cat-ai-btn').prop('disabled', false);
     }
 }

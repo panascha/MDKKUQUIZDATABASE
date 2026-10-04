@@ -46,7 +46,7 @@ function renderAiGeneratePanel() {
 
 function aiGenSetBusy(busy) {
     aiGenBusy = busy;
-    $('#sec-ai-generate .ai-gen-btn').prop('disabled', busy);
+    $('#sec-structure .ai-gen-btn').prop('disabled', busy);
     $('#ai-gen-subject').prop('disabled', busy);
 }
 

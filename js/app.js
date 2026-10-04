@@ -768,7 +768,7 @@ function handleDeferredUpdate() {
 function finalizeDataLoading() {
         updateDashboard();
         populateFilters();
-        if (!$('#sec-ai-generate').hasClass('hidden')) renderAiGeneratePanel();
+        if (!$('#sec-structure').hasClass('hidden')) renderAiGeneratePanel();
                 //renderReportList();
 
         refreshTables(true); // true = รักษาหน้าปัจจุบันไว้

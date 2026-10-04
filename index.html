@@ -91,9 +91,6 @@
                 <a href="#" class="list-group-item list-group-item-action" onclick="showSection('announcements')">
                     <i class="fas fa-bullhorn"></i> จัดการประกาศ (Banners)
                 </a>
-                <a href="#" class="list-group-item list-group-item-action" onclick="showSection('ai-generate')">
-                    <i class="fas fa-wand-magic-sparkles"></i> AI Generate
-                </a>
                 <a href="#" class="list-group-item list-group-item-action developer-only" onclick="showSection('ai-models')">
                     <i class="fas fa-robot"></i> AI Models
                     <span class="badge bg-warning text-dark rounded-pill ms-2" id="sidebar-ai-models-count"
@@ -456,6 +453,23 @@
                                     </label>
                                 </div>
                             </div>
+                            <div class="col-md-3">
+                                <select class="form-select" id="db-source-filter">
+                                    <option value="">ทุกแหล่งที่มา</option>
+                                    <option value="ai">เฉพาะหมวด by AI</option>
+                                    <option value="non-ai">ไม่ใช่หมวด by AI</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2 mb-3">
+                            <input type="checkbox" class="btn-check" id="db-no-img-filter" autocomplete="off">
+                            <label class="btn btn-sm btn-outline-secondary" for="db-no-img-filter">
+                                <i class="fas fa-ban me-1"></i> ไม่มีรูปโจทย์
+                            </label>
+                            <input type="checkbox" class="btn-check" id="db-has-report-filter" autocomplete="off">
+                            <label class="btn btn-sm btn-outline-primary" for="db-has-report-filter">
+                                <i class="fas fa-exclamation-circle me-1"></i> มี Report ค้าง
+                            </label>
                         </div>
 
                         <div class="table-responsive">
@@ -543,6 +557,93 @@
                         </div>
                     </div>
                 </div>
+                <!-- CARD: AI Categorize (แยกหัวข้อเลคเชอร์) -->
+                <div class="card card-dashboard mt-3">
+                    <div class="card-header-custom">
+                        <span><i class="fas fa-tags me-2"></i> AI แยกหัวข้อเลคเชอร์ (Batch Categorize)</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info small">
+                            <i class="fas fa-info-circle me-1"></i>
+                            แทนที่ระบบบังคับโหวตใน REAL — AI เสนอหัวข้อ LEC ให้ข้อที่ยังไม่มีเลคเชอร์
+                            (category ≤ 1, ไม่นับกลุ่ม LEC / BY AI / Extracted / MODULE / COMMED)
+                            → ตรวจในตาราง → Apply ทีเดียว (append หัวข้อ ไม่ลบของเดิม)
+                        </div>
+                        <div class="row g-3 align-items-end mb-3">
+                            <div class="col-md-3">
+                                <label for="cat-ai-subject" class="form-label fw-bold">วิชา (Subject)</label>
+                                <select id="cat-ai-subject" class="form-select"></select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="cat-ai-model" class="form-label fw-bold">Model</label>
+                                <select id="cat-ai-model" class="form-select">
+                                    <option value="gemini-3.8-flash" selected>gemini-3.8-flash</option>
+                                    <option value="gemini-3.5-flash-lite">gemini-3.5-flash-lite (recommended)</option>
+                                    <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite</option>
+                                    <option value="gemini-3.5-flash">gemini-3.5-flash</option>
+                                    <option value="gemini-3.6-flash">gemini-3.6-flash</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="cat-ai-key" class="form-label fw-bold">Gemini API Key</label>
+                                <input type="password" id="cat-ai-key" class="form-control"
+                                    placeholder="key เดียวกับหน้า Converter" onchange="catAiSaveKey()">
+                            </div>
+                            <div class="col-md-2">
+                                <button class="btn btn-warning w-100 cat-ai-btn" onclick="runCatAiClassify()">
+                                    <i class="fas fa-wand-magic-sparkles me-1"></i> จำแนก <span
+                                        class="badge bg-danger">LLM</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="cat-ai-status" class="small text-muted mb-2">เลือกวิชา + ใส่ key แล้วกดจำแนก</div>
+                        <div id="cat-ai-review"></div>
+                    </div>
+                </div>
+                <!-- Maintenance jobs: ตัวสร้างข้อมูลที่แทบไม่ถูกใช้ — ซ่อนไว้ให้ DEVELOPER เท่านั้น (backend ยังอยู่ครบ) -->
+                <details class="developer-only mt-3">
+                    <summary class="fw-bold text-muted mb-2" style="cursor:pointer;"><i class="fas fa-tools me-1"></i> Maintenance jobs (DEVELOPER)</summary>
+                <div class="card card-dashboard">
+                    <div class="card-header-custom">
+                        <span><i class="fas fa-wand-magic-sparkles me-2"></i> AI Generate (Batch Generation)</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info small">
+                            <i class="fas fa-info-circle me-1"></i>
+                            รันได้เฉพาะวิชาเล็ก (≤ 800 ข้อ) เพราะติด GAS 6-min limit —
+                            ลำดับที่แนะนำ: <b>Glossary → High-Yield → Keyword Index</b>
+                            (Keyword Index ใช้ผลจาก Glossary และ High-Yield)
+                            ส่วน Related Questions รันแยกได้อิสระ
+                        </div>
+                        <div class="row g-3 align-items-end mb-3">
+                            <div class="col-md-4">
+                                <label for="ai-gen-subject" class="form-label fw-bold">วิชา (Subject)</label>
+                                <select id="ai-gen-subject" class="form-select"></select>
+                            </div>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2 mb-3">
+                            <button class="btn btn-primary ai-gen-btn"
+                                onclick="runBatchAction('runRelationsBatchManual')">
+                                <i class="fas fa-link me-1"></i> Related Questions
+                            </button>
+                            <button class="btn btn-warning ai-gen-btn"
+                                onclick="runBatchAction('runGlossaryBatchManual')">
+                                <i class="fas fa-book me-1"></i> Glossary <span class="badge bg-danger">LLM</span>
+                            </button>
+                            <button class="btn btn-warning ai-gen-btn"
+                                onclick="runBatchAction('runHighYieldBatchManual')">
+                                <i class="fas fa-star me-1"></i> High-Yield Cram Sheet <span
+                                    class="badge bg-danger">LLM</span>
+                            </button>
+                            <button class="btn btn-primary ai-gen-btn"
+                                onclick="runBatchAction('runKeywordIndexBatchManual')">
+                                <i class="fas fa-key me-1"></i> Keyword Index
+                            </button>
+                        </div>
+                        <div id="ai-gen-status" class="small text-muted">พร้อมใช้งาน — เลือกวิชาแล้วกดปุ่ม</div>
+                    </div>
+                </div>
+                </details>
             </div>
 
             <!-- SECTION: Converter Tool -->
@@ -1221,91 +1322,6 @@
                 </div>
             </div>
             <!-- SECTION: AI Generate (Admin) -->
-            <div id="sec-ai-generate" class="content-section hidden">
-                <div class="card card-dashboard">
-                    <div class="card-header-custom">
-                        <span><i class="fas fa-wand-magic-sparkles me-2"></i> AI Generate (Batch Generation)</span>
-                    </div>
-                    <div class="card-body">
-                        <div class="alert alert-info small">
-                            <i class="fas fa-info-circle me-1"></i>
-                            รันได้เฉพาะวิชาเล็ก (≤ 800 ข้อ) เพราะติด GAS 6-min limit —
-                            ลำดับที่แนะนำ: <b>Glossary → High-Yield → Keyword Index</b>
-                            (Keyword Index ใช้ผลจาก Glossary และ High-Yield)
-                            ส่วน Related Questions รันแยกได้อิสระ
-                        </div>
-                        <div class="row g-3 align-items-end mb-3">
-                            <div class="col-md-4">
-                                <label for="ai-gen-subject" class="form-label fw-bold">วิชา (Subject)</label>
-                                <select id="ai-gen-subject" class="form-select"></select>
-                            </div>
-                        </div>
-                        <div class="d-flex flex-wrap gap-2 mb-3">
-                            <button class="btn btn-primary ai-gen-btn"
-                                onclick="runBatchAction('runRelationsBatchManual')">
-                                <i class="fas fa-link me-1"></i> Related Questions
-                            </button>
-                            <button class="btn btn-warning ai-gen-btn"
-                                onclick="runBatchAction('runGlossaryBatchManual')">
-                                <i class="fas fa-book me-1"></i> Glossary <span class="badge bg-danger">LLM</span>
-                            </button>
-                            <button class="btn btn-warning ai-gen-btn"
-                                onclick="runBatchAction('runHighYieldBatchManual')">
-                                <i class="fas fa-star me-1"></i> High-Yield Cram Sheet <span
-                                    class="badge bg-danger">LLM</span>
-                            </button>
-                            <button class="btn btn-primary ai-gen-btn"
-                                onclick="runBatchAction('runKeywordIndexBatchManual')">
-                                <i class="fas fa-key me-1"></i> Keyword Index
-                            </button>
-                        </div>
-                        <div id="ai-gen-status" class="small text-muted">พร้อมใช้งาน — เลือกวิชาแล้วกดปุ่ม</div>
-                    </div>
-                </div>
-                <!-- CARD: AI Categorize (แยกหัวข้อเลคเชอร์) -->
-                <div class="card card-dashboard mt-3">
-                    <div class="card-header-custom">
-                        <span><i class="fas fa-tags me-2"></i> AI แยกหัวข้อเลคเชอร์ (Batch Categorize)</span>
-                    </div>
-                    <div class="card-body">
-                        <div class="alert alert-info small">
-                            <i class="fas fa-info-circle me-1"></i>
-                            แทนที่ระบบบังคับโหวตใน REAL — AI เสนอหัวข้อ LEC ให้ข้อที่ยังไม่มีเลคเชอร์
-                            (category ≤ 1, ไม่นับกลุ่ม LEC / BY AI / Extracted / MODULE / COMMED)
-                            → ตรวจในตาราง → Apply ทีเดียว (append หัวข้อ ไม่ลบของเดิม)
-                        </div>
-                        <div class="row g-3 align-items-end mb-3">
-                            <div class="col-md-3">
-                                <label for="cat-ai-subject" class="form-label fw-bold">วิชา (Subject)</label>
-                                <select id="cat-ai-subject" class="form-select"></select>
-                            </div>
-                            <div class="col-md-3">
-                                <label for="cat-ai-model" class="form-label fw-bold">Model</label>
-                                <select id="cat-ai-model" class="form-select">
-                                    <option value="gemini-3.8-flash" selected>gemini-3.8-flash</option>
-                                    <option value="gemini-3.5-flash-lite">gemini-3.5-flash-lite (recommended)</option>
-                                    <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite</option>
-                                    <option value="gemini-3.5-flash">gemini-3.5-flash</option>
-                                    <option value="gemini-3.6-flash">gemini-3.6-flash</option>
-                                </select>
-                            </div>
-                            <div class="col-md-4">
-                                <label for="cat-ai-key" class="form-label fw-bold">Gemini API Key</label>
-                                <input type="password" id="cat-ai-key" class="form-control"
-                                    placeholder="key เดียวกับหน้า Converter" onchange="catAiSaveKey()">
-                            </div>
-                            <div class="col-md-2">
-                                <button class="btn btn-warning w-100 cat-ai-btn" onclick="runCatAiClassify()">
-                                    <i class="fas fa-wand-magic-sparkles me-1"></i> จำแนก <span
-                                        class="badge bg-danger">LLM</span>
-                                </button>
-                            </div>
-                        </div>
-                        <div id="cat-ai-status" class="small text-muted mb-2">เลือกวิชา + ใส่ key แล้วกดจำแนก</div>
-                        <div id="cat-ai-review"></div>
-                    </div>
-                </div>
-            </div>
                         <!-- SECTION: AI Models (Admin) — Gemini registry: view + set RPD/Priority (Phase 2 step 4) -->
             <div id="sec-ai-models" class="content-section hidden">
                 <div class="card card-dashboard">
