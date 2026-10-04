@@ -71,7 +71,7 @@ Image URLs from Google Drive are transformed via `window.transformUrl()` to use 
 
 ## Known Open Issues (this repo)
 
-- 🔴 Backend's `getAllData` (called by this dashboard) is served unauthenticated by GAS — verify session-gating expectations before relying on it for anything sensitive.
+- 🟠 Backend's `getAllData` (called by this dashboard) is served unauthenticated by GAS — verify session-gating expectations before relying on it for anything sensitive. Since Phase 0 Step B (2026-10-04, GAS @343) it no longer carries `admins` / `logs`; those come from the DEVELOPER-only POST actions (`getAdminList`, `getLogsPage`) via `fetchDeveloperSlice`.
 - 🟡 `js/api.js` missing `redirect:'follow'` — cosmetic only, `fetch` follows redirects by default.
 
 Full cross-repo issue list: parent `Idea/active/code-review-2026-06-14.md` or `/issuelist`. Converter-specific planning docs: parent `Idea/DATABASE/combined-converter-plan.md`.
