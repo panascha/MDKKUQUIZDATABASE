@@ -579,7 +579,7 @@ function stripDelimiter(text) {
 }
 
 // Group questions by category[0], fill #jsonInput, call processAll(), then populate pageHintMap
-function groupAndFeedToProcessAll(questions, fileStem) {
+async function groupAndFeedToProcessAll(questions, fileStem) {
     const grouped = {};
 
     questions.forEach(q => {
@@ -589,7 +589,12 @@ function groupAndFeedToProcessAll(questions, fileStem) {
     });
 
     document.getElementById('jsonInput').value = JSON.stringify(grouped, null, 2);
-    processAll(); // clears pageHintMap inside its reset block — populate AFTER
+    // หัวข้อปลายทางมีข้ออยู่แล้ว → ถามต่อท้าย/เขียนทับ "ก่อน" เรียก processAll (แปลง PDF เดิมซ้ำเพื่อแก้ไข = เขียนทับ)
+    // ส่งโหมดเข้าไปตรง ๆ ให้ processAll รันจบแบบ synchronous — pageHintMap ด้านล่างต้องเติมหลังมันเสมอ
+    // ไม่มีปุ่มยกเลิก: ผลแปลงทั้งชุดจะหายถ้าไม่ได้คำตอบ
+    const existing = existingQuestionCategories(Object.keys(grouped));
+    const idMode = existing.length > 0 ? await askImportIdMode(existing, false) : 'append';
+    processAll(idMode); // clears pageHintMap inside its reset block — populate AFTER
 
     // Align pageHint to converterStorage.ques rows in the same Object.values order
     // processAll CASE 2 pushes rows in Object.entries(quizObj) → questions forEach order
@@ -899,7 +904,7 @@ async function runGeminiConversion(file, filename) {
     }
 
     statusEl.textContent = `กำลังโหลดข้อมูล ${allQuestions.length} ข้อ…`;
-    groupAndFeedToProcessAll(allQuestions, fileStem);
+    await groupAndFeedToProcessAll(allQuestions, fileStem);
 
     // เทียบจำนวนที่นับได้จาก PDF กับที่แปลงได้จริง — detected.expected เป็นค่าขั้นต่ำ
     // ถ้ายังขาด แปลว่าโมเดลออกข้อไม่ครบ (ไม่ใช่แค่ถูกตัด) — ต้องบอกผู้ใช้ ห้ามรายงานว่าสำเร็จเฉย ๆ

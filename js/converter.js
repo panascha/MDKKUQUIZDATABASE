@@ -252,7 +252,9 @@ function evaluateRowStatusInBatch(row, i, sheetKey, seenKeys) {
                                 norm(match.explain) === norm(row[5]) &&
                                 catsMatch;
 
-                            status = isUnchanged ? 'EXISTING' : 'UPDATED';
+                            // จับคู่ได้ด้วยข้อความแต่ id ต่างกัน: adminImport upsert ตาม id จึงจะ "เพิ่มแถวใหม่" ไม่ใช่อัปเดตข้อเดิม — ติดป้ายตามจริง
+                            const willAppend = qId && match.questionId !== qId;
+                            status = isUnchanged ? 'EXISTING' : (willAppend ? 'NEW' : 'UPDATED');
                         } else {
                             status = 'NEW';
                         }
@@ -451,7 +453,47 @@ function computeCatSuggestions(subjectID) {
     });
 }
 
-function processAll() {
+// เลขท้ายสูงสุดของ id รูปแบบ `${categoryKey}_<เลข>` ที่มีอยู่ในฐานข้อมูล (0 = หัวข้อนี้ยังไม่มีข้อ)
+// ใช้ startsWith แทน regex เพราะ categoryKey มี & / ช่องว่าง / _ ได้ และใช้ max ไม่ใช่ count เพราะข้อที่ถูกลบทำให้เลขมีช่องว่าง
+function maxExistingQuestionIndex(categoryKey) {
+    const prefix = categoryKey + '_';
+    let max = 0;
+    (globalData.questions || []).forEach(q => {
+        const id = String(q.questionId || '');
+        if (!id.startsWith(prefix)) return;
+        const rest = id.slice(prefix.length);
+        if (/^\d+$/.test(rest)) max = Math.max(max, parseInt(rest, 10));
+    });
+    return max;
+}
+
+// หัวข้อ (จาก keys) ที่มีข้ออยู่แล้วในฐานข้อมูล พร้อมเลขท้ายสูงสุด
+function existingQuestionCategories(keys) {
+    return keys.map(key => ({ key, max: maxExistingQuestionIndex(key) })).filter(e => e.max > 0);
+}
+
+// ถามครั้งเดียวก่อนสร้างแถว: หัวข้อปลายทางมีข้ออยู่แล้ว จะต่อท้าย (ค่าเริ่มต้น) หรือเขียนทับ _1… (ต้องเลือกเอง)
+// คืน Promise<'append' | 'overwrite' | null> (null = ยกเลิก; allowCancel=false ใช้กับสาย PDF ที่ต้องได้คำตอบเสมอ)
+function askImportIdMode(existing, allowCancel = true) {
+    const list = existing.map(e => `<li><b>${escapeHtml(e.key)}</b> — มีอยู่แล้วถึงข้อ _${e.max}</li>`).join('');
+    return Swal.fire({
+        icon: 'warning',
+        title: 'หัวข้อนี้มีข้อสอบอยู่แล้ว',
+        html: `<ul class="text-start small">${list}</ul>
+               <div class="small text-start"><b>เพิ่มต่อท้าย</b>: ข้อใหม่ได้เลขถัดจากข้อสุดท้าย ข้อเดิมไม่ถูกแตะ<br>
+               <b>เขียนทับ</b>: เริ่มนับจาก _1 และแทนที่ข้อเดิมที่เลขตรงกัน (ใช้เมื่อนำเข้าชุดเดิมซ้ำเพื่อแก้ไข)</div>`,
+        showDenyButton: true,
+        showCancelButton: allowCancel,
+        allowOutsideClick: allowCancel,
+        allowEscapeKey: allowCancel,
+        confirmButtonText: 'เพิ่มต่อท้าย (แนะนำ)',
+        denyButtonText: 'เขียนทับข้อเดิม',
+        cancelButtonText: 'ยกเลิก'
+    }).then(r => r.isConfirmed ? 'append' : (r.isDenied ? 'overwrite' : null));
+}
+
+// idMode: 'append' | 'overwrite' | ไม่ระบุ (= ถามผู้ใช้เมื่อหัวข้อปลายทางมีข้ออยู่แล้ว)
+function processAll(idMode) {
             let rawInput = document.getElementById('jsonInput').value.trim();
             const year = document.getElementById('yearVal').value;
             const subjectID = document.getElementById('subjID').value.trim().toUpperCase() || "SUBJ";
@@ -467,6 +509,22 @@ function processAll() {
             let structMap = new Map();
             let categoryRows = [];
             let quesRows = [];
+
+            // เลขเริ่มต้นของ id ต่อหัวข้อ — false = ยังไปต่อไม่ได้ (ข้อมูลยังไม่โหลด หรือกำลังรอผู้ใช้เลือกโหมด)
+            const resolveIdOffsets = (keys) => {
+                if (!Array.isArray(globalData.questions) || globalData.questions.length === 0) {
+                    Swal.fire('ยังโหลดข้อมูลไม่เสร็จ', 'ยังไม่มีรายการข้อสอบในหน่วยความจำ จึงตรวจเลขข้อเดิมไม่ได้ — รอให้โหลดเสร็จแล้วกดประมวลผลอีกครั้ง', 'warning');
+                    return false;
+                }
+                const existing = existingQuestionCategories(keys);
+                if (existing.length > 0 && idMode !== 'append' && idMode !== 'overwrite') {
+                    askImportIdMode(existing).then(mode => { if (mode) processAll(mode); });
+                    return false;
+                }
+                const offsets = {};
+                if (idMode !== 'overwrite') existing.forEach(e => { offsets[e.key] = e.max; });
+                return offsets;
+            };
 
             converterStorage.struct = [];
             converterStorage.category = [];
@@ -554,10 +612,12 @@ function processAll() {
                     try { questionsArray = JSON.parse(rawInput); } catch (e) { questionsArray = new Function("return " + rawInput)(); }
 
                     const categoryKey = arrayCategoryID;
+                    const idOffsets = resolveIdOffsets([categoryKey]);
+                    if (!idOffsets) return;
                     registerCategoryAndStructure(categoryKey);
 
                     questionsArray.forEach((q, index) => {
-                        const qId = `${categoryKey}_${index + 1}`;
+                        const qId = `${categoryKey}_${(idOffsets[categoryKey] || 0) + index + 1}`;
                         let qCats = [categoryKey];
                         if (q.category) {
                             if (Array.isArray(q.category)) {
@@ -585,11 +645,14 @@ function processAll() {
                     let quizObj;
                     try { quizObj = new Function("return " + jsonString)(); } catch (e) { quizObj = JSON.parse(jsonString); }
 
+                    const idOffsets = resolveIdOffsets(Object.keys(quizObj).filter(k => Array.isArray(quizObj[k])));
+                    if (!idOffsets) return;
+
                     for (const [categoryKey, questions] of Object.entries(quizObj)) {
                         registerCategoryAndStructure(categoryKey);
                         if (Array.isArray(questions)) {
                             questions.forEach((q, index) => {
-                                const qId = `${categoryKey}_${index + 1}`;
+                                const qId = `${categoryKey}_${(idOffsets[categoryKey] || 0) + index + 1}`;
                                 let qCats = [categoryKey];
                                 if (q.category) {
                                     if (Array.isArray(q.category)) {
