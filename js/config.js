@@ -85,10 +85,6 @@ window.sectionId = null;
 
 window.sectionName = null;
 
-window.regAvatarBase64 = null;
-
-window.regAvatarMimeType = null;
-
 window.isFetching = false;
 
 window.bgToast = Swal.mixin({

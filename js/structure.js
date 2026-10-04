@@ -4,6 +4,15 @@
 
 let _selectedSubjectID = '';
 
+// ปุ่ม/แถวในต้นไม้: ค่าจากชีตอยู่ใน data-* (ไม่ฝังใน inline onclick — ชื่อที่มี ' หรือ " จะหลุดออกจากสตริงได้)
+$(document).on('click', '#structure-tree-view [data-crud]', function (e) {
+    e.stopPropagation(); // ปุ่มแก้ไข/ลบอยู่ในแถววิชา — ไม่ให้นับเป็นการเลือกวิชา
+    crudAction($(this).attr('data-crud'), $(this).attr('data-id1'), $(this).attr('data-id2'));
+});
+$(document).on('click', '#structure-tree-view .struct-subj-item', function () {
+    selectSubject($(this).attr('data-sid'));
+});
+
 function renderStructureTree(filterSubjectID = "") {
     const container = $('#structure-tree-view');
     container.empty();
@@ -33,17 +42,17 @@ function renderStructureTree(filterSubjectID = "") {
         const catCount = (globalData.category || []).filter(c => c.SubjectRef === subj.SubjectID).length;
         const isActive = toSelect === subj.SubjectID;
         subjectListHTML += `
-        <div class="struct-subj-item${isActive ? ' active' : ''}" data-sid="${subj.SubjectID}" onclick="selectSubject('${subj.SubjectID}')">
+        <div class="struct-subj-item${isActive ? ' active' : ''}" data-sid="${escapeHtml(subj.SubjectID)}">
             <div class="struct-subj-inner">
                 <div class="d-flex align-items-center gap-2 min-w-0">
-                    <span class="struct-subj-badge">${subj.SubjectID}</span>
-                    <span class="struct-subj-name">${subj.SubjectName || ''}</span>
+                    <span class="struct-subj-badge">${escapeHtml(subj.SubjectID)}</span>
+                    <span class="struct-subj-name">${escapeHtml(subj.SubjectName) || ''}</span>
                 </div>
                 <div class="d-flex align-items-center gap-1 flex-shrink-0">
                     <span class="struct-subj-count">${catCount}</span>
                     <div class="struct-subj-actions">
-                        <button class="btn-node btn-edit" onclick="event.stopPropagation();crudAction('editSubj','${subj.SubjectID}')" title="แก้ไข"><i class="fas fa-pen"></i></button>
-                        <button class="btn-node btn-delete" onclick="event.stopPropagation();crudAction('deleteSubj','${subj.SubjectID}')" title="ลบ"><i class="fas fa-trash"></i></button>
+                        <button class="btn-node btn-edit" data-crud="editSubj" data-id1="${escapeHtml(subj.SubjectID)}" title="แก้ไข"><i class="fas fa-pen"></i></button>
+                        <button class="btn-node btn-delete" data-crud="deleteSubj" data-id1="${escapeHtml(subj.SubjectID)}" title="ลบ"><i class="fas fa-trash"></i></button>
                     </div>
                 </div>
             </div>
@@ -111,7 +120,7 @@ function selectSubject(subjectID) {
     _selectedSubjectID = subjectID;
     $('#struct-subject-filter').val(subjectID);
     $('.struct-subj-item').removeClass('active');
-    $(`.struct-subj-item[data-sid="${subjectID}"]`).addClass('active');
+    $('.struct-subj-item').filter(function () { return $(this).attr('data-sid') === String(subjectID); }).addClass('active');
     $('#struct-detail-panel').html(renderSubjectDetail(subjectID));
 }
 
@@ -125,15 +134,15 @@ function renderSubjectDetail(subjectID) {
     let html = `
     <div class="struct-detail-header">
         <div class="d-flex align-items-center flex-wrap gap-2">
-            <span class="struct-detail-title">${subjectID}</span>
-            ${subj?.SubjectName ? `<span class="text-muted">${subj.SubjectName}</span>` : ''}
-            ${subj?.Year ? `<span class="badge bg-light text-secondary border">ปี ${subj.Year}</span>` : ''}
+            <span class="struct-detail-title">${escapeHtml(subjectID)}</span>
+            ${subj?.SubjectName ? `<span class="text-muted">${escapeHtml(subj.SubjectName)}</span>` : ''}
+            ${subj?.Year ? `<span class="badge bg-light text-secondary border">ปี ${escapeHtml(subj.Year)}</span>` : ''}
         </div>
         <div class="d-flex gap-2 flex-shrink-0">
-            <button class="btn btn-outline-success btn-sm" onclick="crudAction('addGroup','${subjectID}')">
+            <button class="btn btn-outline-success btn-sm" data-crud="addGroup" data-id1="${escapeHtml(subjectID)}">
                 <i class="fas fa-plus me-1"></i>Add Group
             </button>
-            <button class="btn btn-primary btn-sm" onclick="crudAction('addCat','${subjectID}')">
+            <button class="btn btn-primary btn-sm" data-crud="addCat" data-id1="${escapeHtml(subjectID)}">
                 <i class="fas fa-plus me-1"></i>Add Category
             </button>
         </div>
@@ -154,18 +163,16 @@ function renderSubjectDetail(subjectID) {
             return false;
         });
 
-        const safeGroup = (groupName || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-
         html += `
         <div class="struct-group-card">
             <div class="struct-group-header">
                 <i class="fas fa-layer-group me-2 text-success"></i>
-                <span class="fw-semibold">${groupName || 'GENERAL'}</span>
+                <span class="fw-semibold">${escapeHtml(groupName) || 'GENERAL'}</span>
                 <span class="badge bg-light text-secondary border ms-2">${cats.length}</span>
                 <div class="ms-auto d-flex gap-1">
-                    <button class="btn-node btn-add" onclick="crudAction('addCat','${subjectID}','${safeGroup}')" title="เพิ่มหัวข้อ"><i class="fas fa-plus"></i></button>
-                    <button class="btn-node btn-edit" onclick="crudAction('editGroup','${subjectID}','${safeGroup}')" title="แก้ไขกลุ่ม"><i class="fas fa-pen"></i></button>
-                    <button class="btn-node btn-delete" onclick="crudAction('deleteGroup','${subjectID}','${safeGroup}')" title="ลบกลุ่ม"><i class="fas fa-trash"></i></button>
+                    <button class="btn-node btn-add" data-crud="addCat" data-id1="${escapeHtml(subjectID)}" data-id2="${escapeHtml(groupName) || ''}" title="เพิ่มหัวข้อ"><i class="fas fa-plus"></i></button>
+                    <button class="btn-node btn-edit" data-crud="editGroup" data-id1="${escapeHtml(subjectID)}" data-id2="${escapeHtml(groupName) || ''}" title="แก้ไขกลุ่ม"><i class="fas fa-pen"></i></button>
+                    <button class="btn-node btn-delete" data-crud="deleteGroup" data-id1="${escapeHtml(subjectID)}" data-id2="${escapeHtml(groupName) || ''}" title="ลบกลุ่ม"><i class="fas fa-trash"></i></button>
                 </div>
             </div>
             <div class="struct-cat-table-wrap">
@@ -180,11 +187,11 @@ function renderSubjectDetail(subjectID) {
         cats.forEach(cat => {
             html += `
                 <tr>
-                    <td><span class="struct-cat-id">${cat.CategoryID}</span></td>
-                    <td class="struct-cat-name">${cat.CategoryName}</td>
+                    <td><span class="struct-cat-id">${escapeHtml(cat.CategoryID)}</span></td>
+                    <td class="struct-cat-name">${escapeHtml(cat.CategoryName)}</td>
                     <td class="text-end" style="white-space:nowrap">
-                        <button class="btn-node btn-edit" onclick="crudAction('editCat','${cat.CategoryID}')" title="แก้ไข"><i class="fas fa-pen"></i></button>
-                        <button class="btn-node btn-delete" onclick="crudAction('deleteCat','${cat.CategoryID}')" title="ลบ"><i class="fas fa-trash"></i></button>
+                        <button class="btn-node btn-edit" data-crud="editCat" data-id1="${escapeHtml(cat.CategoryID)}" title="แก้ไข"><i class="fas fa-pen"></i></button>
+                        <button class="btn-node btn-delete" data-crud="deleteCat" data-id1="${escapeHtml(cat.CategoryID)}" title="ลบ"><i class="fas fa-trash"></i></button>
                     </td>
                 </tr>`;
         });

@@ -604,6 +604,32 @@ async function fetchData(forceRefresh = false, isAutoPoll = false) {
         }
     }
 
+// admins + logs เป็นข้อมูลของ DEVELOPER เท่านั้น — backend ใหม่ไม่ส่งมากับ getAllData/getAdminSync แล้ว
+// (โหลดแยกผ่าน fetchDeveloperSlice ตอนเปิดหน้า) ⇒ คงค่าที่ DEVELOPER โหลดไว้ ไม่ให้ sync รอบถัดไปล้างทิ้ง
+// role อื่นได้ [] เสมอ ซึ่งล้างของเก่าที่ค้างใน IndexedDB ไปด้วย
+function keepDevSlice(fresh, field) {
+    if (fresh) return fresh;
+    return (currentUser.role === 'DEVELOPER' && globalData[field]) || [];
+}
+
+// ดึง admins/logs ผ่าน action ที่ตรวจ role ฝั่ง server (getAdminList / getLogsPage แบบ POST)
+// backend เก่ายังไม่มี action นี้ → ตอบ result:'error' → คืน false แล้วใช้ค่าที่ติดมากับ sync ตามเดิม
+async function fetchDeveloperSlice(action, field, extra) {
+    try {
+        const res = await sendWithRetry(Object.assign({
+            action: action,
+            username: currentUser.username,
+            adminPass: adminPass
+        }, extra));
+        if (!res || res.result !== 'success' || !Array.isArray(res[field])) return false;
+        globalData[field] = res[field];
+        return true;
+    } catch (e) {
+        console.warn('[fetchDeveloperSlice] ' + action + ':', e);
+        return false;
+    }
+}
+
 // เส้นทางเดิม: getAllData ก้อนเดียวผูกตรวจเช็คเวอร์ชัน (GET, ไม่ต้อง auth)
 // คืน null = ไม่มีอะไรให้เขียนทับ (NOT_MODIFIED หรือ error)
 async function loadFullFromGAS(forceRefresh, localData, localVer, isAutoPoll) {
@@ -658,8 +684,8 @@ async function loadFullFromGAS(forceRefresh, localData, localVer, isAutoPoll) {
             structure: data.structure || [],
             category: data.category || [],
             votes: data.votes || [],
-            logs: data.logs || [],
-            admins: data.admins || [],
+            logs: keepDevSlice(data.logs, 'logs'),
+            admins: keepDevSlice(data.admins, 'admins'),
             announcements: data.announcements || []
         }
     };
@@ -719,8 +745,8 @@ async function loadFullFromSupabase(isAutoPoll) {
             structure: resJson.structure || [],
             category: resJson.category || [],
             votes: resJson.votes || [],
-            logs: resJson.logs || [],
-            admins: resJson.admins || [],
+            logs: keepDevSlice(resJson.logs, 'logs'),
+            admins: keepDevSlice(resJson.admins, 'admins'),
             announcements: resJson.announcements || []
         }
     };
@@ -896,8 +922,8 @@ async function syncData(allowFullReload = true) {
             structure: resJson.structure || [],
             category: resJson.category || [],
             votes: resJson.votes || [],
-            logs: resJson.logs || [],
-            admins: resJson.admins || [],
+            logs: keepDevSlice(resJson.logs, 'logs'),
+            admins: keepDevSlice(resJson.admins, 'admins'),
             announcements: resJson.announcements || []
         };
 
@@ -1102,7 +1128,8 @@ function updateDashboard() {
         } else {
             recentReports.forEach(r => {
                 const dateStr = formatDate(r.Time);
-                const questionTextShort = r.Question ? r.Question.substring(0, 40) + '...' : '(ไม่ระบุ)';
+                // ข้อความใน Report มาจากผู้ใช้ทั่วไป (ไม่ต้องล็อกอิน) — escape ก่อนแทรกลง innerHTML
+                const questionTextShort = r.Question ? escapeHtml(String(r.Question).substring(0, 40)) + '...' : '(ไม่ระบุ)';
 
                 // สร้างลิงก์ Diff ถ้ามี Log
                 let displayLink = `<span class="small text-dark">${questionTextShort}</span>`;
@@ -1129,8 +1156,8 @@ function updateDashboard() {
                 <tr>
                     <td data-label="วันที่"><small class="text-muted">${dateStr}</small></td>
                     <td data-label="โจทย์">${displayLink}</td>
-                    <td data-label="ปัญหา"><small class="text-truncate d-inline-block" style="max-width: 200px;">${r.ReportDetail || '-'}</small></td>
-                    <td data-label="Admin Note"><small class="text-primary italic">${r.AdminNote || '-'}</small></td>
+                    <td data-label="ปัญหา"><small class="text-truncate d-inline-block" style="max-width: 200px;">${escapeHtml(r.ReportDetail) || '-'}</small></td>
+                    <td data-label="Admin Note"><small class="text-primary italic">${escapeHtml(r.AdminNote) || '-'}</small></td>
                     <td data-label="สถานะ" class="text-md-center">${statusBadge}</td>
                 </tr>`;
             });

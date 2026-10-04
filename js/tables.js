@@ -37,6 +37,15 @@ function setTableView(tableId, mode, btn) {
         }
     }
 
+// ปุ่มในแถว: id อยู่ใน data-qid (ไม่ฝังใน inline onclick — id ที่มี ' จะหลุดออกจากสตริงได้)
+$(document).on('click', '.js-q-detail', function () {
+    showQuestionDetail($(this).attr('data-qid'));
+});
+$(document).on('click', '.js-q-edit', function () {
+    const qid = $(this).attr('data-qid');
+    checkAuthBeforeAction(() => openEditModal(qid));
+});
+
 function initPublicTable() {
         // ... (โค้ด initPublicTable เดิม) ...
         if ($.fn.DataTable.isDataTable('#publicTable')) return;
@@ -52,21 +61,24 @@ function initPublicTable() {
                     render: function (data, type, row) {
                         // ป้องกัน Error กรณี row หรือ category ไม่มีค่า
                         if (!row || !row.category) return '-';
-                        return getSubjectFromCategory(row.category);
+                        const subj = getSubjectFromCategory(row.category);
+                        return type === 'display' ? escapeHtml(subj) : subj;
                     }
                 },
                 {
                     data: 'category',
                     defaultContent: '-',
                     createdCell: (td) => $(td).attr('data-label', 'Category'),
-                    render: function (data) {
+                    render: function (data, type) {
                         if (!data) return '-';
-                        return Array.isArray(data) ? data.join(', ') : data;
+                        const cats = Array.isArray(data) ? data.join(', ') : data;
+                        return type === 'display' ? escapeHtml(cats) : cats;
                     }
                 },
                 {
                     data: 'problem',
                     createdCell: (td) => $(td).attr('data-label', 'Question'),
+                    render: $.fn.dataTable.render.text()
                 },
                 {
                     data: 'img',
@@ -74,19 +86,24 @@ function initPublicTable() {
                     render: function (data) {
                         if (!data) return '-';
                         let firstImg = data.split('///')[0];
-                        return `<img src="${transformUrl(firstImg)}" class="img-preview-mini">`;
+                        return `<img src="${escapeHtml(transformUrl(firstImg))}" class="img-preview-mini">`;
                     }
                 },
                 {
                     data: 'answer',
-                    createdCell: (td) => $(td).attr('data-label', 'Answer') // เพิ่มบรรทัดนี้
+                    createdCell: (td) => $(td).attr('data-label', 'Answer'), // เพิ่มบรรทัดนี้
+                    render: function (data, type) {
+                        if (type !== 'display' || typeof data !== 'string') return data;
+                        // ช้อยส์ที่เป็น SVG แสดงเป็นรูปตามเดิม — ที่เหลือเป็นข้อความล้วน
+                        return data.trim().toLowerCase().startsWith('<svg') ? svgAsImg(data, 'max-height:40px;') : escapeHtml(data);
+                    }
                 },
                 {
                     data: null,
                     render: function (data, type, row) {
                         if (isAdmin) {
                             return `<div class="btn-group">
-                <button class="btn btn-sm btn-outline-secondary" onclick="showQuestionDetail('${row.questionId}')"><i class="fas fa-eye"></i></button>
+                <button class="btn btn-sm btn-outline-secondary js-q-detail" data-qid="${escapeHtml(row.questionId)}"><i class="fas fa-eye"></i></button>
             </div>`;
                         } else {
                             return `<button class="btn btn-sm btn-outline-primary" onclick="checkAuthBeforeAction()">
@@ -136,21 +153,24 @@ function initAdminTable() {
                             ? `<span class="badge bg-primary pulse-animation" title="มีรายงานปัญหาค้างอยู่"><i class="fas fa-exclamation-circle"></i> REPORT</span> `
                             : '';
 
-                        return reportBadge + getSubjectFromCategory(row.category);
+                        const subj = getSubjectFromCategory(row.category);
+                        return reportBadge + (type === 'display' ? escapeHtml(subj) : subj);
                     }
                 },
                 {
                     data: 'category',
                     createdCell: (td) => $(td).attr('data-label', 'Category'), // เพิ่มบรรทัดนี้
-                    render: function (data) {
+                    render: function (data, type) {
                         if (!data) return '-';
-                        return Array.isArray(data) ? data.join(', ') : data;
+                        const cats = Array.isArray(data) ? data.join(', ') : data;
+                        return type === 'display' ? escapeHtml(cats) : cats;
                     }
                 },
                 {
                     data: 'problem',
                     createdCell: (td) => $(td).attr('data-label', 'Question'), // เพิ่มบรรทัดนี้
-                    defaultContent: ''
+                    defaultContent: '',
+                    render: $.fn.dataTable.render.text()
                 },
                 {
                     data: 'img',
@@ -161,7 +181,7 @@ function initAdminTable() {
                         if (String(data).toLowerCase().includes('require_img')) {
                             return `<span class="badge bg-warning text-dark"><i class="fas fa-image"></i> รอรูปโจทย์</span>`;
                         }
-                        return `<img src="${transformUrl(data.split('///')[0])}" class="img-preview-mini">`;
+                        return `<img src="${escapeHtml(transformUrl(data.split('///')[0]))}" class="img-preview-mini">`;
                     }
                 },
                 {
@@ -174,13 +194,13 @@ function initAdminTable() {
                         if (row.choices && row.choices.toLowerCase().includes('require_img')) {
                             return `<div class="text-center">
                                 <span class="badge bg-warning text-dark"><i class="fas fa-image"></i> รอรูปช้อยส์</span>
-                                <div class="small text-muted mt-1">${data}</div>
+                                <div class="small text-muted mt-1">${escapeHtml(data)}</div>
                             </div>`;
                         }
 
                         // 2. กรณีเป็น SVG
                         if (typeof data === 'string' && data.trim().toLowerCase().startsWith('<svg')) {
-                            return `<div style="width:30px; height:30px; margin:auto;">${data}</div>`;
+                            return `<div style="width:30px; height:30px; margin:auto;">${svgAsImg(data, 'width:100%; height:100%;')}</div>`;
                         }
 
                         // 3. กรณีเป็นลิงก์ (HTTP/Drive)
@@ -193,25 +213,25 @@ function initAdminTable() {
 
                             if (isDriveImage || isDirectImage) {
                                 // ถ้าเป็นรูปภาพ -> แสดงเป็นรูป Preview
-                                return `<div class="text-center"><img src="${transformUrl(data)}" class="img-preview-mini"></div>`;
+                                return `<div class="text-center"><img src="${escapeHtml(transformUrl(data))}" class="img-preview-mini"></div>`;
                             } else {
                                 // ถ้าเป็นลิงก์อื่นๆ (เช่น PDF, Web) -> แสดงเป็นลิงก์ให้คลิก
                                 return `<div class="text-center">
-                                    <a href="${data}" target="_blank" class="btn btn-sm btn-outline-primary py-0">
-                                        <i class="fas fa-external-link-alt me-1"></i>${data}
+                                    <a href="${/^https?:\/\//i.test(data) ? escapeHtml(data) : '#'}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary py-0">
+                                        <i class="fas fa-external-link-alt me-1"></i>${escapeHtml(data)}
                                     </a>
                                 </div>`;
                             }
                         }
 
                         // 4. กรณีเป็นข้อความปกติ
-                        return data;
+                        return type === 'display' ? escapeHtml(data) : data;
                     }
                 },
                 {
                     data: null,
                     render: function (data, type, row) {
-                        return `<button class="btn btn-sm btn-primary" onclick="checkAuthBeforeAction(() => openEditModal('${row.questionId}'))">
+                        return `<button class="btn btn-sm btn-primary js-q-edit" data-qid="${escapeHtml(row.questionId)}">
                 <i class="fas fa-edit"></i>
             </button>`;
                     }
@@ -304,7 +324,7 @@ function initLogsTable() {
                     render: function (data) { return formatDate(data); },
                     createdCell: (td) => $(td).attr('data-label', 'เวลา')
                 },
-                { data: 'User', width: '10%', createdCell: (td) => $(td).attr('data-label', 'ผู้ใช้งาน') },
+                { data: 'User', width: '10%', render: $.fn.dataTable.render.text(), createdCell: (td) => $(td).attr('data-label', 'ผู้ใช้งาน') },
                 {
                     data: 'ActionType',
                     width: '10%',
@@ -314,14 +334,15 @@ function initLogsTable() {
                         if (upper.includes('EDIT') || upper.includes('UPDATE')) badge = 'bg-warning text-dark';
                         if (upper.includes('DELETE') || upper.includes('REJECT')) badge = 'bg-danger';
                         if (upper.includes('ADD') || upper.includes('IMPORT') || upper.includes('REGISTER')) badge = 'bg-success';
-                        return `<span class="badge ${badge}">${data}</span>`;
+                        return `<span class="badge ${badge}">${escapeHtml(data)}</span>`;
                     },
                     createdCell: (td) => $(td).attr('data-label', 'การกระทำ')
                 },
-                { data: 'TargetID', width: '15%', createdCell: (td) => $(td).attr('data-label', 'เป้าหมาย (ID)') },
+                { data: 'TargetID', width: '15%', render: $.fn.dataTable.render.text(), createdCell: (td) => $(td).attr('data-label', 'เป้าหมาย (ID)') },
                 {
                     data: 'Details',
                     width: '35%',
+                    render: $.fn.dataTable.render.text(),
                     createdCell: (td) => $(td).attr('data-label', 'รายละเอียด')
                 },
                 {
@@ -335,7 +356,7 @@ function initLogsTable() {
                             // ต้อง Encode JSON เพื่อป้องกัน error เครื่องหมายคำพูด
                             const oldValSafe = encodeURIComponent(row.OldValue);
                             const newValSafe = encodeURIComponent(row.NewValue);
-                            return `<button class="btn btn-sm btn-outline-info" onclick="viewDiff('${oldValSafe}', '${newValSafe}')">
+                            return `<button class="btn btn-sm btn-outline-info dashboard-diff-btn" data-old="${oldValSafe}" data-new="${newValSafe}">
                                     <i class="fas fa-eye"></i> ดูส่วนที่แก้
                                 </button>`;
                         }
@@ -397,8 +418,8 @@ function renderDiffPanel(data, compare) {
 
         let html = `
         <h5 class="mb-3">
-            <span class="badge bg-secondary me-1">${data.id}</span>
-            <span class="badge bg-primary ${catClass}">${catStr || 'No Category'}</span>
+            <span class="badge bg-secondary me-1">${escapeHtml(data.id)}</span>
+            <span class="badge bg-primary ${catClass}">${escapeHtml(catStr) || 'No Category'}</span>
         </h5>
     `;
 
@@ -414,7 +435,7 @@ function renderDiffPanel(data, compare) {
         if (data.img) {
             const imgs = data.img.split('///').filter(Boolean);
             imgs.forEach(url => {
-                html += `<img src="${transformUrl(url)}" class="img-fluid mb-2 border rounded" style="max-height:200px;">`;
+                html += `<img src="${escapeHtml(transformUrl(url))}" class="img-fluid mb-2 border rounded" style="max-height:200px;">`;
             });
         } else {
             html += `<span class="text-muted small font-italic">- ไม่มีรูปภาพ -</span>`;
@@ -463,9 +484,15 @@ function renderDiffPanel(data, compare) {
         return html;
     }
 
+// ช้อยส์ที่เป็น SVG: แสดงผ่าน <img> data URI — script / on* handler ใน SVG ไม่ทำงานเมื่อโหลดเป็นรูป
+// (แทรก markup ดิบลง innerHTML = ใครก็ตามที่แก้ข้อสอบได้ รันโค้ดในหน้าของ DEVELOPER ได้)
+function svgAsImg(svg, style) {
+        return `<img src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}" style="${style}">`;
+    }
+
 function escapeHtml(text) {
         if (!text) return text;
-        return text
+        return String(text) // ค่าจากชีตเป็นตัวเลขได้ (SubjectID, Year) — .replace บน number จะ throw
             .replace(/&/g, "&amp;")
             .replace(/</g, "&lt;")
             .replace(/>/g, "&gt;")

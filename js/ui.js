@@ -37,16 +37,6 @@ $(document).ready(function () {
     $(window).on('resize', debounce(updateMobileView, 250));
 });
 
-function openResetFromProfile() {
-        $('#editProfileModal').modal('hide'); // ปิดหน้าโปรไฟล์
-
-        // ตั้งค่าข้อมูลเบื้องต้นในหน้า Reset ให้ (ถ้ามี)
-        $('#reset-username').val(currentUser.username);
-        $('#reset-kkumail').val(currentUser.kkumail || '');
-
-        $('#resetModal').modal('show'); // เปิดหน้าเปลี่ยนรหัส
-    }
-
 function openEditProfile() {
         if (!currentUser.username && !currentUser.email) return;
 
@@ -79,6 +69,8 @@ async function updateUserProfile() {
         try {
             const res = await sendWithRetry({
                 action: 'updateAdminProfile',
+                username: currentUser.username, // backend ตรวจว่าเป็นเจ้าของโปรไฟล์ (sessionToken แนบอัตโนมัติ; คู่นี้ใช้กับล็อกอินแบบรหัสผ่าน)
+                adminPass: adminPass,
                 targetUsername: currentUser.username,
                 updateData: updateData
             });
@@ -102,6 +94,11 @@ async function updateUserProfile() {
     }
 
 function loadAdminManager() {
+        renderAdminList();
+        fetchDeveloperSlice('getAdminList', 'admins').then(ok => { if (ok) renderAdminList(); });
+    }
+
+function renderAdminList() {
         const listContainer = $('#admin-user-list');
         listContainer.empty();
 
@@ -118,11 +115,11 @@ function loadAdminManager() {
 
             html += `
         <tr>
-            <td class="text-center"><img src="${avatar}" width="40" height="40" class="rounded-circle border"></td>
-            <td class="align-middle fw-bold">${u.Username}</td>
-            <td class="align-middle">${u.FullName || '-'}</td>
-            <td class="align-middle"><span class="badge ${roleBadge}">${u.Role}</span></td>
-            <td class="align-middle small">${u.KKUMail || '-'}</td>
+            <td class="text-center"><img src="${escapeHtml(avatar)}" width="40" height="40" class="rounded-circle border"></td>
+            <td class="align-middle fw-bold">${escapeHtml(u.Username) || '-'}</td>
+            <td class="align-middle">${escapeHtml(u.FullName) || '-'}</td>
+            <td class="align-middle"><span class="badge ${roleBadge}">${escapeHtml(u.Role) || '-'}</span></td>
+            <td class="align-middle small">${escapeHtml(u.KKUMail) || '-'}</td>
             <td class="align-middle">
                  <!-- ปุ่ม Action (ถ้ามีฟังก์ชัน Edit User ในอนาคต) -->
                 <button class="btn btn-sm btn-outline-secondary" disabled title="Coming Soon"><i class="fas fa-cog"></i></button>
@@ -150,75 +147,22 @@ function checkAuthBeforeAction(callbackAction) {
         // ถ้ายังไม่ได้ล็อกอิน ให้ถามด้วย SweetAlert
         Swal.fire({
             title: 'ต้องเข้าสู่ระบบก่อนดำเนินการ',
-            text: 'คุณมีบัญชีแอดมินสำหรับจัดการระบบหรือยัง?',
+            text: 'ล็อกอินด้วยบัญชี Google KKU (@kkumail.com / @kku.ac.th) เพื่อดำเนินการต่อ',
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonText: 'มีแล้ว (ไปหน้า Login)',
-            cancelButtonText: 'ยังไม่มี (ไปหน้าสมัครสมาชิก)',
+            confirmButtonText: 'ไปหน้า Login',
+            cancelButtonText: 'ยกเลิก',
             confirmButtonColor: '#4e73df',
-            cancelButtonColor: '#1cc88a',
         }).then((result) => {
             if (result.isConfirmed) {
                 openLoginModal();
-            } else if (result.dismiss === Swal.DismissReason.cancel) {
-                openRegisterModal();
             }
         });
         return false;
     }
 
-function openRegisterModal() {
-        Swal.close(); // ปิด Modal Login
-        $('#registerModal').modal('show');
-        $('#registerForm').removeClass('was-validated');
-    }
-
-function validateRegistrationForm() {
-        const kkumail = $('#reg-kkumail').val() ? $('#reg-kkumail').val().trim() : "";
-        const studentId = $('#reg-studentid').val() ? $('#reg-studentid').val().trim() : ""; // แก้จาก reg-student-id เป็น reg-studentid
-        const $form = $('#registerForm');
-        let isValid = true;
-
-        $form.find('input, select').removeClass('is-invalid');
-
-        // 1. KKUMail validation
-        const kkuMailRegex = /@kkumail\.com$|@kku\.ac\.th$/i;
-        if (!kkuMailRegex.test(kkumail)) {
-            $('#reg-kkumail').addClass('is-invalid');
-            isValid = false;
-        }
-
-        // 2. StudentID validation (Format: 123456789-0)
-        const studentIdRegex = /^\d{9}-\d$/;
-        if (!studentIdRegex.test(studentId)) {
-            $('#reg-studentid').addClass('is-invalid');
-            isValid = false;
-        }
-
-        // 3. HTML5 required check
-        $form.find('[required]').each(function () {
-            if (!$(this).val()) {
-                $(this).addClass('is-invalid');
-                isValid = false;
-            }
-        });
-
-        if (isValid) {
-            $form.addClass('was-validated');
-        } else {
-            $form.removeClass('was-validated');
-        }
-
-        return isValid;
-    }
-
 function openLoginModal() {
         $('#loginModal').modal('show');
-    }
-
-function openResetModal() {
-        $('#loginModal').modal('hide');
-        $('#resetModal').modal('show');
     }
 
 function previewEditAvatar(input) {
@@ -239,159 +183,6 @@ function previewEditAvatar(input) {
             reader.readAsDataURL(file);
         }
     }
-
-function previewAvatar(input) {
-        if (input.files && input.files[0]) {
-            var file = input.files[0];
-            if (file.size > 5 * 1024 * 1024) { // 5MB limit (ควรตรวจสอบใน submitRegister ด้วย)
-                Swal.fire('Error', 'ขนาดรูปภาพต้องไม่เกิน 5MB', 'error');
-                input.value = ""; // Clear selection
-                return;
-            }
-
-            var reader = new FileReader();
-            reader.onload = function (e) {
-                $('#reg-avatar-preview').attr('src', e.target.result).removeClass('hidden');
-                $('#reg-avatar-icon').addClass('hidden');
-                regAvatarBase64 = e.target.result; // Store base64 string
-                regAvatarMimeType = file.type; // Store MIME type
-            }
-            reader.readAsDataURL(file);
-        } else {
-            regAvatarBase64 = null;
-            regAvatarMimeType = null;
-        }
-    }
-
-async function submitRegister() {
-        // 1. Validate Input
-        const kkumail = $('#reg-kkumail').val().trim();
-        const studentId = $('#reg-studentid').val().trim();
-        const password = $('#reg-password').val();
-        const username = $('#reg-username').val().trim();
-
-        // Regex Check
-        const emailRegex = /@(kkumail\.com|kku\.ac\.th)$/;
-        const studentIdRegex = /^\d{9}-\d{1}$/;
-
-        if (!emailRegex.test(kkumail)) {
-            Swal.fire('Error', 'อีเมลต้องลงท้ายด้วย @kkumail.com หรือ @kku.ac.th', 'error');
-            return;
-        }
-        if (!studentIdRegex.test(studentId)) {
-            Swal.fire('Error', 'รหัสนักศึกษาไม่ถูกต้อง (Format: 123456789-0)', 'error');
-            return;
-        }
-        if (username.length < 4 || password.length < 4) {
-            Swal.fire('Error', 'Username และ Password ต้องมีความยาวอย่างน้อย 4 ตัวอักษร', 'error');
-            return;
-        }
-
-        if (!validateRegistrationForm()) {
-            Swal.fire('Error', 'กรุณากรอกข้อมูลให้ถูกต้องและครบถ้วน', 'error');
-            return;
-        }
-
-        const fileInput = document.getElementById('reg-avatar-input'); // แก้ไขจาก reg-avatar-file เป็น reg-avatar-input
-        if (fileInput && fileInput.files.length > 0) {
-            if (fileInput.files[0].size > 5 * 1024 * 1024) {
-                Swal.fire('Error', 'ขนาดรูปภาพต้องไม่เกิน 5MB', 'error');
-                return;
-            }
-        }
-
-        const avatarBase64 = regAvatarBase64;
-        const avatarMimeType = regAvatarMimeType;
-        let finalAvatar = regAvatarBase64;
-        if (finalAvatar) {
-            finalAvatar = await compressImage(finalAvatar); // ย่อรูปก่อนส่ง
-        }
-
-        // 2. Prepare Data
-        const userData = {
-            Username: username,
-            Password: password,
-            DisplayName: $('#reg-displayname').val().trim(),
-            Prefix: $('#reg-prefix').val(),
-            FullName: $('#reg-fullname').val().trim(),
-            StudentID: studentId,
-            Year: $('#reg-year').val(),
-            KKUMail: kkumail,
-            Contact: $('#reg-contact').val().trim(),
-            Role: $('#reg-role').val(),
-            AvatarBase64: finalAvatar // Send image data
-        };
-
-        // 3. Send to Server
-        $('#registerModal').modal('hide');
-        $('#loading-overlay').css('display', 'flex');
-        try {
-            const data = await sendWithRetry({
-                action: 'registerAdmin',
-                userData: userData
-            });
-
-            if (data.result === 'success') {
-                const registeredUsername = userData.Username; // เก็บชื่อที่เพิ่งสมัครไว้
-
-                Swal.fire({
-                    title: 'สมัครสมาชิกสำเร็จ!',
-                    text: 'ยินดีต้อนรับครับ! กรุณาเข้าสู่ระบบด้วยบัญชีที่เพิ่งสร้าง',
-                    icon: 'success'
-                }).then(() => {
-                    $('#registerModal').modal('hide');
-                    openLoginModal();
-                    // กรอก Username ให้ผู้ใช้อัตโนมัติ
-                    $('#login-username').val(registeredUsername);
-                    $('#login-password').focus(); // ให้เคอร์เซอร์ไปรอที่ช่องรหัสผ่าน
-                });
-                fetchData();
-            }
-            else {
-                Swal.fire('Error', data.message || 'เกิดข้อผิดพลาดในการลงทะเบียน', 'error');
-            }
-        } catch (e) {
-            Swal.fire('Error', 'Server Error: ' + e.message, 'error');
-        } finally {
-            $('#loading-overlay').hide().find('h5').text('กำลังเชื่อมต่อฐานข้อมูล...');
-        }
-    }
-
-async function submitResetPassword() {
-    const data = {
-        verifyData: {
-            Username: $('#reset-username').val().trim(),
-            KKUMail: $('#reset-kkumail').val().trim(),
-            StudentID: $('#reset-studentid').val().trim(),
-            FullName: $('#reset-fullname').val().trim()
-        },
-        newPassword: $('#reset-newpass').val()
-    };
-
-    if (!data.newPassword || data.newPassword.length < 4) {
-        Swal.fire('Warning', 'กรุณาตั้งรหัสผ่านใหม่อย่างน้อย 4 ตัวอักษร', 'warning');
-        return;
-    }
-
-    $('#loading-overlay').css('display', 'flex');
-    try {
-        const res = await sendWithRetry({
-            action: 'resetPassword',
-            ...data
-        });
-
-        if (res.result === 'success') {
-            Swal.fire('สำเร็จ', 'เปลี่ยนรหัสผ่านเรียบร้อยแล้ว กรุณาล็อกอินด้วยรหัสผ่านใหม่', 'success');
-            $('#resetModal').modal('hide');
-        } else {
-            Swal.fire('Error', res.message, 'error');
-        }
-    } catch (e) {
-        Swal.fire('Error', e.message, 'error');
-    } finally {
-        $('#loading-overlay').hide();
-    }
-}
 
 async function performLogin() {
         const username = $('#login-username').val();
@@ -482,10 +273,10 @@ function updateAuthUI(isLoggedIn) {
             if (isStudentRole) {
                 $('.admin-only').hide();
                 $('.developer-only').hide();
-                $('#user-status-display').html(`Logged in as:<br><b>${currentUser.displayName}</b><br><small style="opacity:.75">นักศึกษา (Student)</small>`).css('color', '#fff');
+                $('#user-status-display').html(`Logged in as:<br><b>${escapeHtml(currentUser.displayName)}</b><br><small style="opacity:.75">นักศึกษา (Student)</small>`).css('color', '#fff');
             } else {
                 $('.admin-only').fadeIn();
-                $('#user-status-display').html(`Logged in as:<br><b>${currentUser.displayName}</b>`).css('color', '#fff');
+                $('#user-status-display').html(`Logged in as:<br><b>${escapeHtml(currentUser.displayName)}</b>`).css('color', '#fff');
 
                 // 4. สิทธิ์ Developer
                 if (currentUser.role === 'DEVELOPER') {
@@ -550,7 +341,7 @@ function showSection(sectionId) {
         $(`#sec-${sectionId}`).removeClass('hidden');
 
         // ตรวจสอบสิทธิ์สำหรับ Logs และ Admin Manager
-        if (sectionId === 'logs' || sectionId === 'admin-manager' || sectionId === 'reviews' || sectionId === 'donations') {
+        if (sectionId === 'logs' || sectionId === 'admin-manager' || sectionId === 'reviews' || sectionId === 'donations' || sectionId === 'ai-models') {
             if (!isAdmin || currentUser.role !== 'DEVELOPER') {
                 $(`#sec-${sectionId}`).addClass('hidden'); // ซ่อนส่วนที่ไม่ได้รับอนุญาต
                 Swal.fire('Access Denied', 'สิทธิ์เข้าถึงถูกจำกัด: เฉพาะ DEVELOPER เท่านั้น', 'error');
@@ -558,19 +349,20 @@ function showSection(sectionId) {
                 return;
             } else if (sectionId === 'logs') {
                 initLogsTable();
+                fetchDeveloperSlice('getLogsPage', 'logs', { offset: 0, limit: 300 }).then(ok => { if (ok) initLogsTable(); });
             } else if (sectionId === 'admin-manager') {
                 loadAdminManager();
             } else if (sectionId === 'reviews') {
                 loadReviewsSection();
             } else if (sectionId === 'donations') {
                 loadDonationsSection();
+            } else if (sectionId === 'ai-models') {
+                renderAiModelsPanel();
             }
         } else if (sectionId === 'announcements') {
             renderAnnouncementsList();
         } else if (sectionId === 'ai-generate') {
             renderAiGeneratePanel();
-        } else if (sectionId === 'ai-models') {
-            renderAiModelsPanel();
         } else if (sectionId === 'feedback') {
             loadFeedbackSection();
         } else if (sectionId === 'discussion') {

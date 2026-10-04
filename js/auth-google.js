@@ -110,7 +110,7 @@ async function handleGoogleCredentialDb(response) {
                 Swal.fire({
                     icon: 'success',
                     title: 'เข้าสู่ระบบแอดมินสำเร็จ',
-                    html: 'ยินดีต้อนรับคุณ <b>' + res.user.displayName + '</b> (' + res.user.role + ')<br>' +
+                    html: 'ยินดีต้อนรับคุณ <b>' + escapeHtml(res.user.displayName) + '</b> (' + escapeHtml(res.user.role) + ')<br>' +
                         '<small>บัญชีนี้ใช้ในหน้าคลังข้อสอบ MDKKUQUIZ ได้เลยโดยไม่ต้องล็อกอินซ้ำ ' +
                         '(แก้ไขข้อสอบ + Edit Mode + AI Assistant)</small>',
                     timer: 3500,
@@ -124,7 +124,7 @@ async function handleGoogleCredentialDb(response) {
                 Swal.fire({
                     icon: 'info',
                     title: 'เข้าสู่ระบบแล้ว (สิทธิ์นักศึกษา)',
-                    html: 'ยินดีต้อนรับคุณ <b>' + res.user.displayName + '</b><br>' +
+                    html: 'ยินดีต้อนรับคุณ <b>' + escapeHtml(res.user.displayName) + '</b><br>' +
                         '<small>บัญชีนี้ยังไม่อยู่ใน whitelist แอดมิน จึงยังแก้ไขข้อสอบไม่ได้<br>' +
                         'สิทธิ์ที่ใช้ได้ในหน้า MDKKUQUIZ: ซิงค์ความคืบหน้าข้ามอุปกรณ์ + AI Study Assistant<br>' +
                         'ต้องการสิทธิ์แก้ไขข้อสอบ ติดต่อแอดมินเพื่อขอเพิ่มชื่อใน whitelist</small>',
