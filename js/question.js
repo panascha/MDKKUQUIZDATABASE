@@ -392,17 +392,7 @@ async function saveQuestionChanges() {
                 }, true, true);
 
                 // ลบ Report Cards ทั้งหมดของ questionId นี้ออกจากหน้าจอ (Optimistic UI)
-                globalData.report.forEach(rep => {
-                    if (String(rep['QuestionID'] || "").trim() === targetQid) {
-                        const repTime = String(rep.Time);
-                        $(`button[onclick*="${repTime}"]`).closest('.card').fadeOut(300, function () {
-                            $(this).remove();
-                        });
-                    }
-                });
-                setTimeout(() => {
-                    if ($('#report-list-container .card').length === 0) renderReportList();
-                }, 350);
+                removeReportCardByQid(targetQid);
 
                 updateDashboard();
                 $('#editQuestionModal').removeData('reportData');

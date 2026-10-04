@@ -379,6 +379,22 @@
                             <!-- Options populated by JS -->
                         </select>
                     </div>
+                    <div class="col-md-4">
+                        <label class="small fw-bold mb-1">ค้นหา (QuestionID / โจทย์):</label>
+                        <input type="search" class="form-control" id="report-search-input"
+                            placeholder="พิมพ์เพื่อกรอง..." oninput="onReportSearchInput()">
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end gap-3">
+                        <div class="form-check mb-2 text-nowrap">
+                            <input class="form-check-input" type="checkbox" id="report-select-all"
+                                onchange="toggleReportSelectAll(this.checked)">
+                            <label class="form-check-label small" for="report-select-all">เลือกทั้งหมด</label>
+                        </div>
+                        <button class="btn btn-outline-secondary" id="report-batch-reject-btn"
+                            onclick="batchRejectReports()" disabled>
+                            <i class="fas fa-times"></i> Batch Reject (<span id="report-batch-count">0</span>)
+                        </button>
+                    </div>
                 </div>
                 <div class="card card-dashboard border-left-danger">
                     <div class="card-header-custom">

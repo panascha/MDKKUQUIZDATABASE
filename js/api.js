@@ -151,7 +151,8 @@ async function sendAdminAction(actionName, dataObj, skipReload = false, skipTabl
                 // Batch: update all reports with same QuestionID
                 const targetQid = String(dataObj.questionId).trim();
                 globalData.report.forEach(r => {
-                    if (String(r['QuestionID'] || "").trim() === targetQid) {
+                    // เฉพาะแถวที่ยังรอตรวจ — backend ก็ข้ามแถวที่ปิดไปแล้วเหมือนกัน (ไม่เขียนทับประวัติ)
+                    if (String(r['QuestionID'] || "").trim() === targetQid && window.isPendingReport(r)) {
                         r.Status = dataObj.status;
                         r.AdminNote = dataObj.adminNote;
                         r.Done = dataObj.done;
