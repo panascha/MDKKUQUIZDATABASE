@@ -516,7 +516,7 @@ async function hydrateCacheAndRender() {
 }
 
 async function fetchData(forceRefresh = false, isAutoPoll = false) {
-    if (isFetching) return;
+    if (isFetching || (isAutoPoll && window._convBusy)) return;
     isFetching = true;
 
     const cacheKey = 'global_admin_data';
@@ -866,6 +866,7 @@ async function mergeQuestionDeltaFromSupabase(sinceIso) {
 
 async function syncData(allowFullReload = true) {
     if (isFetching) return;
+    if (window._convBusy) { if (window.DEBUG) console.log('[Sync] ข้ามรอบ — กำลังแปลง PDF'); return; }
 
     const localVer = await getCacheDB('global_admin_ver');
     const lastSyncTs = await getCacheDB('global_admin_sync_ts');

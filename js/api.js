@@ -99,11 +99,17 @@ async function sendWithRetry(payload, retries = 3, signal = null) {
                 throw new Error('Client error ' + status);
             }
             if (i === retries - 1) throw new Error('Server error ' + status + ' after ' + retries + ' attempts');
+            if (status === 404 && Date.now() - attemptStart > GAS_SLOW_FAIL_MS) {
+                throw new Error('Server error 404 after ' + Math.round((Date.now() - attemptStart) / 1000) + 's — GAS execution likely timed out/died (ไม่ retry)');
+            }
             if (status !== 429 && Date.now() - attemptStart > POST_SLOW_FAIL_MS) {
                 throw new Error('Server error ' + status + ' after ' + Math.round((Date.now() - attemptStart) / 1000) + 's — ไม่ retry (คำขอเดิมอาจยังทำงานอยู่)');
             }
             let retryDelay;
-            if (status === 429) {
+            if (status === 404) {
+                // 404 = GAS container ตาย/echo URL หมดอายุ — ยิงซ้ำเร็วไม่ช่วย ต้องพัก ≥3s
+                retryDelay = 3000 + Math.random() * Math.min(BASE_MS * Math.pow(2, i), CAP_MS);
+            } else if (status === 429) {
                 const retryAfterHdr = response.headers.get('Retry-After');
                 const retryAfterSec = retryAfterHdr ? parseFloat(retryAfterHdr) : NaN;
                 retryDelay = !isNaN(retryAfterSec) && retryAfterSec > 0
@@ -118,11 +124,19 @@ async function sendWithRetry(payload, retries = 3, signal = null) {
         }
 
         let resJson;
+        const rawText = await response.text();
         try {
-            resJson = await response.json();
+            resJson = JSON.parse(rawText);
         } catch (parseErr) {
-            if (i === retries - 1) throw parseErr;
-            const parseDelay = Math.random() * Math.min(BASE_MS * Math.pow(2, i), CAP_MS);
+            const trimmed = rawText.trim();
+            const actionUndefined = trimmed === 'Action not defined';
+            const nonJsonMsg = '[sendWithRetry] non-JSON response ("' + rawText.slice(0, 60) + '")';
+            if (i === retries - 1) throw new Error(nonJsonMsg + ' after ' + retries + ' attempts — GAS redirect/echo failure');
+            if (Date.now() - attemptStart > POST_SLOW_FAIL_MS) {
+                throw new Error(nonJsonMsg + ' after ' + Math.round((Date.now() - attemptStart) / 1000) + 's — ไม่ retry (คำขอเดิมอาจยังทำงานอยู่)');
+            }
+            let parseDelay = Math.random() * Math.min(BASE_MS * Math.pow(2, i), CAP_MS);
+            if (actionUndefined) parseDelay = Math.max(parseDelay, 2000);
             if (window.DEBUG) console.warn(`Attempt ${i + 1} failed (bad JSON). Retrying in ${Math.round(parseDelay)}ms...`);
             await new Promise(res => setTimeout(res, parseDelay));
             continue;

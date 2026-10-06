@@ -252,6 +252,7 @@ async function convertBatchViaGAS(prompt, payloadExtra, label) {
         body: JSON.stringify(body),
         redirect: 'follow'
     });
+    if (res.status === 404) throw new Error('GAS หยุดทำงานกลางคัน (HTTP 404 — execution หมดเวลา/ถูกยกเลิก) — รอ 30 วินาทีแล้วลองใหม่ ชุดนี้อาจยังทำงานอยู่ฝั่งเซิร์ฟเวอร์');
     if (!res.ok) throw new Error(`เซิร์ฟเวอร์ตอบ HTTP ${res.status} — ลองใหม่อีกครั้ง`);
     // ไฟล์ใหญ่/หลายข้อ → GAS อาจชน 6 นาที แล้วตอบหน้า error เป็น HTML (ไม่ใช่ JSON)
     // res.json() จะโยน SyntaxError ที่อ่านไม่รู้เรื่อง — แปลงเป็นข้อความที่บอกทางแก้แทน
@@ -260,6 +261,7 @@ async function convertBatchViaGAS(prompt, payloadExtra, label) {
     try {
         json = JSON.parse(bodyText);
     } catch (e) {
+        if (bodyText.trim() === 'Action not defined') throw new Error('GAS ตอบ "Action not defined" (redirect ผิดปกติ/execution ตาย) — ลองใหม่อีกครั้งหลังรอ 30 วินาที');
         throw new Error('เซิร์ฟเวอร์ไม่ได้ตอบเป็น JSON (ไฟล์อาจใหญ่เกินจนแปลงไม่ทันใน 6 นาที) — ลองแบ่ง PDF ให้เล็กลงแล้วแปลงใหม่');
     }
     if (json.result !== 'success') throw new Error(json.message || 'แปลงไม่สำเร็จ (backend error)');
@@ -766,7 +768,24 @@ async function refineUncategorizedCategories(allQuestions, allowedCats, attempt)
 // Main entry point: takes raw File object (batching ใช้ currentPdfDoc จาก converter.js)
 // batch เดียว → ส่ง PDF ทั้งไฟล์แบบ native (คุณภาพ OCR ดีสุด); หลาย batch → render หน้าเป็น JPEG ส่งทีละชุด
 // (1 POST ต่อ batch — อยู่ใต้ GAS 6-min limit เสมอ)
+// wrapper: ตั้ง window._convBusy ตลอดการแปลง (syncData/fetchData auto-poll ข้ามรอบ) + เตือนเมื่อสลับแท็บ
 async function runGeminiConversion(file, filename) {
+    const onVis = () => {
+        if (document.hidden && window._convBusy) {
+            Swal.fire({ toast: true, icon: 'warning', position: 'top-end', title: 'อย่าสลับแท็บระหว่างแปลง — เบราว์เซอร์อาจชะลองาน', timer: 5000, showConfirmButton: false });
+        }
+    };
+    window._convBusy = true;
+    document.addEventListener('visibilitychange', onVis);
+    try {
+        return await runGeminiConversionInner(file, filename);
+    } finally {
+        window._convBusy = false;
+        document.removeEventListener('visibilitychange', onVis);
+    }
+}
+
+async function runGeminiConversionInner(file, filename) {
     const statusEl = document.getElementById('pdf-status');
 
     // Edit 4: 50MB hard cap (กันหลุดมาจาก path อื่น) — >14MB ไม่ reject แล้ว แต่บังคับส่งแบบภาพแทน
