@@ -1911,6 +1911,8 @@ async function bulkFillEmptyChoices(targets) {
 
     const statusEl = document.getElementById('pdf-status');
     $('#loading-overlay').fadeIn(150).css('display', 'flex').find('h5').text('AI กำลังเติมตัวเลือก…');
+    const prevConvBusy = !!window._convBusy; // เก็บค่าเดิม — ห้ามทับ busy ของงานแปลงที่ยังวิ่งอยู่
+    window._convBusy = true; // กัน background sync ชนระหว่างเติมตัวเลือก
     try {
         let payloadExtra;
         if (useNativePdf) {
@@ -1946,6 +1948,8 @@ async function bulkFillEmptyChoices(targets) {
         // RECITATION / network / quota — ข้อที่แปลงมาแล้วยังอยู่ครบ (เขียนทับเฉพาะตอนสำเร็จ)
         $('#loading-overlay').hide();
         Swal.fire('เติมตัวเลือกไม่สำเร็จ', `${e.message}<br><span class="small text-muted">ลองกดแปลงใหม่ หรือเติมเองผ่านปุ่ม ✎ ในแต่ละข้อ</span>`, 'warning');
+    } finally {
+        window._convBusy = prevConvBusy;
     }
 }
 

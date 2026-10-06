@@ -867,14 +867,21 @@ async function mergeQuestionDeltaFromSupabase(sinceIso) {
 async function syncData(allowFullReload = true) {
     if (isFetching) return;
     if (window._convBusy) { if (window.DEBUG) console.log('[Sync] ข้ามรอบ — กำลังแปลง PDF'); return; }
+    if (!navigator.onLine && !allowFullReload) return;
+    // จองสิทธิ์ก่อน await ตัวแรก กัน syncData ซ้อนกัน; ต้องปล่อยก่อน return/fetchData เพราะ fetchData เช็ค isFetching เอง
+    isFetching = true;
 
-    const localVer = await getCacheDB('global_admin_ver');
-    const lastSyncTs = await getCacheDB('global_admin_sync_ts');
+    let localVer, lastSyncTs;
+    try {
+        localVer = await getCacheDB('global_admin_ver');
+        lastSyncTs = await getCacheDB('global_admin_sync_ts');
+    } catch (e) { isFetching = false; throw e; } // IndexedDB พัง — ห้ามค้าง isFetching=true
     // auth ได้สองแบบ: username+adminPass (แบบเดิม) หรือ Google sessionToken (แอดมิน whitelist — token แนบอัตโนมัติใน sendWithRetry)
     const hasAuth = hasAdminAuth();
 
     // ไม่มี local copy / ไม่มีจุดอ้างอิงเวลา / ยังไม่ล็อกอิน → เส้นทาง getAllData เดิม (version-gated GET)
     if (!globalData.questions.length || !localVer || !lastSyncTs || !hasAuth) {
+        isFetching = false;
         if (!allowFullReload) {
             console.log('[Sync] ข้ามรอบนี้ — ยังไม่มี baseline สำหรับ delta sync และ auto-poll ไม่ดึง getAllData เต็มก้อน');
             return;
@@ -885,8 +892,12 @@ async function syncData(allowFullReload = true) {
     // เครื่องที่ cache เกิดก่อนสวิตช์นี้จะมี global_admin_sync_ts แต่ยังไม่มี global_questions_ts
     // initApp Stage 3 ดูแค่ตัวแรก จึงส่งมาที่ syncData — ถ้าปล่อยตกไป full pull ตอน auto-poll
     // จะกลายเป็น 27.7MB ทุก 60 วินาที (โควตา egress 5GB/เดือน) fence เดียวกับข้างบนจึงต้องคุมด้วย
-    const questionsCursor = USE_SUPABASE_QUESTIONS ? await getCacheDB('global_questions_ts') : null;
+    let questionsCursor = null;
+    try {
+        questionsCursor = USE_SUPABASE_QUESTIONS ? await getCacheDB('global_questions_ts') : null;
+    } catch (e) { isFetching = false; throw e; }
     if (USE_SUPABASE_QUESTIONS && !questionsCursor) {
+        isFetching = false;
         if (!allowFullReload) {
             console.log('[Sync] ข้ามรอบนี้ — ยังไม่มี cursor ของ questions (Supabase) และ auto-poll ไม่ดึงเต็มก้อน');
             return;
@@ -894,7 +905,6 @@ async function syncData(allowFullReload = true) {
         return fetchData(false, true);
     }
 
-    isFetching = true;
     try {
         const resJson = await sendWithRetry({
             action: 'getAdminSync',
@@ -1013,7 +1023,9 @@ function startVersionPolling() {
     document.addEventListener('visibilitychange', function () {
         if (!document.hidden) {
             // Force instant version check when window comes back in focus
-            syncData(false); // สลับแท็บไปมาบ่อย — ห้ามให้แต่ละครั้งกลายเป็น getAllData 26MB
+            // debounce 1.5s — สลับแท็บไปมาบ่อย ห้ามยิง sync ทุกครั้ง และห้ามกลายเป็น getAllData 26MB
+            clearTimeout(window._visSyncTimer);
+            window._visSyncTimer = setTimeout(() => syncData(false), 1500);
             resetIdleTimer();
         }
         reschedulePolling();
