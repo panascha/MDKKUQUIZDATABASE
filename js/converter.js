@@ -1776,6 +1776,24 @@ async function showConversionSummary(res) {
         });
         return;
     }
+    // ชุดที่พังด้วย error เฉพาะชุด (Gemini 503/timeout) แล้วถูกข้าม — ชุดอื่นแปลงต่อจนจบแล้ว บอกช่วงที่ต้องแปลงซ้ำ
+    const errored = (res && res.erroredBatches) || [];
+    if (errored.length > 0) {
+        const rows = errored.map(b => {
+            const qRange = b.qFrom > 0 ? ` (ข้อ ${b.qFrom}-${b.qTo})` : '';
+            return `<li>หน้า <b>${b.start}-${b.end}</b>${_convEsc(qRange)}<br><small class="text-muted">${_convEsc(String(b.message).slice(0, 160))}</small></li>`;
+        }).join('');
+        const recitHtml = failed.length > 0
+            ? `<br>และข้าม ${failed.length} ชุดที่โดนตัวกรอง recitation — หน้า <b>${_convEsc(failed.map(b => `${b.start}-${b.end}`).join(', '))}</b>`
+            : '';
+        await Swal.fire({
+            icon: 'warning',
+            title: `แปลงได้ ${total} ข้อ — ${errored.length} ชุดไม่สำเร็จ`,
+            html: `<div class="text-start">ชุดต่อไปนี้แปลงไม่สำเร็จ (ชุดอื่นแปลงครบแล้ว):<ul class="mb-2">${rows}</ul>
+                   ข้อที่แปลงได้ถูกเก็บไว้ให้ — รอสักครู่แล้วแปลงซ้ำเฉพาะหน้าที่ขาด${recitHtml}</div>`
+        });
+        return;
+    }
     if (failed.length > 0) {
         await Swal.fire({
             icon: 'warning',

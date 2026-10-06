@@ -626,12 +626,16 @@ function firstQuestionForBatch(detected, batch) {
     return before + 1;
 }
 
-// แปลงแบบชุดรูปหน้ากระดาษหลายชุด — ทน RECITATION รายชุด: ชุดที่โดนตัวกรองตายชุดเดียว ชุดอื่นรอด
-// error อื่น (auth/network/quota) โยนต่อทันที — ไม่เผา quota กับชุดที่เหลือ
+// error ที่ทำชุดถัดไปต่อไม่มีประโยชน์ — ข้อความจาก router-doPost.gs convertPdfBatch (session / rate limit / ไม่มี key)
+const CONV_FATAL_BATCH_ERROR = /session_expired|token_expired|แปลง PDF บ่อยเกินไป|ไม่มี Gemini API Key|โควต้าโมเดล flash เต็ม/;
+
+// แปลงแบบชุดรูปหน้ากระดาษหลายชุด — ทน RECITATION และ error รายชุด (503/timeout): ชุดที่พังตายชุดเดียว ชุดอื่นรอด
+// error ที่ชุดถัดไปพังเหมือนกันแน่ (CONV_FATAL_BATCH_ERROR) หยุดทันที — ไม่เผา quota กับชุดที่เหลือ
 // detected: ผลจาก detectQuestionCount — ใช้บอกโมเดลว่าชุดนี้ควรได้กี่ข้อ + ตรวจชุดที่ได้ไม่ครบ
 async function convertImageBatches(batches, additionalPrompt, statusEl, allowedCats, forcedCat0, detected) {
     const questions = [];
     const failed = [];
+    const errored = []; // ชุดที่พังด้วย error เฉพาะชุด (503/timeout) — ข้ามแล้วทำต่อ ผู้ใช้แปลงซ้ำเฉพาะช่วงนี้ได้
     const shortBatches = []; // ชุดที่ได้ข้อน้อยกว่าที่นับได้จาก PDF
     const truncatedBatches = []; // ชุดที่ JSON ถูกตัด (MAX_TOKENS) — ข้อท้ายที่ปิดไม่ครบถูกทิ้งแล้ว ต้องแปลงช่วงนี้ซ้ำ
     let truncated = false;
@@ -655,10 +659,10 @@ async function convertImageBatches(batches, additionalPrompt, statusEl, allowedC
             statusEl.textContent = `ชุดที่ ${b + 1}/${batches.length} เสร็จ — ได้ ${qs.length} ข้อ (รวม ${questions.length})`;
         } catch (err) {
             if (!String(err.message).includes('RECITATION')) {
-                // error อื่น (quota หมด/เน็ตหลุด/GAS timeout) กลางทาง
-                // ซอยเป็นหลายชุดแล้ว = มีโอกาสพังกลางคันหลายจุด ถ้าโยนทิ้งทันทีจะเสียทั้งข้อที่แปลงสำเร็จ
-                // และโควต้า Gemini ที่จ่ายไปแล้วของชุดก่อนหน้า → เก็บของที่ได้ แล้วรายงานว่าไม่ครบ
-                if (questions.length > 0) {
+                // error ที่ชุดถัดไปก็พังเหมือนกันแน่นอน (session หมด / ชน rate limit รายชั่วโมง / โควต้า key เต็มทุกตัว)
+                // → หยุดทั้งไฟล์ เก็บของที่ได้ แล้วรายงานว่าไม่ครบ
+                if (CONV_FATAL_BATCH_ERROR.test(String(err.message))) {
+                    if (questions.length === 0) throw err; // ยังไม่ได้อะไรเลย — โยนต่อให้ผู้ใช้เห็น error จริง
                     aborted = { atBatch: b + 1, totalBatches: batches.length, message: err.message };
                     for (let r = b; r < batches.length; r++) failed.push(batches[r]);
                     Swal.fire({
@@ -668,7 +672,19 @@ async function convertImageBatches(batches, additionalPrompt, statusEl, allowedC
                     });
                     break;
                 }
-                throw err; // ยังไม่ได้อะไรเลย — โยนต่อให้ผู้ใช้เห็น error จริง
+                // error เฉพาะชุด (Gemini 503/GAS timeout/เน็ตสะดุด) — ข้ามชุดนี้แล้วทำชุดถัดไปต่อ
+                // เคสจริง 2026-10-06: ชุด 2/5 เจอ 503 แล้วเดิมหยุดทั้งไฟล์ ข้อ 11-45 หายทั้งที่ชุดอื่นอาจแปลงได้
+                const qFrom = firstQuestionForBatch(detected, batch);
+                errored.push({
+                    start: batch.start, end: batch.end, message: err.message,
+                    qFrom: expect > 0 ? qFrom : 0, qTo: expect > 0 ? qFrom + expect - 1 : 0
+                });
+                Swal.fire({
+                    toast: true, icon: 'warning', position: 'top-end',
+                    title: `ชุด ${b + 1}/${batches.length} (หน้า ${batch.start}-${batch.end}) แปลงไม่สำเร็จ — ข้ามไปทำชุดถัดไป`,
+                    timer: 5000, showConfirmButton: false
+                });
+                continue;
             }
             failed.push(batch);
             Swal.fire({
@@ -678,7 +694,9 @@ async function convertImageBatches(batches, additionalPrompt, statusEl, allowedC
             });
         }
     }
-    return { questions, failed, truncated, truncatedBatches, shortBatches, aborted };
+    // ทุกชุดพังด้วย error (ไม่ใช่ recitation) และไม่ได้ข้อเลย — โยน error แรกให้ผู้ใช้เห็นสาเหตุจริง
+    if (questions.length === 0 && errored.length > 0 && failed.length === 0) throw new Error(errored[0].message);
+    return { questions, failed, errored, truncated, truncatedBatches, shortBatches, aborted };
 }
 
 // ─── Autonomous AI Self-Correction Loop (Uncategorized questions) ──────────
@@ -828,6 +846,7 @@ async function runGeminiConversionInner(file, filename) {
 
     const allQuestions = [];
     let failedBatches = [];
+    let erroredBatches = []; // ชุดที่พังด้วย error เฉพาะชุด (503/timeout) แล้วถูกข้าม — แปลงซ้ำเฉพาะช่วงนี้ได้
     let shortBatches = [];
     let aborted = null;
     let truncated = false; // JSON ถูกตัดกลางคัน (MAX_TOKENS) แล้วกู้มาได้บางส่วน = ข้อมูลไม่ครบ
@@ -861,6 +880,7 @@ async function runGeminiConversionInner(file, filename) {
                 const res = await convertImageBatches(small, additionalPrompt, statusEl, allowedCats, forcedCat0, detected);
                 allQuestions.push(...res.questions);
                 failedBatches = res.failed;
+                erroredBatches = res.errored;
                 shortBatches = res.shortBatches;
                 aborted = res.aborted || null;
                 if (res.truncated) truncated = true;
@@ -882,6 +902,7 @@ async function runGeminiConversionInner(file, filename) {
             const res = await convertImageBatches(imgBatches, additionalPrompt, statusEl, allowedCats, forcedCat0, detected);
             allQuestions.push(...res.questions);
             failedBatches = res.failed;
+            erroredBatches = res.errored;
             shortBatches = res.shortBatches;
             aborted = res.aborted || null;
             if (res.truncated) truncated = true;
@@ -937,6 +958,8 @@ async function runGeminiConversionInner(file, filename) {
 
     statusEl.textContent = aborted
         ? `⚠️ หยุดกลางคันที่ชุด ${aborted.atBatch}/${aborted.totalBatches} — เก็บได้ ${allQuestions.length} ข้อ (${aborted.message})`
+        : erroredBatches.length > 0
+        ? `⚠️ แปลงได้ ${allQuestions.length} ข้อ — ${erroredBatches.length} ชุดแปลงไม่สำเร็จ: หน้า ${erroredBatches.map(b => `${b.start}-${b.end}`).join(', ')} (แปลงซ้ำเฉพาะช่วงนี้ได้)`
         : failedBatches.length > 0
         ? `⚠️ แปลงได้ ${allQuestions.length} ข้อ (ข้าม ${failedBatches.length} ชุดที่โดน recitation: หน้า ${failedBatches.map(b => `${b.start}-${b.end}`).join(', ')})`
         : truncated
@@ -950,6 +973,7 @@ async function runGeminiConversionInner(file, filename) {
     return {
         total: allQuestions.length,
         failedBatches: failedBatches,
+        erroredBatches: erroredBatches,
         truncated: truncated,
         truncatedBatches: truncatedBatches,
         numberGaps: numberGaps,
