@@ -1781,7 +1781,9 @@ async function showConversionSummary(res) {
     if (errored.length > 0) {
         const rows = errored.map(b => {
             const qRange = b.qFrom > 0 ? ` (ข้อ ${b.qFrom}-${b.qTo})` : '';
-            return `<li>หน้า <b>${b.start}-${b.end}</b>${_convEsc(qRange)}<br><small class="text-muted">${_convEsc(String(b.message).slice(0, 160))}</small></li>`;
+            // ข้อความเต็ม (รวม trail รายโมเดลจาก backend) — log ไว้ด้วยให้ยังอยู่หลังปิด dialog
+            console.warn(`[converter] ชุดหน้า ${b.start}-${b.end} ไม่สำเร็จ:`, b.message);
+            return `<li>หน้า <b>${b.start}-${b.end}</b>${_convEsc(qRange)}<br><small class="text-muted" style="word-break:break-word">${_convEsc(String(b.message))}</small></li>`;
         }).join('');
         const recitHtml = failed.length > 0
             ? `<br>และข้าม ${failed.length} ชุดที่โดนตัวกรอง recitation — หน้า <b>${_convEsc(failed.map(b => `${b.start}-${b.end}`).join(', '))}</b>`
