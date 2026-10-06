@@ -231,38 +231,87 @@ function buildConverterPrompt(additionalPrompt, pageNote, allowedCats, forcedCat
 // ดูได้จาก console: convDiagnostics
 let convDiagnostics = [];
 
+// กู้ผล batch ที่ response หาย: poll getConvertedResult (อ่าน cache อย่างเดียว — ไม่ส่ง batch ซ้ำเด็ดขาด)
+// 404 อาจมาตอน doPost ยังไม่จบ (รันได้ ~6 นาที) → poll ต่อเนื่องจำกัดหน้าต่างเวลา แล้วคืน null = กู้ไม่ได้
+// คืน json ของ backend เมื่อ success หรือ error จริง (เช่น session_expired) — ที่ไม่ใช่ not_found
+// backend เก่า (ไม่มี action) ตอบ "Action not defined" → เลิก poll ทันที
+const CONV_RECOVER_POLL_MS = 10000;
+const CONV_RECOVER_MAX_POLLS = 12;
+async function recoverConvertedResult(requestId, authFields) {
+    const pollBody = JSON.stringify(Object.assign({ action: 'getConvertedResult', requestId: requestId }, authFields));
+    for (let i = 0; i < CONV_RECOVER_MAX_POLLS; i++) {
+        if (i > 0) await new Promise(r => setTimeout(r, CONV_RECOVER_POLL_MS));
+        try {
+            const res = await fetch(APPSCRIPT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: pollBody,
+                redirect: 'follow'
+            });
+            if (!res.ok) continue; // poll เองก็โดน response หายได้ (404 ฯลฯ) — ลองใหม่
+            const text = await res.text();
+            let j;
+            try { j = JSON.parse(text); } catch (e) {
+                if (text.trim() === 'Action not defined') return null; // backend เก่า — ไม่มี getConvertedResult
+                continue;
+            }
+            if (j.result === 'not_found') continue;
+            return j;
+        } catch (e) { /* เน็ตสะดุด — poll ต่อ */ }
+    }
+    return null;
+}
+
 // ยิง 1 batch ไปที่ GAS convertPdfBatch — ไม่ auto-retry (กันเผา quota pool ซ้ำถ้า Gemini สำเร็จแต่ response หาย)
 // payloadExtra: { pdfB64 } หรือ { images: [dataURL,…] }
 // label: ติด tag ใน convDiagnostics เฉย ๆ (optional) — เผื่อแยกให้ออกว่าแถวไหนเป็นรอบแปลงจริง
 // กับรอบ refine ทีหลัง ไม่งั้นดูใน console แล้วสับสนว่าทำไม batch เดียวยิงหลายครั้ง
 // คืนค่า rawText (string) หรือ recovered object {questions:[…]} กรณี MAX_TOKENS
 async function convertBatchViaGAS(prompt, payloadExtra, label) {
-    const body = Object.assign({
-        action: 'convertPdfBatch',
-        prompt: prompt,
+    // requestId: ให้ backend เก็บผลไว้ 10 นาที — ถ้า Google ทำ response หายหลัง execution จบ (404/non-JSON/"Action not defined")
+    // client ดึงผลคืนด้วย getConvertedResult แทนที่จะส่ง batch ซ้ำ
+    const requestId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
+    const authFields = {
         clientId: getConverterClientId(),
         username: (typeof currentUser === 'object' && currentUser.username) || '',
         adminPass: (typeof adminPass === 'string' && adminPass) || '',
         sessionToken: (typeof sessionToken === 'string' && sessionToken) || ''
-    }, payloadExtra);
+    };
+    const body = Object.assign({
+        action: 'convertPdfBatch',
+        prompt: prompt,
+        requestId: requestId
+    }, authFields, payloadExtra);
 
+    let json = null;
+    let lostMsg = null; // ไม่ null = response ของ batch หาย → ลองกู้จาก cache ก่อน
     const res = await fetch(APPSCRIPT_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(body),
         redirect: 'follow'
     });
-    if (res.status === 404) throw new Error('GAS หยุดทำงานกลางคัน (HTTP 404 — execution หมดเวลา/ถูกยกเลิก) — รอ 30 วินาทีแล้วลองใหม่ ชุดนี้อาจยังทำงานอยู่ฝั่งเซิร์ฟเวอร์');
-    if (!res.ok) throw new Error(`เซิร์ฟเวอร์ตอบ HTTP ${res.status} — ลองใหม่อีกครั้ง`);
-    // ไฟล์ใหญ่/หลายข้อ → GAS อาจชน 6 นาที แล้วตอบหน้า error เป็น HTML (ไม่ใช่ JSON)
-    // res.json() จะโยน SyntaxError ที่อ่านไม่รู้เรื่อง — แปลงเป็นข้อความที่บอกทางแก้แทน
-    const bodyText = await res.text();
-    let json;
-    try {
-        json = JSON.parse(bodyText);
-    } catch (e) {
-        if (bodyText.trim() === 'Action not defined') throw new Error('GAS ตอบ "Action not defined" (redirect ผิดปกติ/execution ตาย) — ลองใหม่อีกครั้งหลังรอ 30 วินาที');
-        throw new Error('เซิร์ฟเวอร์ไม่ได้ตอบเป็น JSON (ไฟล์อาจใหญ่เกินจนแปลงไม่ทันใน 6 นาที) — ลองแบ่ง PDF ให้เล็กลงแล้วแปลงใหม่');
+    if (res.status === 404) {
+        lostMsg = 'GAS ตอบ HTTP 404 และกู้ผลชุดนี้จากเซิร์ฟเวอร์ไม่ได้ (response หาย หรือ execution หมดเวลา/ถูกยกเลิก) — รอ 30 วินาทีแล้วลองใหม่';
+    } else if (!res.ok) {
+        throw new Error(`เซิร์ฟเวอร์ตอบ HTTP ${res.status} — ลองใหม่อีกครั้ง`);
+    } else {
+        // ไฟล์ใหญ่/หลายข้อ → GAS อาจชน 6 นาที แล้วตอบหน้า error เป็น HTML (ไม่ใช่ JSON)
+        // res.json() จะโยน SyntaxError ที่อ่านไม่รู้เรื่อง — แปลงเป็นข้อความที่บอกทางแก้แทน
+        const bodyText = await res.text();
+        try {
+            json = JSON.parse(bodyText);
+        } catch (e) {
+            lostMsg = bodyText.trim() === 'Action not defined'
+                ? 'GAS ตอบ "Action not defined" และกู้ผลชุดนี้จากเซิร์ฟเวอร์ไม่ได้ (response หาย/redirect ผิดปกติ) — ลองใหม่อีกครั้งหลังรอ 30 วินาที'
+                : 'เซิร์ฟเวอร์ไม่ได้ตอบเป็น JSON และกู้ผลชุดนี้ไม่ได้ (ไฟล์อาจใหญ่เกินจนแปลงไม่ทันใน 6 นาที) — ลองแบ่ง PDF ให้เล็กลงแล้วแปลงใหม่';
+        }
+    }
+    if (lostMsg !== null) {
+        json = await recoverConvertedResult(requestId, authFields);
+        if (!json) throw new Error(lostMsg);
     }
     if (json.result !== 'success') throw new Error(json.message || 'แปลงไม่สำเร็จ (backend error)');
 
