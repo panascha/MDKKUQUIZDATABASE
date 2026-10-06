@@ -145,6 +145,7 @@ function aiModelsStatus(html) { $('#ai-models-status').html(html); }
 
 // fetch เดียว (fetchGAS จัดการ retry + HTML-instead-of-JSON เอง) → เก็บ cache + อัปเดต badge
 async function fetchAIModels() {
+    await initialSyncReady; // app.js — ไม่ยิงซ้อนกับ data sync รอบแรกตอนเปิดหน้า
     const data = await fetchGAS(`${APPSCRIPT_URL}?action=getAIModels`);
     if (!data || data.result !== 'success' || !Array.isArray(data.models)) {
         throw new Error(data && data.message ? data.message : 'getAIModels: bad response');

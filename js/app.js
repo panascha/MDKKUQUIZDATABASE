@@ -459,23 +459,30 @@ $(document).ready(function () {
 
         // Async init: hydrate + await auth → choose delta or full
         (async function() {
-            // Stage 1: hydrate cache + paint immediately (no network)
-            await hydrateCacheAndRender();
+            try {
+                // Stage 1: hydrate cache + paint immediately (no network)
+                await hydrateCacheAndRender();
 
-            // Stage 2: resolve auth before choosing sync path
-            await resumeSharedGoogleSession();
+                // Stage 2: resolve auth before choosing sync path
+                await resumeSharedGoogleSession();
 
-            // Stage 3: choose path — if baseline+auth exist → delta (syncData), else → full (fetchData)
-            const localVer = await getCacheDB('global_admin_ver');
-            const lastSyncTs = await getCacheDB('global_admin_sync_ts');
-            const hasAuth = hasAdminAuth();
+                // Stage 3: choose path — if baseline+auth exist → delta (syncData), else → full (fetchData)
+                const localVer = await getCacheDB('global_admin_ver');
+                const lastSyncTs = await getCacheDB('global_admin_sync_ts');
+                const hasAuth = hasAdminAuth();
 
-            if (globalData.questions.length && localVer && lastSyncTs && hasAuth) {
-                // Returning admin with baseline → delta sync
-                syncData();
-            } else {
-                // First-time device or logged-out visitor → full fetch
-                fetchData();
+                if (globalData.questions.length && localVer && lastSyncTs && hasAuth) {
+                    // Returning admin with baseline → delta sync
+                    await syncData();
+                } else {
+                    // First-time device or logged-out visitor → full fetch
+                    await fetchData();
+                }
+            } catch (e) {
+                console.error('[init] initial sync failed:', e);
+            } finally {
+                // ปล่อยคิวงานรอง (badge AI Models, slice ของ DEVELOPER) — ต้องปล่อยแม้ sync พัง ไม่งั้นค้างตลอด
+                _resolveInitialSync();
             }
         })();
 
@@ -498,6 +505,12 @@ $('#cancel-report, #btn-close-vote-modal').on('click', function () {
         // หน่วงเวลาเล็กน้อยรอให้แอนิเมชัน FadeOut จบ
         setTimeout(handleDeferredUpdate, 400);
     });
+
+// resolve เมื่อ data sync รอบแรกตอนเปิดหน้าจบ (สำเร็จหรือพังก็ตาม)
+// request รองตอนเปิดหน้า (getAIModels, getLogsPage, getAdminList) await ตัวนี้ก่อนยิง — กันยิง GAS พร้อมกันหลายตัว:
+// execution ที่อ่านสเปรดชีตพร้อมกันถ่วงกันเองจนค้าง 35-60s แล้วจบที่ 404
+let _resolveInitialSync;
+const initialSyncReady = new Promise(resolve => { _resolveInitialSync = resolve; });
 
 // auth ได้สองแบบ: username+adminPass (แบบเดิม) หรือ Google sessionToken (แอดมิน whitelist —
 // token แนบอัตโนมัติใน sendWithRetry). ใช้ทั้งใน initApp, fetchData และ syncData จึงต้องเป็นตัวเดียวกัน
@@ -615,6 +628,7 @@ function keepDevSlice(fresh, field) {
 // ดึง admins/logs ผ่าน action ที่ตรวจ role ฝั่ง server (getAdminList / getLogsPage แบบ POST)
 // backend เก่ายังไม่มี action นี้ → ตอบ result:'error' → คืน false แล้วใช้ค่าที่ติดมากับ sync ตามเดิม
 async function fetchDeveloperSlice(action, field, extra) {
+    await initialSyncReady; // เปิดหน้ามาที่ section logs/admin-manager — รอ sync รอบแรกก่อน
     try {
         const res = await sendWithRetry(Object.assign({
             action: action,
@@ -704,7 +718,8 @@ async function loadFullFromSupabase(isAutoPoll) {
         action: 'getAdminSync',
         username: currentUser.username,
         adminPass: adminPass,
-        since: Date.now()
+        since: Date.now(),
+        skipQuestionDelta: true
     });
 
     if (resJson.result !== 'success') {
@@ -911,7 +926,10 @@ async function syncData(allowFullReload = true) {
             username: currentUser.username,
             adminPass: adminPass,
             clientVer: localVer,
-            since: lastSyncTs
+            since: lastSyncTs,
+            // questions มาจาก Supabase ⇒ delta ของ GAS ถูกทิ้งอยู่แล้ว — บอก backend ไม่ต้องสแกน Logs/Questions
+            // (lastSyncTs เก่า = อ่าน Logs ทั้งชีต + Questions 24k แถว → ค้าง 60s+ แล้ว 404)
+            skipQuestionDelta: !!USE_SUPABASE_QUESTIONS
         });
 
         if (resJson.status === 'NOT_MODIFIED') {
