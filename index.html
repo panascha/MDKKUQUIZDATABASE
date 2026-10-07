@@ -506,6 +506,20 @@
                                 <input type="checkbox" class="form-check-input bulk-check-all me-1">
                                 เลือกทั้งหมดที่กรองอยู่
                             </label>
+                            <button type="button" class="btn btn-sm btn-outline-danger" id="db-find-dups-btn"
+                                title="เทียบข้อในวิชาที่เลือกด้วย trigram similarity ≥ 85%">
+                                <i class="fas fa-clone me-1"></i> Find duplicates in this subject
+                            </button>
+                        </div>
+
+                        <div id="dup-finder-panel" class="card mb-3 d-none">
+                            <div class="card-header d-flex align-items-center gap-2">
+                                <strong id="dup-finder-title">Duplicates</strong>
+                                <button type="button" class="btn btn-sm btn-link ms-auto" id="dup-finder-close">
+                                    <i class="fas fa-times"></i> ปิด
+                                </button>
+                            </div>
+                            <div class="card-body" id="dup-finder-body"></div>
                         </div>
 
                         <div id="db-bulk-bar" class="bulk-bar hidden">
@@ -2028,6 +2042,7 @@
 <script src="js/ui.js"></script>
 <script src="js/auth-google.js"></script>
 <script src="js/bulk-select.js"></script>
+<script src="js/similarity.js"></script>
 <script src="js/tables.js"></script>
 <script src="js/question.js"></script>
 <script src="js/slide-ref.js"></script>
@@ -2049,6 +2064,7 @@
 <script src="js/ai-models.js"></script>
 <script src="js/categorizer.js"></script>
 <script src="js/prior-audit.js"></script>
+<script src="js/duplicate-finder.js"></script>
 <script src="js/app.js"></script>
 <script>
     // PDF.js worker (must be set after pdf.min.js loads)

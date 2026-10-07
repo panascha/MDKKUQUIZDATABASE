@@ -317,25 +317,7 @@ function getFilteredImportData(sheetKey) {
 // re-wording the same question, OCR noise, minor edits). This is a separate fuzzy layer on top.
 // Trigram/Dice similarity — cheap, no CDN dependency, good enough for an 85% threshold (doesn't
 // need real edit-distance precision) and works on Thai text with no inter-word spaces.
-function normalizeForSimilarity(text) {
-    return String(text || '').replace(/\s+/g, ' ').trim().toLowerCase();
-}
-
-function textTrigrams(text) {
-    const t = normalizeForSimilarity(text);
-    const grams = new Set();
-    if (t.length < 3) { if (t) grams.add(t); return grams; }
-    for (let i = 0; i <= t.length - 3; i++) grams.add(t.substring(i, i + 3));
-    return grams;
-}
-
-function gramSimilarity(a, b) {
-    if (a.norm === b.norm) return a.norm ? 1 : 0;
-    if (!a.grams.size || !b.grams.size) return 0;
-    let intersect = 0;
-    a.grams.forEach(g => { if (b.grams.has(g)) intersect++; });
-    return (2 * intersect) / (a.grams.size + b.grams.size);
-}
+// normalizeForSimilarity / textTrigrams / gramSimilarity live in js/similarity.js (loaded earlier).
 
 const DUP_SIMILARITY_THRESHOLD = 0.85;
 
