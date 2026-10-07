@@ -1156,6 +1156,15 @@
                         <span><i class="fas fa-user-shield me-2"></i> User Management (Developer Power)</span>
                     </div>
                     <div class="card-body">
+                        <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+                            <select id="admin-role-filter" class="form-select form-select-sm w-auto" onchange="renderAdminList()">
+                                <option value="">ทุก Role</option>
+                            </select>
+                            <div class="form-check mb-0">
+                                <input class="form-check-input" type="checkbox" id="admin-missing-name-filter" onchange="renderAdminList()">
+                                <label class="form-check-label small" for="admin-missing-name-filter">เฉพาะที่ยังไม่มีชื่อ</label>
+                            </div>
+                        </div>
                         <div class="table-responsive">
                             <table id="adminUserTable" class="table table-hover table-bordered" style="width:100%">
                                 <thead>

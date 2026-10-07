@@ -37,9 +37,16 @@ $(document).ready(function () {
     $(window).on('resize', debounce(updateMobileView, 250));
 });
 
+// null = แก้โปรไฟล์ตัวเอง; ไม่ null = DEVELOPER แก้ให้ admin คนอื่น (จากหน้า Admin Manager)
+let editProfileTarget = null;
+let editAvatarData = null;
+let editProfileInitial = null;
+
 function openEditProfile() {
         if (!currentUser.username && !currentUser.email) return;
 
+        editProfileTarget = null;
+        editAvatarData = null;
         $('#ep-prefix').val(currentUser.prefix || '');
         $('#ep-fullname').val(currentUser.fullName || '');
         $('#ep-displayname').val(currentUser.displayName || '');
@@ -49,10 +56,32 @@ function openEditProfile() {
         $('#editProfileModal').modal('show');
     }
 
+function openEditAdminProfile(username) {
+        const u = (globalData.admins || []).find(a => a.Username === username);
+        if (!u) return;
+
+        editProfileTarget = u.Username;
+        editAvatarData = null;
+        $('#ep-prefix').val(u.Prefix || '');
+        $('#ep-fullname').val(u.FullName || '');
+        $('#ep-displayname').val(u.DisplayName || '');
+        $('#ep-year').val(u.Year || '');
+        $('#ep-contact').val(u.Contact || '');
+        $('#edit-avatar-preview').attr('src', u.AvatarURL || '');
+        // snapshot: ตอนแก้ให้คนอื่น ส่งเฉพาะ field ที่เปลี่ยน (กันเขียนทับค่าที่โหลดมาไม่ครบด้วยค่าว่าง)
+        editProfileInitial = {
+            prefix: $('#ep-prefix').val(), fullName: $('#ep-fullname').val(), displayName: $('#ep-displayname').val(),
+            year: $('#ep-year').val(), contact: $('#ep-contact').val()
+        };
+        $('#editProfileModal').modal('show');
+    }
+
 async function updateUserProfile() {
-        // ตรวจสอบรูปภาพ: ถ้า currentUser.avatar เป็น Base64 (จากการเลือกไฟล์ใหม่) ให้ส่งไป
+        // ตรวจสอบรูปภาพ: ถ้าเป็น Base64 (จากการเลือกไฟล์ใหม่) ให้ส่งไป
         let avatarBase64 = null;
-        if (currentUser.avatar && currentUser.avatar.startsWith('data:image')) {
+        if (editProfileTarget) {
+            avatarBase64 = editAvatarData;
+        } else if (currentUser.avatar && currentUser.avatar.startsWith('data:image')) {
             avatarBase64 = currentUser.avatar;
         }
 
@@ -65,23 +94,36 @@ async function updateUserProfile() {
             AvatarBase64: avatarBase64 // ส่งค่า Base64 เพื่อให้ Backend อัปโหลดลง Drive
         };
 
+        if (editProfileTarget) {
+            Object.keys(editProfileInitial || {}).forEach(k => {
+                if (updateData[k] === editProfileInitial[k]) delete updateData[k];
+            });
+            if (!avatarBase64) delete updateData.AvatarBase64;
+            if (Object.keys(updateData).length === 0) {
+                $('#editProfileModal').modal('hide');
+                return;
+            }
+        }
+        const targetUsername = editProfileTarget || currentUser.username;
+
         $('#loading-overlay').css('display', 'flex');
         try {
             const res = await sendWithRetry({
                 action: 'updateAdminProfile',
                 username: currentUser.username, // backend ตรวจว่าเป็นเจ้าของโปรไฟล์ (sessionToken แนบอัตโนมัติ; คู่นี้ใช้กับล็อกอินแบบรหัสผ่าน)
                 adminPass: adminPass,
-                targetUsername: currentUser.username,
+                targetUsername: targetUsername,
                 updateData: updateData
             });
 
             if (res.result === 'success') {
                 // อัปเดต Display Name ฝั่ง Client ทันทีเพื่อ UX ที่ดี
-                currentUser.displayName = updateData.displayName;
+                if (!editProfileTarget) currentUser.displayName = updateData.displayName;
 
                 Swal.fire('สำเร็จ', 'อัปเดตข้อมูลโปรไฟล์เรียบร้อยแล้ว', 'success');
                 $('#editProfileModal').modal('hide');
                 scheduleSync(); // delta sync — admins slice มาทั้งก้อน (ได้ URL รูปจริงจาก Drive เหมือนเดิม)
+                if (editProfileTarget) loadAdminManager();
             } else {
                 Swal.fire('Error', res.message || 'ไม่สามารถอัปเดตข้อมูลได้', 'error');
             }
@@ -107,11 +149,23 @@ function renderAdminList() {
             return;
         }
 
+        // ตัวกรอง Role (เติม option จาก role ที่มีจริง) + เฉพาะที่ยังไม่มีชื่อ (FullName ว่าง หรือ '-')
+        const roleSel = $('#admin-role-filter');
+        const roles = [...new Set(globalData.admins.map(a => a.Role).filter(Boolean))].sort();
+        const roleFilter = roleSel.val() || '';
+        roleSel.html('<option value="">ทุก Role</option>' +
+            roles.map(r => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join(''));
+        roleSel.val(roles.includes(roleFilter) ? roleFilter : '');
+        const onlyMissing = $('#admin-missing-name-filter').is(':checked');
+        const isMissingName = u => { const n = String(u.FullName || '').trim(); return n === '' || n === '-'; };
+
         let html = '';
-        globalData.admins.forEach(u => {
+        globalData.admins.filter(u => (!roleSel.val() || u.Role === roleSel.val()) && (!onlyMissing || isMissingName(u))).forEach(u => {
             // ป้องกัน Error กรณี field ไม่มีค่า
             const avatar = u.AvatarURL || 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
-            const roleBadge = u.Role === 'DEVELOPER' ? 'bg-danger' : 'bg-primary';
+            const roleBadge = u.Role === 'DEVELOPER' ? 'bg-danger' : (u.Role === 'Student' ? 'bg-secondary' : 'bg-primary');
+            const missing = isMissingName(u);
+            const actionBtn = `<button class="btn btn-sm ${missing ? 'btn-warning' : 'btn-outline-secondary'}" data-username="${escapeHtml(u.Username)}" onclick="openEditAdminProfile(this.dataset.username)" title="${missing ? 'ยังไม่มีชื่อ — กดเพื่อกรอก' : 'แก้ไขโปรไฟล์'}"><i class="fas fa-user-edit"></i>${missing ? ' เพิ่มชื่อ' : ''}</button>`;
 
             html += `
         <tr>
@@ -121,12 +175,11 @@ function renderAdminList() {
             <td class="align-middle"><span class="badge ${roleBadge}">${escapeHtml(u.Role) || '-'}</span></td>
             <td class="align-middle small">${escapeHtml(u.KKUMail) || '-'}</td>
             <td class="align-middle">
-                 <!-- ปุ่ม Action (ถ้ามีฟังก์ชัน Edit User ในอนาคต) -->
-                <button class="btn btn-sm btn-outline-secondary" disabled title="Coming Soon"><i class="fas fa-cog"></i></button>
+                ${actionBtn}
             </td>
         </tr>`;
         });
-        listContainer.html(html);
+        listContainer.html(html || '<tr><td colspan="6" class="text-center">ไม่พบรายการตามตัวกรอง</td></tr>');
     }
 
 function checkAuthBeforeAction(callbackAction) {
@@ -178,7 +231,8 @@ function previewEditAvatar(input) {
             reader.onload = function (e) {
                 $('#edit-avatar-preview').attr('src', e.target.result).removeClass('hidden');
                 $('#edit-avatar-icon').addClass('hidden');
-                currentUser.avatar = e.target.result; // Update currentUser avatar
+                if (editProfileTarget) editAvatarData = e.target.result; // แก้ให้คนอื่น: อย่าแตะ avatar ของตัวเอง
+                else currentUser.avatar = e.target.result; // Update currentUser avatar
             }
             reader.readAsDataURL(file);
         }
