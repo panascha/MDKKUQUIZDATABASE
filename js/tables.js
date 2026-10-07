@@ -471,6 +471,50 @@ function exportLogsCsv() {
         setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     }
 
+// ── Database export (JSON / CSV) ──
+// แหล่งแถวที่จะ export: แถวที่ผ่าน search + quick filters ตอนนี้ (ทุกหน้า) — งาน #11 (multi-select) สลับมาใช้ selected ids ที่นี่ที่เดียว
+function getExportRows() {
+        if (!$.fn.DataTable.isDataTable('#adminTable')) return [];
+        return $('#adminTable').DataTable().rows({ search: 'applied' }).data().toArray();
+    }
+
+// CSV: quote ทุกเซลล์, "" แทน ", คง \n ในเซลล์; array (category) รวมด้วย /// ให้ตรงกับ delimiter ของข้อมูล
+function buildQuestionsCsv(rows) {
+        const cols = [];
+        rows.forEach(r => Object.keys(r).forEach(k => { if (!cols.includes(k)) cols.push(k); }));
+        const cell = v => {
+            if (v === null || v === undefined) v = '';
+            else if (Array.isArray(v)) v = v.join('///');
+            else if (typeof v === 'object') v = JSON.stringify(v);
+            return '"' + String(v).replace(/"/g, '""') + '"';
+        };
+        const csv = [cols.map(cell).join(',')].concat(rows.map(r => cols.map(c => cell(r[c])).join(','))).join('\r\n');
+        return '﻿' + csv;
+    }
+
+function downloadBlob(text, mime, filename) {
+        const blob = new Blob([text], { type: mime });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    }
+
+function exportQuestions(format) {
+        const rows = getExportRows();
+        if (!rows.length) { Swal.fire('ไม่มีข้อมูล', 'ไม่มีข้อสอบที่ตรงกับตัวกรองตอนนี้', 'info'); return; }
+        const subj = ($('#db-subject-filter').val() || '').replace(/[^\w฀-๿-]+/g, '_');
+        const base = 'questions-' + (subj ? subj + '-' : '') + new Date().toISOString().slice(0, 10);
+        if (format === 'json') downloadBlob(JSON.stringify(rows, null, 2), 'application/json;charset=utf-8', base + '.json');
+        else downloadBlob(buildQuestionsCsv(rows), 'text/csv;charset=utf-8', base + '.csv');
+    }
+
+$(document).on('click', '#db-export-json', () => exportQuestions('json'));
+$(document).on('click', '#db-export-csv', () => exportQuestions('csv'));
+
 $(document).on('click', '.js-log-tab', function () {
         logFilter.tab = $(this).attr('data-tab');
         $('.js-log-tab').removeClass('active');
