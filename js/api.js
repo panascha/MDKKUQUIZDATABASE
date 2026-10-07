@@ -62,6 +62,13 @@ async function fetchGAS(buildUrl, retries = 3) {
     }
 }
 
+// action อ่าน/AI ที่ยิงซ้ำได้ปลอดภัย — เท่านั้นที่ได้ retry หลัง 404 ช้าครั้งแรก (default-deny: ห้ามเพิ่ม action เขียนที่นี่)
+const SAFE_SLOW404_RETRY_ACTIONS = new Set([
+    'askAIExpert', 'verifyQuestionBatch',
+    'getAdminSync', 'getKBPages', 'getKBPageNotes', 'getFeedback',
+    'getReviewsAdmin', 'getDonations', 'getDiscussionAdmin', 'getLogsPage'
+]);
+
 // Google SSO: แนบ sessionToken อัตโนมัติทุก request — backend ตรวจ sessionToken ก่อน username+adminPass เสมอ
 async function sendWithRetry(payload, retries = 3, signal = null) {
     if (typeof sessionToken === 'string' && sessionToken && payload && !payload.sessionToken) {
@@ -99,11 +106,12 @@ async function sendWithRetry(payload, retries = 3, signal = null) {
                 throw new Error('Client error ' + status);
             }
             if (i === retries - 1) throw new Error('Server error ' + status + ' after ' + retries + ' attempts');
-            // i > 0: ยอม retry 404 ครั้งแรกแม้ช้า — Google echo ทิ้ง response ที่ Completed แล้วที่ 25-45s, ครั้งที่สองโดน warm cache ~2-3s
-            if (status === 404 && i > 0 && Date.now() - attemptStart > GAS_SLOW_FAIL_MS) {
+            // ยอม retry 404 ครั้งแรกแม้ช้า (Google echo ทิ้ง response ที่ Completed แล้วที่ 25-45s) เฉพาะ action อ่าน/AI ใน allowlist — action เขียน/ไม่รู้จัก bail เหมือนเดิม
+            const slow404RetryOk = i === 0 && status === 404 && SAFE_SLOW404_RETRY_ACTIONS.has(payload && payload.action);
+            if (status === 404 && !slow404RetryOk && Date.now() - attemptStart > GAS_SLOW_FAIL_MS) {
                 throw new Error('Server error 404 after ' + Math.round((Date.now() - attemptStart) / 1000) + 's — GAS execution likely timed out/died (ไม่ retry)');
             }
-            if (status !== 429 && !(status === 404 && i === 0) && Date.now() - attemptStart > POST_SLOW_FAIL_MS) {
+            if (status !== 429 && !slow404RetryOk && Date.now() - attemptStart > POST_SLOW_FAIL_MS) {
                 throw new Error('Server error ' + status + ' after ' + Math.round((Date.now() - attemptStart) / 1000) + 's — ไม่ retry (คำขอเดิมอาจยังทำงานอยู่)');
             }
             let retryDelay;
