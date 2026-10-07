@@ -25,6 +25,42 @@
             position: relative;
         }
 
+        /* Logs: badge ระบบ + diff แดง(เก่า)/เขียว(ใหม่) */
+        .badge-sys {
+            background-color: #6f42c1;
+            color: #fff;
+        }
+
+        .diff-del {
+            background-color: #f8d7da !important;
+            border: 1px solid #dc3545 !important;
+        }
+
+        .diff-add {
+            background-color: #d1e7dd !important;
+            border: 1px solid #198754 !important;
+        }
+
+        .diff-w-del {
+            background: #f1aeb5;
+            text-decoration: line-through;
+        }
+
+        .diff-w-add {
+            background: #a3cfbb;
+            text-decoration: none;
+        }
+
+        .diff-raw {
+            white-space: pre-wrap;
+            word-break: break-word;
+            margin: 0;
+        }
+
+        .img-broken-badge {
+            white-space: nowrap;
+        }
+
         .editable-cell {
             background-color: #fff;
             transition: background-color 0.2s;

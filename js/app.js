@@ -1077,6 +1077,7 @@ function refreshTables(keepState = false) {
         if (!$('#sec-logs').hasClass('hidden')) {
             if ($.fn.DataTable.isDataTable('#logsTable')) {
                 $('#logsTable').DataTable().clear().rows.add(globalData.logs || []).draw(false);
+                updateLogsToolbar();
             } else {
                 initLogsTable();
             }

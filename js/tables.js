@@ -143,12 +143,22 @@ function initPublicTable() {
         // ... (จบโค้ด initPublicTable เดิม) ...
     }
 
+// รูปโจทย์ในตาราง: lazy-load, สูงสุด 3 รูปต่อแถว + ป้าย +N
+function adminThumbsHtml(imgField) {
+        const urls = String(imgField).split('///').map(s => s.trim()).filter(Boolean);
+        if (!urls.length) return '-';
+        const shown = urls.slice(0, 3).map(u => `<img src="${escapeHtml(transformUrl(u))}" class="img-preview-mini me-1" loading="lazy">`).join('');
+        const more = urls.length > 3 ? `<span class="badge bg-secondary">+${urls.length - 3}</span>` : '';
+        return shown + more;
+    }
+
 function initAdminTable() {
         if ($.fn.DataTable.isDataTable('#adminTable')) return;
 
         const table = $('#adminTable').DataTable({
             stateSave: true,
             deferRender: true,
+            lengthMenu: [10, 25, 50, 100],
             data: globalData.questions,
             preDrawCallback: function () {
                 // สร้าง Set ของ questionId ที่มี Report ค้างอยู่ก่อน draw ทุกครั้ง (แทนการ .some() ต่อแถว)
@@ -194,7 +204,7 @@ function initAdminTable() {
                         if (String(data).toLowerCase().includes('require_img')) {
                             return `<span class="badge bg-warning text-dark"><i class="fas fa-image"></i> รอรูปโจทย์</span>`;
                         }
-                        return `<img src="${escapeHtml(transformUrl(data.split('///')[0]))}" class="img-preview-mini">`;
+                        return adminThumbsHtml(data);
                     }
                 },
                 {
@@ -226,7 +236,7 @@ function initAdminTable() {
 
                             if (isDriveImage || isDirectImage) {
                                 // ถ้าเป็นรูปภาพ -> แสดงเป็นรูป Preview
-                                return `<div class="text-center"><img src="${escapeHtml(transformUrl(data))}" class="img-preview-mini"></div>`;
+                                return `<div class="text-center"><img src="${escapeHtml(transformUrl(data))}" class="img-preview-mini" loading="lazy"></div>`;
                             } else {
                                 // ถ้าเป็นลิงก์อื่นๆ (เช่น PDF, Web) -> แสดงเป็นลิงก์ให้คลิก
                                 return `<div class="text-center">
@@ -251,6 +261,18 @@ function initAdminTable() {
                 }
             ]
         });
+
+        // รูปโหลดไม่ขึ้น (ลบ/ติด permission/Drive throttle) → ป้าย "รูปเสีย" — เฉพาะแถวที่แสดงอยู่ ไม่สแกนทั้งคลัง
+        // error ไม่ bubble จึงต้องดักแบบ capture ที่ tbody
+        $('#adminTable tbody')[0].addEventListener('error', function (e) {
+            const img = e.target;
+            if (!img || img.tagName !== 'IMG' || !img.classList.contains('img-preview-mini')) return;
+            const badge = document.createElement('span');
+            badge.className = 'badge bg-danger img-broken-badge';
+            badge.title = img.getAttribute('src') || '';
+            badge.innerHTML = '<i class="fas fa-image"></i> รูปเสีย';
+            img.replaceWith(badge);
+        }, true);
 
         // Subject Filter
         $('#db-subject-filter').on('change', function () {
@@ -342,9 +364,144 @@ function initStructureTables() {
         // ... (จบโค้ด initStructureTables เดิม) ...
     }
 
+// ── Logs UX: แท็บกรอง / ผู้ใช้ / ช่วงวันที่ / โหลดเพิ่ม / CSV ──
+// กรองจากข้อมูลแถว (rowData) ไม่ใช่ HTML — ActionGroup ไม่มีคอลัมน์แสดงแต่อยู่ใน rowData
+const LOG_SYSTEM_TYPES = new Set(['REPORT_AUTOFIX', 'VOTE_CONFIRM', 'GENERATE', 'INDEX', 'POSTGRES_MIRROR_FAIL']);
+const LOG_PAGE_SIZE = 300;
+const logFilter = { tab: 'all', user: '', from: '', to: '' };
+let _logsExhausted = false; // getLogsPage ตอบน้อยกว่า limit แล้ว = ไม่มี log เก่ากว่านี้
+let _logsLoadingMore = false;
+
+function logRowGroup(r) { return String(r.ActionGroup || '').toUpperCase(); }
+function logRowType(r) { return String(r.ActionType || '').toUpperCase(); }
+
+// REPORT_AUTOFIX / VOTE_CONFIRM อยู่ทั้งแท็บ "ข้อมูล" และ "ระบบ" (ตามแผน)
+function logMatchesTab(r, tab) {
+        const g = logRowGroup(r), t = logRowType(r);
+        const isSystem = g === 'SYSTEM' || String(r.User || '').toUpperCase() === 'SYSTEM' || LOG_SYSTEM_TYPES.has(t);
+        if (tab === 'login') return g === 'AUTH';
+        if (tab === 'system') return isSystem;
+        if (tab === 'data') return g !== 'AUTH' && g !== 'SYSTEM' && t !== 'GENERATE' && t !== 'INDEX' && t !== 'POSTGRES_MIRROR_FAIL';
+        return true;
+    }
+
+$.fn.dataTable.ext.search.push(function (settings, data, dataIndex, row) {
+        if (settings.nTable.id !== 'logsTable') return true;
+        if (logFilter.tab !== 'all' && !logMatchesTab(row, logFilter.tab)) return false;
+        if (logFilter.user && String(row.User || '') !== logFilter.user) return false;
+        if (logFilter.from || logFilter.to) {
+            const ts = new Date(row.Timestamp).getTime();
+            if (isNaN(ts)) return false;
+            if (logFilter.from && ts < new Date(logFilter.from + 'T00:00:00').getTime()) return false;
+            if (logFilter.to && ts > new Date(logFilter.to + 'T23:59:59.999').getTime()) return false;
+        }
+        return true;
+    });
+
+// จำนวนบนแท็บ + รายชื่อผู้ใช้ + ปุ่มโหลดเพิ่ม — เรียกหลังข้อมูลใน globalData.logs เปลี่ยน
+function updateLogsToolbar() {
+        const logs = globalData.logs || [];
+        ['all', 'data', 'login', 'system'].forEach(tab => {
+            $(`#log-tab-count-${tab}`).text(logs.filter(r => logMatchesTab(r, tab)).length);
+        });
+        const users = [...new Set(logs.map(r => String(r.User || '')).filter(Boolean))].sort();
+        const $sel = $('#log-user-filter');
+        const cur = logFilter.user;
+        $sel.html('<option value="">ทุกผู้ใช้</option>' + users.map(u => `<option value="${escapeHtml(u)}">${escapeHtml(u)}</option>`).join(''));
+        if (users.includes(cur)) $sel.val(cur); else logFilter.user = '';
+        $('#log-load-more').toggleClass('hidden', _logsExhausted || logs.length < LOG_PAGE_SIZE);
+    }
+
+// log เก่ากว่าที่โหลดอยู่ — getLogsPage (DEVELOPER-only); 'forbidden' ≠ session_expired จึงไม่ถูก logout
+async function loadOlderLogs() {
+        if (_logsLoadingMore) return;
+        _logsLoadingMore = true;
+        const $btn = $('#log-load-more').prop('disabled', true);
+        try {
+            const res = await sendWithRetry({
+                action: 'getLogsPage',
+                username: currentUser.username,
+                adminPass: adminPass,
+                offset: (globalData.logs || []).length,
+                limit: LOG_PAGE_SIZE
+            });
+            if (res && res.result === 'success' && Array.isArray(res.logs)) {
+                globalData.logs = (globalData.logs || []).concat(res.logs);
+                if (res.logs.length < LOG_PAGE_SIZE) _logsExhausted = true;
+                if ($.fn.DataTable.isDataTable('#logsTable')) {
+                    $('#logsTable').DataTable().rows.add(res.logs).draw(false);
+                }
+                updateLogsToolbar();
+            } else if (res && res.message === 'forbidden') {
+                Swal.fire('ไม่มีสิทธิ์', 'การดู log ย้อนหลังจำกัดเฉพาะ DEVELOPER', 'warning');
+            } else if (res && (res.message === 'session_expired' || res.message === 'token_expired')) {
+                // api.js จัดการ logout ให้แล้ว — ไม่ต้องแสดง error ซ้ำ
+            } else {
+                Swal.fire('โหลดไม่สำเร็จ', (res && res.message) || 'ไม่สามารถโหลด log เพิ่มได้', 'error');
+            }
+        } catch (e) {
+            console.warn('[loadOlderLogs]', e);
+            Swal.fire('โหลดไม่สำเร็จ', 'การเชื่อมต่อผิดพลาด', 'error');
+        } finally {
+            _logsLoadingMore = false;
+            $btn.prop('disabled', false);
+        }
+    }
+
+// CSV (UTF-8 BOM เปิดภาษาไทยใน Excel ได้) — เฉพาะแถวที่ผ่านตัวกรองอยู่ตอนนี้
+function exportLogsCsv() {
+        if (!$.fn.DataTable.isDataTable('#logsTable')) return;
+        const withValues = $('#log-export-values').is(':checked');
+        const cols = ['Timestamp', 'User', 'Role', 'ActionGroup', 'ActionType', 'TargetID', 'Details'];
+        if (withValues) cols.push('OldValue', 'NewValue');
+        const cell = v => {
+            let s = (v === null || v === undefined) ? '' : String(v);
+            if (/^[=+\-@]/.test(s)) s = "'" + s; // กัน formula injection
+            return '"' + s.replace(/"/g, '""') + '"';
+        };
+        const rows = $('#logsTable').DataTable().rows({ search: 'applied' }).data().toArray();
+        const csv = [cols.join(',')].concat(rows.map(r => cols.map(c => cell(r[c])).join(','))).join('\r\n');
+        const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'admin-logs-' + new Date().toISOString().slice(0, 10) + '.csv';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    }
+
+$(document).on('click', '.js-log-tab', function () {
+        logFilter.tab = $(this).attr('data-tab');
+        $('.js-log-tab').removeClass('active');
+        $(this).addClass('active');
+        if ($.fn.DataTable.isDataTable('#logsTable')) $('#logsTable').DataTable().draw();
+    });
+$(document).on('change', '#log-user-filter, #log-date-from, #log-date-to', function () {
+        logFilter.user = $('#log-user-filter').val() || '';
+        logFilter.from = $('#log-date-from').val() || '';
+        logFilter.to = $('#log-date-to').val() || '';
+        if ($.fn.DataTable.isDataTable('#logsTable')) $('#logsTable').DataTable().draw();
+    });
+$(document).on('click', '#log-load-more', loadOlderLogs);
+$(document).on('click', '#log-export-csv', exportLogsCsv);
+
+// แมปชนิดการกระทำ → สี badge แบบตรงตัว (เดิม substring: "ADD" ไปชน "LOAD")
+const LOG_BADGE_MAP = {
+        LOGIN_SSO: 'bg-success', LOGIN: 'bg-success', ADD: 'bg-success', CREATE: 'bg-success', IMPORT: 'bg-success',
+        UPLOAD: 'bg-success', UPLOAD_BATCH: 'bg-success', REGISTER: 'bg-success', AUTO_ENROLL: 'bg-success', RESTORE: 'bg-success',
+        EDIT: 'bg-warning text-dark', UPDATE: 'bg-warning text-dark', BULK_CATEGORIZE: 'bg-warning text-dark',
+        SHEET_EDIT: 'bg-warning text-dark', TRANSFER: 'bg-warning text-dark', RESET_PWD: 'bg-warning text-dark',
+        DELETE: 'bg-danger', REJECT: 'bg-danger', INGEST_REJECT: 'bg-danger', LOGIN_FAIL: 'bg-danger', POSTGRES_MIRROR_FAIL: 'bg-danger',
+        REPORT_AUTOFIX: 'badge-sys', VOTE_CONFIRM: 'badge-sys', GENERATE: 'badge-sys', INDEX: 'badge-sys', SYSTEM: 'badge-sys'
+    };
+
 function initLogsTable() {
+        if (!globalData.logs) globalData.logs = [];
+        if (globalData.logs.length <= LOG_PAGE_SIZE) _logsExhausted = false; // โหลดชุดแรกใหม่ → โหลดเพิ่มได้อีก
         if ($.fn.DataTable.isDataTable('#logsTable')) {
             $('#logsTable').DataTable().clear().rows.add(globalData.logs).draw();
+            updateLogsToolbar();
             return;
         }
         $('#logsTable').DataTable({
@@ -362,11 +519,7 @@ function initLogsTable() {
                     data: 'ActionType',
                     width: '10%',
                     render: function (data) {
-                        let badge = 'bg-secondary';
-                        const upper = String(data).toUpperCase();
-                        if (upper.includes('EDIT') || upper.includes('UPDATE')) badge = 'bg-warning text-dark';
-                        if (upper.includes('DELETE') || upper.includes('REJECT')) badge = 'bg-danger';
-                        if (upper.includes('ADD') || upper.includes('IMPORT') || upper.includes('REGISTER')) badge = 'bg-success';
+                        const badge = LOG_BADGE_MAP[String(data).toUpperCase()] || 'bg-secondary';
                         return `<span class="badge ${badge}">${escapeHtml(data)}</span>`;
                     },
                     createdCell: (td) => $(td).attr('data-label', 'การกระทำ')
@@ -398,6 +551,7 @@ function initLogsTable() {
                 }
             ]
         });
+        updateLogsToolbar();
     }
 
 function viewDiff(oldValEnc, newValEnc) {
@@ -408,17 +562,65 @@ function viewDiff(oldValEnc, newValEnc) {
         try { oldRaw = JSON.parse(decodeURIComponent(oldValEnc)); } catch (e) { oldRaw = decodeURIComponent(oldValEnc); }
         try { newRaw = JSON.parse(decodeURIComponent(newValEnc)); } catch (e) { newRaw = decodeURIComponent(newValEnc); }
 
+        // log ที่ไม่ใช่ข้อสอบ (Category/Announcement/Profile ฯลฯ) — old/new เป็นสตริงหรือ object อื่น: แสดงข้อความดิบเทียบกัน
+        if (!isQuestionLog(oldRaw) && !isQuestionLog(newRaw)) {
+            const oldTxt = rawLogText(oldRaw), newTxt = rawLogText(newRaw);
+            $('#diff-container-old').html(`<pre class="diff-raw">${wordDiffHtml(oldTxt, newTxt, 'old') || '<span class="text-muted">(ว่าง)</span>'}</pre>`);
+            $('#diff-container-new').html(`<pre class="diff-raw">${wordDiffHtml(newTxt, oldTxt, 'new') || '<span class="text-muted">(ว่าง)</span>'}</pre>`);
+            $('#diffModal').modal('show');
+            return;
+        }
+
         // 2. Normalize Data (แปลง Key ให้เป็นมาตรฐานเดียวกัน เพื่อเปรียบเทียบง่าย)
         const oldObj = normalizeData(oldRaw);
         const newObj = normalizeData(newRaw);
 
         // 3. Render แต่ละฝั่ง
-        $('#diff-container-old').html(renderDiffPanel(oldObj, newObj));
-        $('#diff-container-new').html(renderDiffPanel(newObj, oldObj));
+        $('#diff-container-old').html(renderDiffPanel(oldObj, newObj, 'old'));
+        $('#diff-container-new').html(renderDiffPanel(newObj, oldObj, 'new'));
         window.renderAllMath($('#diff-container-old'));
         window.renderAllMath($('#diff-container-new'));
 
         $('#diffModal').modal('show');
+    }
+
+// old/new ของ log ข้อสอบเป็น object ที่มีฟิลด์ข้อสอบ (key แบบ payload หรือหัวคอลัมน์ชีต)
+function isQuestionLog(v) {
+        return !!v && typeof v === 'object' &&
+            ['problem', 'Problem', 'choices', 'Choices', 'questionId', 'QuestionID'].some(k => k in v);
+    }
+
+function rawLogText(v) {
+        if (v === null || v === undefined) return '';
+        return typeof v === 'object' ? JSON.stringify(v, null, 2) : String(v);
+    }
+
+// เทียบระดับคำ (LCS) แล้วครอบคำที่ต่างด้วย <del>/<ins> — side 'old' = ฝั่งที่ถูกลบ, 'new' = ฝั่งที่เพิ่ม
+// ข้อความยาวเกินเพดาน (O(n*m)) → คืนข้อความ escape ธรรมดา
+function wordDiffHtml(text, other, side) {
+        const a = String(text || ''), b = String(other || '');
+        if (a === b) return escapeHtml(a) || '';
+        const A = a.split(/(\s+)/).filter(s => s !== '');
+        const B = b.split(/(\s+)/).filter(s => s !== '');
+        if (A.length * B.length > 1500000) return escapeHtml(a) || '';
+
+        const dp = Array.from({ length: A.length + 1 }, () => new Int32Array(B.length + 1));
+        for (let i = A.length - 1; i >= 0; i--) {
+            for (let j = B.length - 1; j >= 0; j--) {
+                dp[i][j] = A[i] === B[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+            }
+        }
+        const keepA = new Array(A.length).fill(false), keepB = new Array(B.length).fill(false);
+        let i = 0, j = 0;
+        while (i < A.length && j < B.length) {
+            if (A[i] === B[j]) { keepA[i] = keepB[j] = true; i++; j++; }
+            else if (dp[i + 1][j] >= dp[i][j + 1]) i++;
+            else j++;
+        }
+        const toks = side === 'old' ? A : B, keep = side === 'old' ? keepA : keepB;
+        const tag = side === 'old' ? 'del' : 'ins';
+        const cls = side === 'old' ? 'diff-w-del' : 'diff-w-add';
+        return toks.map((t, k) => (keep[k] || /^\s+$/.test(t)) ? escapeHtml(t) : `<${tag} class="${cls}">${escapeHtml(t)}</${tag}>`).join('');
     }
 
 function normalizeData(obj) {
@@ -441,13 +643,15 @@ function normalizeData(obj) {
         };
     }
 
-function renderDiffPanel(data, compare) {
+function renderDiffPanel(data, compare, side) {
+        // ฝั่งเก่า = แดง (ถูกลบ/แก้), ฝั่งใหม่ = เขียว (เพิ่ม/แก้); ไม่ระบุ side = สีเหลืองแบบเดิม
+        const changedCls = side === 'old' ? 'diff-del' : side === 'new' ? 'diff-add' : 'diff-changed';
         // 1. Header (ID & Category)
         // เทียบ Category (แปลงเป็น string ก่อนเทียบ)
         const catStr = Array.isArray(data.category) ? data.category.join(', ') : String(data.category);
         const compareCatStr = Array.isArray(compare.category) ? compare.category.join(', ') : String(compare.category);
         const isCatChanged = catStr !== compareCatStr;
-        const catClass = isCatChanged ? 'diff-changed' : '';
+        const catClass = isCatChanged ? changedCls : '';
 
         let html = `
         <h5 class="mb-3">
@@ -456,14 +660,15 @@ function renderDiffPanel(data, compare) {
         </h5>
     `;
 
-        // 2. Problem Text
+        // 2. Problem Text (ระบายคำที่ต่างระดับคำ)
         const isProbChanged = data.problem !== compare.problem;
-        const probClass = isProbChanged ? 'diff-changed' : '';
-        html += `<p class="lead mt-3 ${probClass}" style="font-weight: 500;">${escapeHtml(data.problem) || '-'}</p>`;
+        const probClass = isProbChanged ? changedCls : '';
+        const probHtml = isProbChanged && side ? wordDiffHtml(data.problem, compare.problem, side) : escapeHtml(data.problem);
+        html += `<p class="lead mt-3 ${probClass}" style="font-weight: 500;">${probHtml || '-'}</p>`;
 
         // 3. Images
         const isImgChanged = data.img !== compare.img;
-        const imgClass = isImgChanged ? 'diff-changed' : '';
+        const imgClass = isImgChanged ? changedCls : '';
         html += `<div class="text-center mb-3 p-2 ${imgClass}">`;
         if (data.img) {
             const imgs = data.img.split('///').filter(Boolean);
@@ -497,17 +702,18 @@ function renderDiffPanel(data, compare) {
 
             // เช็คว่าข้อความเปลี่ยนหรือไม่
             if (txt !== compareTxt) {
-                classes += " diff-changed"; // สีเหลือง (Changed)
+                classes += " " + changedCls; // แดง/เขียวตามฝั่ง (Changed)
             }
 
             const prefix = String.fromCharCode(65 + i) + ". ";
-            html += `<div class="${classes}">${prefix}${escapeHtml(txt) || '<span class="text-muted font-italic">(ว่าง)</span>'}</div>`;
+            const txtHtml = (txt !== compareTxt && side) ? wordDiffHtml(txt, compareTxt, side) : escapeHtml(txt);
+            html += `<div class="${classes}">${prefix}${txtHtml || '<span class="text-muted font-italic">(ว่าง)</span>'}</div>`;
         }
         html += `</div>`;
 
         // 5. Explanation
         const isExplainChanged = data.explain !== compare.explain;
-        const explainClass = isExplainChanged ? 'diff-changed' : '';
+        const explainClass = isExplainChanged ? changedCls : '';
 
         html += `<div class="alert alert-secondary ${explainClass}">
                 <strong>Explanation:</strong> 

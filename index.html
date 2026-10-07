@@ -1085,6 +1085,24 @@
                         </button>
                     </div>
                     <div class="card-body">
+                        <div class="d-flex flex-wrap gap-2 mb-2">
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-primary active js-log-tab" data-tab="all">ทั้งหมด <span class="badge bg-secondary" id="log-tab-count-all">0</span></button>
+                                <button type="button" class="btn btn-outline-primary js-log-tab" data-tab="data">ข้อมูล <span class="badge bg-secondary" id="log-tab-count-data">0</span></button>
+                                <button type="button" class="btn btn-outline-primary js-log-tab" data-tab="login">เข้าสู่ระบบ <span class="badge bg-secondary" id="log-tab-count-login">0</span></button>
+                                <button type="button" class="btn btn-outline-primary js-log-tab" data-tab="system">ระบบ <span class="badge bg-secondary" id="log-tab-count-system">0</span></button>
+                            </div>
+                            <select class="form-select form-select-sm w-auto" id="log-user-filter" title="ชื่อที่แสดง (ไม่ซ้ำกันเสมอ)">
+                                <option value="">ทุกผู้ใช้</option>
+                            </select>
+                            <input type="date" class="form-control form-control-sm w-auto" id="log-date-from" title="ตั้งแต่วันที่">
+                            <input type="date" class="form-control form-control-sm w-auto" id="log-date-to" title="ถึงวันที่">
+                            <div class="form-check form-check-inline ms-auto mb-0 align-self-center">
+                                <input class="form-check-input" type="checkbox" id="log-export-values">
+                                <label class="form-check-label small" for="log-export-values">รวมค่าเก่า/ใหม่</label>
+                            </div>
+                            <button type="button" class="btn btn-outline-success btn-sm" id="log-export-csv"><i class="fas fa-file-csv"></i> CSV</button>
+                        </div>
                         <div class="table-responsive">
                             <table id="logsTable" class="table table-sm table-hover" style="width:100%">
                                 <thead>
@@ -1099,6 +1117,11 @@
                                 </thead>
                                 <tbody></tbody>
                             </table>
+                        </div>
+                        <div class="text-center mt-3">
+                            <button type="button" class="btn btn-outline-secondary btn-sm hidden" id="log-load-more">
+                                <i class="fas fa-angles-down"></i> โหลด log เก่ากว่านี้เพิ่ม 300 รายการ
+                            </button>
                         </div>
                     </div>
                 </div>
