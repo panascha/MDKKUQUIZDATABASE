@@ -99,10 +99,11 @@ async function sendWithRetry(payload, retries = 3, signal = null) {
                 throw new Error('Client error ' + status);
             }
             if (i === retries - 1) throw new Error('Server error ' + status + ' after ' + retries + ' attempts');
-            if (status === 404 && Date.now() - attemptStart > GAS_SLOW_FAIL_MS) {
+            // i > 0: ยอม retry 404 ครั้งแรกแม้ช้า — Google echo ทิ้ง response ที่ Completed แล้วที่ 25-45s, ครั้งที่สองโดน warm cache ~2-3s
+            if (status === 404 && i > 0 && Date.now() - attemptStart > GAS_SLOW_FAIL_MS) {
                 throw new Error('Server error 404 after ' + Math.round((Date.now() - attemptStart) / 1000) + 's — GAS execution likely timed out/died (ไม่ retry)');
             }
-            if (status !== 429 && Date.now() - attemptStart > POST_SLOW_FAIL_MS) {
+            if (status !== 429 && !(status === 404 && i === 0) && Date.now() - attemptStart > POST_SLOW_FAIL_MS) {
                 throw new Error('Server error ' + status + ' after ' + Math.round((Date.now() - attemptStart) / 1000) + 's — ไม่ retry (คำขอเดิมอาจยังทำงานอยู่)');
             }
             let retryDelay;

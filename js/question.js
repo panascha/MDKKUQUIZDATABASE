@@ -1512,7 +1512,7 @@ async function askAIExpert() {
             images: imageUrls,
             username: currentUser.username, // ส่งเพื่อเช็คสิทธิ์แอดมิน
             adminPass: adminPass
-        }, 1); // ลองใหม่ได้สูงสุด 1 ครั้งถ้าพัง
+        }, 2); // 2 attempts: echo 404 ชั่วคราวของ Google retry เองได้ (เหมือน askMultiAIForEditModal)
 
         if (res.result === 'success') {
             let text = res.answer;
