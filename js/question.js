@@ -1783,13 +1783,16 @@ async function askMultiAIForEditModal() {
     }
 
     try {
+        // 2 attempts: debate + arbiter ใช้ 20-40s — echo redirect ของ Google บางครั้งทำ response หาย
+        // แล้วตกไป doGet เปล่าที่ตอบ "Action not defined"; sendWithRetry ถือเป็น retryable (backoff ≥2s)
+        // verifyQuestionBatch ไม่แก้ข้อมูลข้อสอบ ยิงซ้ำจึงปลอดภัย (เสียแค่โควต้า AI อีกรอบ) — ไม่เพิ่มเป็น 3 เพราะรอนานเกิน
         const res = await sendWithRetry({
             action: 'verifyQuestionBatch',
             questions: [qData],
             username: currentUser.username,
             adminPass: adminPass,
             sessionToken: (typeof sessionToken === 'string' && sessionToken) || undefined
-        }, 1);
+        }, 2);
 
         if (res.result !== 'success' || !res.verified || res.verified.length === 0) {
             // backend เก็บสาเหตุจริงไว้ใน errors[] (solver คืน JSON เพี้ยน, โควต้าหมด ฯลฯ)
