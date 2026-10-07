@@ -402,3 +402,24 @@
             padding-bottom: 5px;
             margin-top: 10px;
         }
+
+        /* ── Bulk select (js/bulk-select.js) ── */
+        .bulk-bar {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            margin-bottom: 12px;
+            background: #fff;
+            border: 1px solid var(--primary-color);
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+        }
+
+        .bulk-bar.hidden { display: none; }
+
+        tr.bulk-selected { outline: 2px solid var(--primary-color); outline-offset: -2px; }

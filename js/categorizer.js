@@ -291,41 +291,13 @@ async function applyCatAiProposals() {
 
     let applied = 0, skipped = 0, failed = 0;
     try {
-        for (let i = 0; i < selected.length; i += CAT_AI_APPLY_CHUNK) {
-            const chunk = selected.slice(i, i + CAT_AI_APPLY_CHUNK);
-            catAiStatus(`<span class="text-primary"><i class="fas fa-spinner fa-spin"></i> กำลังบันทึก ${Math.min(i + chunk.length, selected.length)}/${selected.length}…</span>`);
-
-            try {
-                // fetch เดียว ไม่ retry — retry อาจยิงซ้ำระหว่าง backend กำลังเขียน (แบบเดียวกับ runBatchAction)
-                const resp = await fetch(APPSCRIPT_URL, {
-                    method: 'POST',
-                    redirect: 'follow',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({
-                        action: 'bulkAddQuestionCategories',
-                        username: currentUser.username, adminPass: adminPass,
-                        sessionToken: (typeof sessionToken === 'string' && sessionToken) || undefined,
-                        data: { updates: chunk }
-                    })
-                });
-                const out = await resp.json();
-                if (out.result === 'success') {
-                    applied += out.applied || 0;
-                    skipped += out.skipped || 0;
-                    // อัปเดต local ให้ scan รอบถัดไปไม่เจอข้อเดิมซ้ำ
-                    chunk.forEach(u => {
-                        const q = (globalData.questions || []).find(x => x.questionId === u.id);
-                        if (q && Array.isArray(q.category) && !q.category.includes(u.categoryId)) q.category.push(u.categoryId);
-                    });
-                } else {
-                    failed += chunk.length;
-                    console.warn('[CatAI] apply chunk failed:', out.message);
-                }
-            } catch (e) {
-                failed += chunk.length;
-                console.warn('[CatAI] apply chunk error:', e);
-            }
-        }
+        // chunk loop อยู่ใน bulk-select.js — continueOnFail=true คงพฤติกรรมเดิม (chunk ล้มเหลวแล้วทำ chunk ถัดไปต่อ)
+        const r = await sendBulkChunks('bulkAddQuestionCategories', selected, { itemsKey: 'updates' }, CAT_AI_APPLY_CHUNK,
+            (n, total) => catAiStatus(`<span class="text-primary"><i class="fas fa-spinner fa-spin"></i> กำลังบันทึก ${n}/${total}…</span>`),
+            true);
+        applied = r.applied; skipped = r.skipped; failed = r.failed;
+        // อัปเดต local ให้ scan รอบถัดไปไม่เจอข้อเดิมซ้ำ
+        applyAddedCategoriesLocally(r.done);
 
         const icon = failed > 0 ? 'warning' : 'success';
         catAiStatus(`<span class="${failed > 0 ? 'text-warning' : 'text-success'}"><i class="fas fa-check-circle"></i> บันทึกแล้ว ${applied} ข้อ · ข้าม ${skipped} · ล้มเหลว ${failed}</span>`);

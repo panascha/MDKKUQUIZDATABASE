@@ -5,6 +5,10 @@
 // Set ของ questionId ที่มี Report ค้างอยู่ — สร้างใหม่ก่อน draw ทุกครั้ง (ดูใน preDrawCallback ของ initAdminTable)
 let _reportedQIds = new Set();
 
+// ตัวเลือกหลายแถวของ #adminTable (createBulkSelection จาก bulk-select.js) — สร้างใน initAdminTable
+let dbBulk = null;
+let _bulkBusy = false;
+
 function setTableView(tableId, mode, btn) {
         const $table = $('#' + tableId);
 
@@ -164,7 +168,19 @@ function initAdminTable() {
                 // สร้าง Set ของ questionId ที่มี Report ค้างอยู่ก่อน draw ทุกครั้ง (แทนการ .some() ต่อแถว)
                 _reportedQIds = buildReportedQIds();
             },
+            order: [[1, 'asc']], // คอลัมน์ 0 = checkbox — คงการเรียงเริ่มต้นเดิม (Subject)
             columns: [
+                {
+                    data: null,
+                    orderable: false,
+                    searchable: false,
+                    createdCell: (td) => $(td).attr('data-label', 'Select'),
+                    render: function (data, type, row) {
+                        if (type !== 'display') return '';
+                        const id = String(row.questionId);
+                        return `<input type="checkbox" class="form-check-input bulk-check" data-id="${escapeHtml(id)}"${dbBulk && dbBulk.ids.has(id) ? ' checked' : ''}>`;
+                    }
+                },
                 {
                     data: null,
                     render: function (data, type, row) {
@@ -274,17 +290,22 @@ function initAdminTable() {
             img.replaceWith(badge);
         }, true);
 
-        // Subject Filter
+        // Multi-select (bulk-select.js) — state เป็น Set ของ questionId, ไม่ผูกกับ index ของแถว
+        dbBulk = createBulkSelection({ container: '#adminTable', rowSelector: 'tr', idAttr: 'data-id', onChange: updateBulkBar });
+        table.on('draw.dt', () => dbBulk.refresh()); // แถวที่ DataTables cache ไว้อาจค้างสถานะ checked เก่า
+        dbBulk.refresh();
+
+        // Subject Filter (คอลัมน์ 0 = checkbox → Subject = 1, Category = 2)
         $('#db-subject-filter').on('change', function () {
             const selectedSubj = this.value;
-            table.column(0).search(selectedSubj).draw();
+            table.column(1).search(selectedSubj).draw();
             updateCategoryDropdown(selectedSubj, '#db-category-filter');
-            table.column(1).search('').draw();
+            table.column(2).search('').draw();
         });
 
         // Category Filter
         $('#db-category-filter').on('change', function () {
-            table.column(1).search(this.value).draw();
+            table.column(2).search(this.value).draw();
         });
 
         // --- Quick filters: กรองจากข้อมูลแถว (rowData) ไม่ใช่ข้อความ HTML ที่ render แล้ว ---
@@ -472,10 +493,16 @@ function exportLogsCsv() {
     }
 
 // ── Database export (JSON / CSV) ──
-// แหล่งแถวที่จะ export: แถวที่ผ่าน search + quick filters ตอนนี้ (ทุกหน้า) — งาน #11 (multi-select) สลับมาใช้ selected ids ที่นี่ที่เดียว
-function getExportRows() {
+// แหล่งแถวที่จะ export: แถวที่ผ่าน search + quick filters ตอนนี้ (ทุกหน้า)
+// selectedOnly = เฉพาะ id ที่เลือกไว้ (รวมข้อที่ถูกตัวกรองซ่อนอยู่ — selection ไม่ผูกกับตัวกรอง)
+function getExportRows(selectedOnly) {
         if (!$.fn.DataTable.isDataTable('#adminTable')) return [];
-        return $('#adminTable').DataTable().rows({ search: 'applied' }).data().toArray();
+        const dt = $('#adminTable').DataTable();
+        if (selectedOnly) {
+            if (!dbBulk) return [];
+            return dt.rows().data().toArray().filter(r => dbBulk.ids.has(String(r.questionId)));
+        }
+        return dt.rows({ search: 'applied' }).data().toArray();
     }
 
 // CSV: quote ทุกเซลล์, "" แทน ", คง \n ในเซลล์; array (category) รวมด้วย /// ให้ตรงกับ delimiter ของข้อมูล
@@ -503,10 +530,10 @@ function downloadBlob(text, mime, filename) {
         setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     }
 
-function exportQuestions(format) {
-        const rows = getExportRows();
-        if (!rows.length) { Swal.fire('ไม่มีข้อมูล', 'ไม่มีข้อสอบที่ตรงกับตัวกรองตอนนี้', 'info'); return; }
-        const subj = ($('#db-subject-filter').val() || '').replace(/[^\w฀-๿-]+/g, '_');
+function exportQuestions(format, selectedOnly) {
+        const rows = getExportRows(selectedOnly);
+        if (!rows.length) { Swal.fire('ไม่มีข้อมูล', selectedOnly ? 'ยังไม่ได้เลือกข้อสอบ' : 'ไม่มีข้อสอบที่ตรงกับตัวกรองตอนนี้', 'info'); return; }
+        const subj = selectedOnly ? 'selected' : ($('#db-subject-filter').val() || '').replace(/[^\w฀-๿-]+/g, '_');
         const base = 'questions-' + (subj ? subj + '-' : '') + new Date().toISOString().slice(0, 10);
         if (format === 'json') downloadBlob(JSON.stringify(rows, null, 2), 'application/json;charset=utf-8', base + '.json');
         else downloadBlob(buildQuestionsCsv(rows), 'text/csv;charset=utf-8', base + '.csv');
@@ -514,6 +541,91 @@ function exportQuestions(format) {
 
 $(document).on('click', '#db-export-json', () => exportQuestions('json'));
 $(document).on('click', '#db-export-csv', () => exportQuestions('csv'));
+
+// ── Bulk select (#adminTable) ──
+// questionId ของทุกแถวที่ผ่าน search + quick filters ตอนนี้ (ทุกหน้า) — ที่มาของ "เลือกทั้งหมดที่กรองอยู่"
+function getFilteredQuestionIds() {
+        if (!$.fn.DataTable.isDataTable('#adminTable')) return [];
+        return $('#adminTable').DataTable().rows({ search: 'applied' }).data().toArray().map(r => String(r.questionId));
+    }
+
+// onChange ของ createBulkSelection: แถบ bulk + สถานะ checkbox "เลือกทั้งหมด" (เต็ม/บางส่วน/ว่าง)
+function updateBulkBar(ids) {
+        $('#db-bulk-count').text(ids.size);
+        $('#db-bulk-bar').toggleClass('hidden', ids.size === 0);
+        const filtered = getFilteredQuestionIds();
+        let sel = 0;
+        filtered.forEach(id => { if (ids.has(id)) sel++; });
+        $('.bulk-check-all').each(function () {
+            this.checked = filtered.length > 0 && sel === filtered.length;
+            this.indeterminate = sel > 0 && sel < filtered.length;
+        });
+    }
+
+$(document).on('change', '.bulk-check-all', function () {
+        if (!dbBulk) return;
+        const filtered = getFilteredQuestionIds();
+        if (this.checked) dbBulk.selectAll(filtered); else dbBulk.deselect(filtered);
+    });
+
+$(document).on('click', '#db-bulk-clear', () => { if (dbBulk) dbBulk.clear(); });
+$(document).on('click', '#db-bulk-export-json', () => exportQuestions('json', true));
+$(document).on('click', '#db-bulk-export-csv', () => exportQuestions('csv', true));
+
+// เพิ่ม category ให้ข้อที่เลือก — action เดิม bulkAddQuestionCategories (append) ผ่าน sendBulkChunks; ต้อง confirm พร้อมจำนวนก่อนเสมอ
+async function bulkAddCategoryToSelected() {
+        if (!dbBulk || !dbBulk.ids.size || _bulkBusy) return;
+        if (!confirmAdmin()) return;
+
+        const ids = [...dbBulk.ids];
+        const n = ids.length;
+        const cats = (globalData.category || []).filter(c => c.CategoryID)
+            .map(c => [String(c.CategoryID), `${c.SubjectRef || ''} · ${c.CategoryName || c.CategoryID}`])
+            .sort((a, b) => a[1].localeCompare(b[1]));
+        if (!cats.length) { Swal.fire('ไม่มี Category', 'ยังไม่มีข้อมูลโครงสร้าง category', 'info'); return; }
+
+        const pick = await Swal.fire({
+            title: `เพิ่ม Category ให้ ${n} ข้อ?`,
+            text: 'append — category เดิมของแต่ละข้อยังอยู่ (ข้อที่มี category นี้อยู่แล้วจะถูกข้าม)',
+            input: 'select',
+            inputOptions: new Map(cats),
+            inputPlaceholder: 'เลือก category',
+            inputValidator: v => (v ? undefined : 'กรุณาเลือก category'),
+            icon: 'question', showCancelButton: true,
+            confirmButtonText: `เพิ่มให้ ${n} ข้อ`, cancelButtonText: 'ยกเลิก'
+        });
+        if (!pick.isConfirmed || !pick.value) return;
+
+        const categoryId = pick.value;
+        const items = ids.map(id => ({ id: id, categoryId: categoryId }));
+        _bulkBusy = true;
+        Swal.fire({ title: 'กำลังบันทึก…', allowOutsideClick: false, allowEscapeKey: false, didOpen: () => Swal.showLoading() });
+        let r;
+        try {
+            r = await sendBulkChunks('bulkAddQuestionCategories', items, { itemsKey: 'updates' }, 40, (done, total) => {
+                const t = Swal.getTitle();
+                if (t) t.textContent = `กำลังบันทึก ${done}/${total}…`;
+            });
+        } finally {
+            _bulkBusy = false;
+        }
+
+        // ข้อที่สำเร็จ: อัปเดตข้อมูลในหน้า + ถอดออกจาก selection (ล้มเหลวแล้วลองใหม่จะเหลือเฉพาะที่ยังไม่เสร็จ)
+        applyAddedCategoriesLocally(r.done);
+        if ($.fn.DataTable.isDataTable('#adminTable')) {
+            const doneIds = new Set(r.done.map(u => String(u.id)));
+            $('#adminTable').DataTable().rows((idx, d) => d && doneIds.has(String(d.questionId))).invalidate().draw(false);
+        }
+        dbBulk.deselect(r.done.map(u => u.id));
+
+        if (r.failed > 0) {
+            Swal.fire('บันทึกไม่ครบ', `สำเร็จ ${r.done.length} ข้อ (เพิ่มจริง ${r.applied} · ข้าม ${r.skipped}) · ไม่ได้ทำ ${r.failed + r.pending.length} ข้อ — ${r.error}\nข้อที่ยังไม่เสร็จยังถูกเลือกอยู่`, 'warning');
+        } else {
+            Swal.fire('เสร็จสิ้น', `เพิ่มจริง ${r.applied} ข้อ · ข้าม (มีอยู่แล้ว) ${r.skipped}`, 'success');
+        }
+    }
+
+$(document).on('click', '#db-bulk-add-cat', bulkAddCategoryToSelected);
 
 $(document).on('click', '.js-log-tab', function () {
         logFilter.tab = $(this).attr('data-tab');

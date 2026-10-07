@@ -1069,8 +1069,8 @@ function refreshTables(keepState = false) {
         if (!$('#sec-database').hasClass('hidden') && $.fn.DataTable.isDataTable('#adminTable')) {
             const table = $('#adminTable').DataTable();
             table.clear().rows.add(globalData.questions).draw(!keepState);
-            table.column(0).search($('#db-subject-filter').val()).draw();
-            table.column(1).search($('#db-category-filter').val()).draw();
+            table.column(1).search($('#db-subject-filter').val()).draw();
+            table.column(2).search($('#db-category-filter').val()).draw();
         }
 
         // 3. ตาราง Logs
@@ -1108,8 +1108,8 @@ function refreshTables(keepState = false) {
         if ($.fn.DataTable.isDataTable('#adminTable')) {
             const state = $('#adminTable').DataTable().state();
             if (state && state.columns) {
-                const savedSubj = state.columns[0].search.search;
-                const savedCat = state.columns[1].search.search;
+                const savedSubj = state.columns[1].search.search;
+                const savedCat = state.columns[2].search.search;
                 if (savedSubj) {
                     $('#db-subject-filter').val(savedSubj);
                     updateCategoryDropdown(savedSubj, '#db-category-filter');
@@ -1275,12 +1275,13 @@ function populateFilters() {
         populateConverterSubjectPicker(); // edit 2: year→subject cascade ในหน้า Converter
 
         // --- 6. ซิงค์ค่าที่ Filter ในตาราง (ถ้ามี) กับ Dropdown ตามที่ User เคยเลือกไว้ก่อนหน้า ---
-        const syncTableFilterToDropdown = (tableId, subjSelectId, catSelectId) => {
+        // colOffset: adminTable มีคอลัมน์ checkbox นำหน้า (Subject = 1, Category = 2)
+        const syncTableFilterToDropdown = (tableId, subjSelectId, catSelectId, colOffset = 0) => {
             if ($.fn.DataTable.isDataTable(tableId)) {
                 const state = $(tableId).DataTable().state();
                 if (state && state.columns) {
-                    const savedSubj = state.columns[0].search.search;
-                    const savedCat = state.columns[1].search.search;
+                    const savedSubj = state.columns[colOffset].search.search;
+                    const savedCat = state.columns[colOffset + 1].search.search;
                     if (savedSubj) {
                         $(subjSelectId).val(savedSubj);
                         updateCategoryDropdown(savedSubj, catSelectId);
@@ -1289,7 +1290,7 @@ function populateFilters() {
                 }
             }
         };
-        syncTableFilterToDropdown('#adminTable', '#db-subject-filter', '#db-category-filter');
+        syncTableFilterToDropdown('#adminTable', '#db-subject-filter', '#db-category-filter', 1);
         syncTableFilterToDropdown('#publicTable', '#search-subject-filter', '#search-category-filter');
     }
 

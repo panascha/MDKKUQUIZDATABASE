@@ -502,6 +502,26 @@
                             <label class="btn btn-sm btn-outline-primary" for="db-has-report-filter">
                                 <i class="fas fa-exclamation-circle me-1"></i> มี Report ค้าง
                             </label>
+                            <label class="btn btn-sm btn-outline-dark mb-0" title="เลือก/ยกเลิกทุกข้อที่ผ่านตัวกรองอยู่ตอนนี้ (ทุกหน้า)">
+                                <input type="checkbox" class="form-check-input bulk-check-all me-1">
+                                เลือกทั้งหมดที่กรองอยู่
+                            </label>
+                        </div>
+
+                        <div id="db-bulk-bar" class="bulk-bar hidden">
+                            <span class="fw-bold">เลือกแล้ว <span id="db-bulk-count">0</span> ข้อ</span>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="db-bulk-export-json">
+                                <i class="fas fa-file-code"></i> JSON
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="db-bulk-export-csv">
+                                <i class="fas fa-file-csv"></i> CSV
+                            </button>
+                            <button type="button" class="btn btn-sm btn-primary" id="db-bulk-add-cat">
+                                <i class="fas fa-tag"></i> เพิ่ม Category
+                            </button>
+                            <button type="button" class="btn btn-sm btn-link text-danger ms-auto" id="db-bulk-clear">
+                                <i class="fas fa-times"></i> ล้างที่เลือก
+                            </button>
                         </div>
 
                         <div class="table-responsive">
@@ -509,6 +529,7 @@
                                 style="width:100%">
                                 <thead class="table-light">
                                     <tr>
+                                        <th style="width: 36px;"><input type="checkbox" class="form-check-input bulk-check-all" title="เลือกทั้งหมดที่กรองอยู่"></th>
                                         <th>Subject</th> <!-- แยก Subject -->
                                         <th>Category</th>
                                         <th>Question</th>
@@ -2006,6 +2027,7 @@
 <script src="js/api.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/auth-google.js"></script>
+<script src="js/bulk-select.js"></script>
 <script src="js/tables.js"></script>
 <script src="js/question.js"></script>
 <script src="js/slide-ref.js"></script>
