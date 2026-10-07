@@ -526,12 +526,6 @@ function processAll(idMode) {
                 return offsets;
             };
 
-            converterStorage.struct = [];
-            converterStorage.category = [];
-            converterStorage.ques = [];
-            pageHintMap.clear();
-            convSkippedRows.clear();
-
             let initialTab = 'category';
             let inputType = 'structure_only';
 
@@ -681,6 +675,9 @@ function processAll(idMode) {
                     });
                 }
 
+                // ล้างของเดิมเฉพาะเมื่อประมวลผลสำเร็จ — ยกเลิกที่ prompt append/overwrite หรือ error กลางทาง ต้องไม่ทิ้ง preview เก่าค้างโดย storage ว่าง
+                pageHintMap.clear();
+                convSkippedRows.clear();
                 converterStorage.struct = Array.from(structMap.values());
                 converterStorage.category = categoryRows;
                 converterStorage.ques = quesRows;

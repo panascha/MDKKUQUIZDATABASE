@@ -435,6 +435,31 @@
             font-size: 0.85rem;
         }
 
+        /* ── M1: ค้นหา / พับกลุ่ม / badge จำนวนข้อ ── */
+        .struct-search-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 16px 0;
+        }
+        .struct-search-bar .form-control { max-width: 320px; }
+        .struct-group-header { cursor: pointer; user-select: none; }
+        .struct-group-chevron { font-size: 0.7rem; color: #858796; transition: transform 0.15s; }
+        .struct-group-card.collapsed .struct-group-chevron { transform: rotate(-90deg); }
+        .struct-group-card.collapsed:not(.struct-search-open) .struct-cat-table-wrap { display: none; }
+        .struct-q-count {
+            display: inline-block;
+            min-width: 28px;
+            padding: 1px 7px;
+            border-radius: 10px;
+            background: #e8f0fe;
+            color: #1a56db;
+            font-size: 0.72rem;
+            font-weight: 600;
+            text-align: center;
+        }
+        .struct-q-count.zero { background: #f1f3f9; color: #adb5bd; }
+
         /* ── Category table ── */
         .struct-cat-table-wrap {
             overflow-x: auto;

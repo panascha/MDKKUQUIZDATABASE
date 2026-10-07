@@ -13,6 +13,51 @@ $(document).on('click', '#structure-tree-view .struct-subj-item', function () {
     selectSubject($(this).attr('data-sid'));
 });
 
+// กลุ่มที่พับไว้ (key = subjectID + '\u0001' + groupName) — อยู่รอดหลัง re-render จาก CRUD
+const _collapsedStructGroups = new Set();
+const _structGroupKey = (subjectID, groupName) => subjectID + '\u0001' + groupName;
+
+// จำนวนข้อสอบต่อ CategoryID (ข้อเดียวอยู่ได้หลายหัวข้อ — นับทุกหัวข้อที่มันอยู่, ไม่นับซ้ำในข้อเดียว)
+function structCategoryCounts() {
+    const counts = new Map();
+    (globalData.questions || []).forEach(q => {
+        const cats = Array.isArray(q.category) ? q.category : [q.category];
+        new Set(cats).forEach(c => { if (c) counts.set(c, (counts.get(c) || 0) + 1); });
+    });
+    return counts;
+}
+
+$(document).on('click', '#structure-tree-view .struct-group-header', function (e) {
+    if ($(e.target).closest('[data-crud]').length) return; // ปุ่มเพิ่ม/แก้/ลบในหัวกลุ่ม — ไม่พับ
+    const card = $(this).closest('.struct-group-card');
+    const collapsed = card.toggleClass('collapsed').hasClass('collapsed');
+    const key = _structGroupKey(card.attr('data-sid'), card.attr('data-group'));
+    if (collapsed) _collapsedStructGroups.add(key); else _collapsedStructGroups.delete(key);
+});
+
+$(document).on('input', '#struct-cat-search', function () { applyStructSearch(); });
+
+// กรองแถวหัวข้อด้วย DOM (ไม่ re-render) — กลุ่มที่ไม่มีแถวตรงจะซ่อน, กลุ่มที่ตรงจะกางแม้ถูกพับไว้
+function applyStructSearch() {
+    const term = String($('#struct-cat-search').val() || '').trim().toLowerCase();
+    const area = $('#struct-detail-panel .struct-groups-area');
+    let shown = 0, total = 0;
+    area.find('.struct-group-card').each(function () {
+        const card = $(this);
+        let hit = 0;
+        card.find('tbody tr').each(function () {
+            const ok = !term || String(this.getAttribute('data-search') || '').includes(term);
+            this.hidden = !ok;
+            if (ok) hit++;
+            total++;
+        });
+        shown += hit;
+        card.prop('hidden', !!term && hit === 0);
+        card.toggleClass('struct-search-open', !!term && hit > 0);
+    });
+    $('#struct-search-info').text(term ? `พบ ${shown} / ${total} หัวข้อ` : '');
+}
+
 function renderStructureTree(filterSubjectID = "") {
     const container = $('#structure-tree-view');
     container.empty();
@@ -147,7 +192,13 @@ function renderSubjectDetail(subjectID) {
             </button>
         </div>
     </div>
+    <div class="struct-search-bar">
+        <input type="search" id="struct-cat-search" class="form-control form-control-sm" placeholder="ค้นหา Category ID / ชื่อหัวข้อ..." autocomplete="off">
+        <span id="struct-search-info" class="small text-muted"></span>
+    </div>
     <div class="struct-groups-area">`;
+
+    const qCounts = structCategoryCounts();
 
     if (groups.length === 0) {
         html += `<div class="struct-empty"><i class="fas fa-folder-open fa-2x text-muted mb-2"></i><p class="text-muted small">ยังไม่มีกลุ่มหัวข้อในวิชานี้</p></div>`;
@@ -163,9 +214,11 @@ function renderSubjectDetail(subjectID) {
             return false;
         });
 
+        const collapsed = _collapsedStructGroups.has(_structGroupKey(subjectID, groupName));
         html += `
-        <div class="struct-group-card">
-            <div class="struct-group-header">
+        <div class="struct-group-card${collapsed ? ' collapsed' : ''}" data-sid="${escapeHtml(subjectID)}" data-group="${escapeHtml(groupName) || ''}">
+            <div class="struct-group-header" title="คลิกเพื่อพับ/กางกลุ่ม">
+                <i class="fas fa-chevron-down struct-group-chevron me-2"></i>
                 <i class="fas fa-layer-group me-2 text-success"></i>
                 <span class="fw-semibold">${escapeHtml(groupName) || 'GENERAL'}</span>
                 <span class="badge bg-light text-secondary border ms-2">${cats.length}</span>
@@ -180,15 +233,19 @@ function renderSubjectDetail(subjectID) {
                 <thead><tr>
                     <th style="width:165px">Category ID</th>
                     <th>ชื่อหัวข้อ</th>
+                    <th style="width:64px" class="text-end">ข้อ</th>
                     <th style="width:72px" class="text-end">จัดการ</th>
                 </tr></thead>
                 <tbody>`;
 
         cats.forEach(cat => {
+            const n = qCounts.get(cat.CategoryID) || 0;
+            const searchKey = `${cat.CategoryID} ${cat.CategoryName || ''}`.toLowerCase();
             html += `
-                <tr>
+                <tr data-search="${escapeHtml(searchKey)}">
                     <td><span class="struct-cat-id">${escapeHtml(cat.CategoryID)}</span></td>
                     <td class="struct-cat-name">${escapeHtml(cat.CategoryName)}</td>
+                    <td class="text-end"><span class="struct-q-count${n ? '' : ' zero'}">${n}</span></td>
                     <td class="text-end" style="white-space:nowrap">
                         <button class="btn-node btn-edit" data-crud="editCat" data-id1="${escapeHtml(cat.CategoryID)}" title="แก้ไข"><i class="fas fa-pen"></i></button>
                         <button class="btn-node btn-delete" data-crud="deleteCat" data-id1="${escapeHtml(cat.CategoryID)}" title="ลบ"><i class="fas fa-trash"></i></button>
