@@ -44,7 +44,7 @@ function createBulkSelection({ container, rowSelector, idAttr, onChange }) {
 // หยุดที่ chunk แรกที่ล้มเหลว (continueOnFail=true = ทำต่อ) → { applied, skipped, failed, done, failedItems, pending, error }
 async function sendBulkChunks(action, items, extra, chunkSize, onProgress, continueOnFail) {
     const { itemsKey = 'updates', ...rest } = extra || {};
-    const res = { applied: 0, skipped: 0, failed: 0, done: [], failedItems: [], pending: [], error: '' };
+    const res = { applied: 0, skipped: 0, failed: 0, done: [], failedItems: [], pending: [], error: '', finalCategories: {} };
     for (let i = 0; i < items.length; i += chunkSize) {
         const chunk = items.slice(i, i + chunkSize);
         if (onProgress) onProgress(Math.min(i + chunk.length, items.length), items.length);
@@ -66,6 +66,7 @@ async function sendBulkChunks(action, items, extra, chunkSize, onProgress, conti
                 res.applied += out.applied || 0;
                 res.skipped += out.skipped || 0;
                 res.done.push(...chunk);
+                if (out.finalCategories) Object.assign(res.finalCategories, out.finalCategories);
             } else {
                 err = out.message || 'error';
             }

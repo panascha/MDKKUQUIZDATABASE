@@ -34,7 +34,8 @@ Single `index.html` with sidebar navigation. CSS is split into modular files und
 | `js/api.js` | `sendWithRetry()` — data fetching from GAS (questions, structure, votes, reports, logs); missing `redirect:'follow'` at line ~8 — harmless in-browser since `fetch` follows redirects by default, add only for consistency |
 | `js/app.js` | `initApp()`, `finalizeDataLoading()` (called twice by design — once for stale-cache display, once after fresh fetch — not a bug), admin login (username+password), idle timer, paste handler for image upload |
 | `js/ui.js` | Section switching, auth UI update |
-| `js/tables.js` | DataTables rendering for questions, reports, votes, logs |
+| `js/tables.js` | DataTables rendering for questions, reports, votes, logs; bulk bar actions `bulkAddCategoryToSelected`, `bulkSetCategoryOfSelected` (replace categories), `bulkDeleteSelected` (DEVELOPER-only, moves to `Questions_Trash`, restore manual in sheet) |
+| `js/bulk-select.js` | Row multi-select (`dbBulk`) + `sendBulkChunks()` chunked POST helper (merges `finalCategories` from `bulkSetQuestionCategories` responses) |
 | `js/question.js` | Add/edit question CRUD via GAS |
 | `js/structure.js` | Subject/category tree management |
 | `js/vote.js` | Vote approval/rejection |

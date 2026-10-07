@@ -627,6 +627,118 @@ async function bulkAddCategoryToSelected() {
 
 $(document).on('click', '#db-bulk-add-cat', bulkAddCategoryToSelected);
 
+// แทนที่ category ทั้งรายการของข้อที่เลือก — action bulkSetQuestionCategories (replace, ไม่ใช่ append)
+async function bulkSetCategoryOfSelected() {
+        if (!dbBulk || !dbBulk.ids.size || _bulkBusy) return;
+        if (!confirmAdmin()) return;
+
+        const ids = [...dbBulk.ids];
+        const n = ids.length;
+        const cats = (globalData.category || []).filter(c => c.CategoryID)
+            .map(c => [String(c.CategoryID), `${c.SubjectRef || ''} · ${c.CategoryName || c.CategoryID}`])
+            .sort((a, b) => a[1].localeCompare(b[1]));
+        if (!cats.length) { Swal.fire('ไม่มี Category', 'ยังไม่มีข้อมูลโครงสร้าง category', 'info'); return; }
+
+        const pick = await Swal.fire({
+            title: `แทนที่ Category ของ ${n} ข้อ?`,
+            html: 'Category เดิมของข้อที่เลือกจะถูกลบออกทั้งหมด แล้วใช้รายการด้านล่างแทน' +
+                '<select id="bulk-set-cat-select" multiple size="10" class="form-select mt-2">' +
+                cats.map(c => `<option value="${escapeHtml(c[0])}">${escapeHtml(c[1])}</option>`).join('') +
+                '</select>',
+            icon: 'warning', showCancelButton: true,
+            confirmButtonText: `แทนที่ ${n} ข้อ`, confirmButtonColor: '#dc3545', cancelButtonText: 'ยกเลิก',
+            preConfirm: () => {
+                const v = [...document.getElementById('bulk-set-cat-select').selectedOptions].map(o => o.value);
+                if (!v.length) { Swal.showValidationMessage('กรุณาเลือกอย่างน้อย 1 category'); return false; }
+                if (v.length > 20) { Swal.showValidationMessage('เลือกได้ไม่เกิน 20 category'); return false; }
+                return v;
+            }
+        });
+        if (!pick.isConfirmed || !pick.value) return;
+
+        _bulkBusy = true;
+        Swal.fire({ title: 'กำลังบันทึก…', allowOutsideClick: false, allowEscapeKey: false, didOpen: () => Swal.showLoading() });
+        let r;
+        try {
+            r = await sendBulkChunks('bulkSetQuestionCategories', ids, { itemsKey: 'ids', categoryIds: pick.value }, 40, (done, total) => {
+                const t = Swal.getTitle();
+                if (t) t.textContent = `กำลังบันทึก ${done}/${total}…`;
+            });
+        } finally {
+            _bulkBusy = false;
+        }
+
+        const doneIds = new Set(r.done.map(String));
+        (globalData.questions || []).forEach(q => {
+            const id = String(q.questionId);
+            if (!doneIds.has(id)) return;
+            q.category = [...(r.finalCategories[id] || pick.value)];
+        });
+        await setCacheDB('global_admin_data', globalData);
+        if ($.fn.DataTable.isDataTable('#adminTable')) {
+            $('#adminTable').DataTable().rows((idx, d) => d && doneIds.has(String(d.questionId))).invalidate().draw(false);
+        }
+        dbBulk.deselect(r.done);
+
+        if (r.failed > 0) {
+            Swal.fire('บันทึกไม่ครบ', `สำเร็จ ${r.done.length} ข้อ (แทนที่จริง ${r.applied} · ข้าม ${r.skipped}) · ไม่ได้ทำ ${r.failed + r.pending.length} ข้อ — ${r.error}\nข้อที่ยังไม่เสร็จยังถูกเลือกอยู่`, 'warning');
+        } else {
+            Swal.fire('เสร็จสิ้น', `แทนที่จริง ${r.applied} ข้อ · ข้าม (เหมือนเดิม/ไม่พบ) ${r.skipped}`, 'success');
+        }
+    }
+
+$(document).on('click', '#db-bulk-set-cat', bulkSetCategoryOfSelected);
+
+// ลบข้อที่เลือก (DEVELOPER only) — ย้ายไปชีต Questions_Trash; ยังไม่มีปุ่มกู้คืน (copy แถวกลับในชีตเอง)
+async function bulkDeleteSelected() {
+        if (!dbBulk || !dbBulk.ids.size || _bulkBusy) return;
+        if (!(currentUser && currentUser.role === 'DEVELOPER')) {
+            Swal.fire('Access Denied', 'เฉพาะ DEVELOPER เท่านั้น', 'warning');
+            return;
+        }
+        if (!confirmAdmin()) return;
+
+        const ids = [...dbBulk.ids];
+        const n = ids.length;
+        const ok = await Swal.fire({
+            icon: 'warning', title: `ลบ ${n} ข้อสอบ?`,
+            html: `ข้อสอบที่เลือก <b>${n}</b> ข้อ จะถูกย้ายไปชีต <code>Questions_Trash</code> และหายจากระบบ (กู้คืนต้องทำมือในชีต)<br>พิมพ์จำนวน <b>${n}</b> เพื่อยืนยัน`,
+            input: 'text',
+            inputValidator: v => (String(v).trim() === String(n) ? undefined : `พิมพ์ ${n} ให้ตรง`),
+            showCancelButton: true, confirmButtonText: `ลบ ${n} ข้อ`, confirmButtonColor: '#dc3545', cancelButtonText: 'ยกเลิก'
+        });
+        if (!ok.isConfirmed) return;
+
+        _bulkBusy = true;
+        Swal.fire({ title: 'กำลังลบ…', allowOutsideClick: false, allowEscapeKey: false, didOpen: () => Swal.showLoading() });
+        let r;
+        try {
+            r = await sendBulkChunks('bulkDeleteQuestions', ids, { itemsKey: 'ids' }, 40, (done, total) => {
+                const t = Swal.getTitle();
+                if (t) t.textContent = `กำลังลบ ${done}/${total}…`;
+            });
+        } finally {
+            _bulkBusy = false;
+        }
+
+        // อัปเดตหน้าตามข้อที่สำเร็จจริง (รวมกรณีล้มเหลวบางส่วน)
+        const gone = new Set(r.done.map(String));
+        globalData.questions = (globalData.questions || []).filter(q => !gone.has(String(q.questionId)));
+        await setCacheDB('global_admin_data', globalData);
+        if (typeof refreshTables === 'function') refreshTables();
+        if (typeof updateDashboard === 'function') updateDashboard();
+        dbBulk.deselect(r.done);
+
+        if (r.failed > 0) {
+            const msg = r.error === 'forbidden' ? 'ไม่มีสิทธิ์ (เฉพาะ DEVELOPER)' : r.error;
+            Swal.fire('ลบไม่ครบ', `ลบแล้ว ${r.done.length} ข้อ · ไม่ได้ทำ ${r.failed + r.pending.length} ข้อ — ${msg}\nข้อที่ยังไม่เสร็จยังถูกเลือกอยู่`, 'warning');
+        } else {
+            Swal.fire('เสร็จสิ้น', `ย้ายไป Questions_Trash ${r.applied} ข้อ · ไม่พบ ${r.skipped}`, 'success');
+        }
+    }
+
+$(document).on('click', '#db-bulk-delete', bulkDeleteSelected);
+
 $(document).on('click', '.js-log-tab', function () {
         logFilter.tab = $(this).attr('data-tab');
         $('.js-log-tab').removeClass('active');
