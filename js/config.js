@@ -87,6 +87,23 @@ window.sectionName = null;
 
 window.isFetching = false;
 
+// isFetching ค้าง true (request ตาย/404 timeout) ทำให้ openEditModal ล็อกแอดมินจนต้อง hard reload
+// beginFetchLock() จดเวลาเริ่ม + ตั้ง watchdog ปล่อยล็อกเองหลัง FETCH_LOCK_TIMEOUT_MS
+window.FETCH_LOCK_TIMEOUT_MS = 15000;
+window._fetchStartedAt = 0;
+window._fetchLockSeq = 0;
+window.beginFetchLock = function () {
+    const seq = ++window._fetchLockSeq; // token กัน watchdog เก่าปล่อยล็อกของ fetch ใหม่ (Date.now ซ้ำ ms ได้)
+    window.isFetching = true;
+    window._fetchStartedAt = Date.now();
+    setTimeout(function () {
+        if (window.isFetching && window._fetchLockSeq === seq) {
+            console.warn('[Fetch] isFetching ค้างเกิน ' + window.FETCH_LOCK_TIMEOUT_MS + 'ms — ปล่อยล็อกอัตโนมัติ');
+            window.isFetching = false;
+        }
+    }, window.FETCH_LOCK_TIMEOUT_MS);
+};
+
 window.bgToast = Swal.mixin({
         toast: true,
         position: 'bottom-start',

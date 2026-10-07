@@ -530,7 +530,7 @@ async function hydrateCacheAndRender() {
 
 async function fetchData(forceRefresh = false, isAutoPoll = false) {
     if (isFetching || (isAutoPoll && window._convBusy)) return;
-    isFetching = true;
+    beginFetchLock();
 
     const cacheKey = 'global_admin_data';
     const verKey = 'global_admin_ver';
@@ -884,7 +884,7 @@ async function syncData(allowFullReload = true) {
     if (window._convBusy) { if (window.DEBUG) console.log('[Sync] ข้ามรอบ — กำลังแปลง PDF'); return; }
     if (!navigator.onLine && !allowFullReload) return;
     // จองสิทธิ์ก่อน await ตัวแรก กัน syncData ซ้อนกัน; ต้องปล่อยก่อน return/fetchData เพราะ fetchData เช็ค isFetching เอง
-    isFetching = true;
+    beginFetchLock();
 
     let localVer, lastSyncTs;
     try {

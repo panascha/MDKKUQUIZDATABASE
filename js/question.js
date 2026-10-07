@@ -132,6 +132,8 @@ function openEditModal(id, suggestedAnswer = null) {
     if (!q) return;
 
     // ระหว่างรีเฟรชข้อมูลเบื้องหลัง globalData.category อาจว่าง → dropdown หมวดจะว่าง แล้ว Save จะล้างหมวดทิ้ง
+    // isFetching ค้างเกิน timeout = ล็อกตาย → ปล่อย (ด่านหมวดว่างด้านล่างยังคุมอยู่)
+    if (isFetching && Date.now() - window._fetchStartedAt > window.FETCH_LOCK_TIMEOUT_MS) isFetching = false;
     if (isFetching || !(globalData.category || []).length) {
         // report.js ตั้ง reportData ไว้ก่อนเรียกเรา — modal ไม่ได้เปิดจึงไม่มี hidden.bs.modal มาล้าง ต้องล้างเอง
         $('#editQuestionModal').removeData('reportData');
