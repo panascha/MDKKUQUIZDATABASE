@@ -31,26 +31,67 @@ function reportTimeMs(r) {
     return new Date(r['Time']).getTime() || 0;
 }
 
+// หมายเหตุ admin ต่อกลุ่ม (key = group.key) — อยู่รอดข้ามการสลับแท็บ/ค้นหา/เลือกรายการ
+let reportNotes = new Map();
+let reportActiveTab = 'all';
+let reportSelectedKey = null;
+
+function reportNorm(s) {
+    return String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+// แถวเก่าที่ QuestionID ว่าง: จับคู่กับข้อใน DB ด้วยโจทย์ (ซ้ำกันหลายข้อ = กำกวม = ไม่จับคู่)
+function buildReportQidResolver(questions) {
+    const byProblem = new Map();
+    (questions || []).forEach(q => {
+        const k = reportNorm(q.problem);
+        if (!k) return;
+        byProblem.set(k, byProblem.has(k) ? null : q.questionId);
+    });
+    return function (r) {
+        const own = String(r['QuestionID'] || '').trim();
+        if (own) return own;
+        return byProblem.get(reportNorm(r['Question'])) || '';
+    };
+}
+
+function reportCurrentAnswer(q) {
+    return String((q && q.answer) || '').trim();
+}
+
 function copyReportQuestion(index) {
     const src = reportCopySource[index];
     if (!src) return;
     window.copyQuestionPrompt(src.problem, src.choices);
 }
 
-// รวม report ที่รอตรวจเป็น 1 กลุ่มต่อ 1 QuestionID (แถวเก่าที่ไม่มี QuestionID แยกเป็นกลุ่มของตัวเอง
-// เพราะ reject ต้องยิงด้วย timestamp) แล้วแตกย่อยตาม SuggestedAnswer ที่เหมือนกันเป๊ะ
+// รวม report ที่รอตรวจเป็น 1 กลุ่มต่อ 1 QuestionID (แถวเก่าที่ไม่มี QuestionID จับคู่ด้วยโจทย์ ถ้าไม่ได้ก็รวมตามโจทย์เดียวกัน)
+// แล้วแตกย่อยตาม SuggestedAnswer ที่เหมือนกันเป๊ะ — ไม่ใช้ Category เป็น key
 // เรียงตามคะแนนโหวตสูงสุดของ "ตั๋วเดียว" — backend ตัดสิน auto-resolve ราย ticket ไม่ใช่ผลรวม
-function buildReportGroups(reports) {
+function buildReportGroups(reports, resolveQid, questionById) {
+    resolveQid = resolveQid || (r => String(r['QuestionID'] || '').trim());
+    questionById = questionById || new Map();
     const byKey = new Map();
     reports.forEach(r => {
-        const qid = String(r['QuestionID'] || '').trim();
-        const key = qid || 't:' + r['Time'];
-        if (!byKey.has(key)) byKey.set(key, { key: key, qid: qid, reports: [] });
-        byKey.get(key).reports.push(r);
+        const qid = resolveQid(r);
+        const norm = reportNorm(r['Question']);
+        const key = qid ? 'q:' + qid : (norm ? 'p:' + norm : 't:' + r['Time']);
+        if (!byKey.has(key)) byKey.set(key, { key: key, qid: qid, reports: [], qidTickets: [], tsTickets: [] });
+        const g = byKey.get(key);
+        g.reports.push(r);
+        // backend แก้ด้วย questionId ได้เฉพาะแถวที่ col C มี QID ของตัวเอง — แถวเก่าต้องยิงด้วย timestamp
+        if (String(r['QuestionID'] || '').trim()) g.qidTickets.push(r);
+        else g.tsTickets.push(r);
     });
 
     const groups = Array.from(byKey.values());
     groups.forEach(g => {
+        g.dbQuestion = (g.qid && questionById.get(g.qid)) || null;
+        g.currentAnsRaw = reportCurrentAnswer(g.dbQuestion);
+        const dbChoices = g.dbQuestion
+            ? String(g.dbQuestion.choices || '').split('///').map(s => s.trim()).filter(Boolean)
+            : [];
+
         const bySuggest = new Map();
         g.reports.forEach(r => {
             const s = String(r['SuggestedAnswer'] == null ? '' : r['SuggestedAnswer']).trim();
@@ -59,21 +100,39 @@ function buildReportGroups(reports) {
         });
         g.disputes = Array.from(bySuggest.entries()).map(([suggested, tickets]) => {
             tickets.sort((a, b) => (reportVotes(b) - reportVotes(a)) || (reportTimeMs(a) - reportTimeMs(b)));
+            const sameAsCurrent = suggested !== '' && suggested === g.currentAnsRaw;
             return {
                 suggested: suggested,
                 tickets: tickets,
                 topVotes: reportVotes(tickets[0]),
-                totalVotes: tickets.reduce((s, r) => s + reportVotes(r), 0)
+                totalVotes: tickets.reduce((s, r) => s + reportVotes(r), 0),
+                sameAsCurrent: sameAsCurrent,
+                quickApplyOk: !!g.dbQuestion && suggested !== '' && !sameAsCurrent && dbChoices.includes(suggested)
             };
         }).sort((a, b) => (b.topVotes - a.topVotes) || (b.totalVotes - a.totalVotes));
 
         g.maxVotes = Math.max(...g.reports.map(reportVotes));
         g.totalVotes = g.reports.reduce((s, r) => s + reportVotes(r), 0);
         g.oldest = Math.min(...g.reports.map(reportTimeMs));
+        g.newest = Math.max(...g.reports.map(reportTimeMs));
+
+        g.hasDiscrepancy = g.disputes.some(d => d.suggested !== '' && d.suggested !== g.currentAnsRaw);
+        g.isComment = !!g.dbQuestion && !g.hasDiscrepancy;
+        g.isUrgent = g.maxVotes >= 3;
+        g.isMissingImg = g.reports.some(r => /ไม่มีรูป|รูปหาย/.test(String(r['ReportDetail'] || '')));
     });
 
     groups.sort((a, b) => (b.maxVotes - a.maxVotes) || (b.totalVotes - a.totalVotes) || (a.oldest - b.oldest));
     return groups;
+}
+
+function getReportNote(g) {
+    return reportNotes.has(g.key) ? reportNotes.get(g.key) : String((g.reports[0] && g.reports[0].AdminNote) || '');
+}
+
+function setReportNote(i, v) {
+    const g = reportGroups[i];
+    if (g) reportNotes.set(g.key, v);
 }
 
 function renderReportList() {
@@ -81,6 +140,8 @@ function renderReportList() {
         container.empty();
         reportCopySource = [];
         reportGroups = [];
+        const prevSelectedKey = reportSelectedKey; // re-render (app.js refresh) must keep the open detail by key
+        clearReportDetail();
 
         const filterSubj = $('#report-subject-filter').val();
         const pending = globalData.report.filter(r => window.isPendingReport(r));
@@ -101,61 +162,21 @@ function renderReportList() {
 
         if (filteredReports.length === 0) {
             container.html('<div class="text-center text-muted py-5"><i class="fas fa-check-circle fa-3x text-success mb-3"></i><br>ไม่มีรายการแจ้งปัญหาใหม่</div>');
+            updateReportTabCounts();
             updateReportBatchUI();
             return;
         }
 
-        reportGroups = buildReportGroups(filteredReports);
         const questionById = new Map(globalData.questions.map(q => [q.questionId, q]));
+        const resolveQid = buildReportQidResolver(globalData.questions);
+        reportGroups = buildReportGroups(filteredReports, resolveQid, questionById);
 
-        reportGroups.forEach((g, index) => {
-            // โจทย์/รูป/ตัวเลือกที่มากับ report เป็น snapshot ตอนแจ้ง — ใช้ของใบแรกในกลุ่มเป็นตัวแทน
+        const rows = reportGroups.map((g, index) => {
             const r = g.reports[0];
-
-            let dbQuestion = questionById.get(g.qid);
-            if (!dbQuestion) {
-                const snapshot = String(r['Question'] || '').trim();
-                dbQuestion = globalData.questions.find(q => String(q.problem || '').trim() === snapshot) || {};
-            }
-
-            const currentAnsRaw = String(dbQuestion.answer || '').trim();
-            let currentAns = currentAnsRaw ? reportAnsLabel(currentAnsRaw) : 'ไม่พบข้อมูลใน DB';
-            let explanation = dbQuestion.explain ? window.renderMarkdownSafe(dbQuestion.explain) : '(ไม่มีคำอธิบาย)';
-
-            // ตัวเลือกใน DB คั่นด้วย '///' ส่วนที่มากับ report คั่นด้วยขึ้นบรรทัดใหม่ — ใช้ของ DB ก่อนถ้าหาเจอ
-            // (ของ DB แอดมินเป็นคนใส่ จึง render รูป/SVG ได้; ของ report เป็นข้อความจากผู้ใช้ ⇒ escape ทั้งก้อน)
+            const dbQuestion = g.dbQuestion || {};
             const dbChoices = String(dbQuestion.choices || '').trim()
                 ? String(dbQuestion.choices).split('///').map(s => s.trim()).filter(Boolean)
                 : null;
-            let choicesStr;
-            if (dbChoices) {
-                choicesStr = dbChoices.map((c, i) => {
-                    let body = reportEsc(c);
-                    if (c.startsWith('http')) {
-                        body = `<img src="${reportEsc(transformUrl(c))}" style="max-height:60px;" alt="choice">`;
-                    } else if (c.startsWith('<svg')) {
-                        body = `<div style="width:40px; height:40px; display:inline-block; vertical-align:middle;">${c}</div>`;
-                    }
-                    return `<b>${String.fromCharCode(65 + i)}.</b> ${body}`;
-                }).join('<br>');
-            } else {
-                choicesStr = r['Choices'] ? reportEsc(r['Choices']).replace(/\n/g, '<br>') : '-';
-            }
-
-            let imgHtml = '';
-            let rawImg = String(r['Image'] || "").trim();
-            if (rawImg && (rawImg.startsWith('http') || rawImg.startsWith('https'))) {
-                let url = (rawImg.match(/"([^"]+)"/) && rawImg.match(/"([^"]+)"/)[1]) ? rawImg.match(/"([^"]+)"/)[1] : rawImg;
-                url = reportEsc(transformUrl(url));
-
-                imgHtml = `<div class="my-2 text-center">
-                            <a href="${url}" target="_blank">
-                                <img src="${url}" class="img-thumbnail" style="max-height: 200px;" alt="Q Img">
-                            </a>
-                        </div>`;
-            } else if (rawImg.length > 0) {
-                imgHtml = `<div class="alert alert-warning py-1 small"><i class="fas fa-exclamation-triangle"></i> ข้อมูลรูปภาพ: ${reportEsc(rawImg)}</div>`;
-            }
 
             reportCopySource[index] = {
                 problem: r['Question'] || dbQuestion.problem || '',
@@ -166,88 +187,194 @@ function renderReportList() {
                 .map(s => String(s || '')).join(' ').toLowerCase();
 
             const fromList = Array.from(new Set(g.reports.map(rep => String(rep['From'] || '').trim()).filter(Boolean)));
+            const top = g.disputes[0];
+            const curLabel = g.currentAnsRaw ? reportAnsLabel(g.currentAnsRaw) : '?';
+            const label = g.qid || 'ไม่ทราบ QuestionID';
 
-            const disputesHtml = g.disputes.map(d => {
-                const isSame = !!d.suggested && d.suggested === currentAnsRaw;
-                const details = d.tickets.map(t => `
-                    <li>${reportEsc(t['ReportDetail']) || '-'}
-                        <span class="text-muted">— ${formatDate(t['Time'])}${reportVotes(t) > 0 ? `, ${reportVotes(t)} votes` : ''}</span>
-                    </li>`).join('');
-                return `
-                <div class="border rounded p-2 mb-2 bg-white">
-                    <div class="d-flex flex-wrap align-items-center gap-1 mb-1">
-                        <span class="badge bg-secondary text-wrap text-start">Current: ${currentAns}</span>
-                        <i class="fas fa-arrow-right text-muted small"></i>
-                        <span class="badge bg-warning text-dark text-wrap text-start">Suggested: ${reportAnsLabel(d.suggested)}</span>
-                        ${isSame ? '<span class="badge bg-light text-muted border">เหมือนเฉลยปัจจุบัน</span>' : ''}
+            return `<div class="report-group rp-row${g.isUrgent ? ' rp-urgent' : ''}" data-gi="${index}" onclick="selectReportGroup(${index})">
+                <input type="checkbox" class="form-check-input report-select" onclick="event.stopPropagation()" onchange="updateReportBatchUI()" title="เลือกเพื่อ Batch Reject">
+                <div class="rp-main">
+                    <div class="d-flex flex-wrap align-items-center gap-1">
+                        <span class="badge ${g.maxVotes >= 3 ? 'bg-danger' : 'bg-secondary'}" title="โหวตสูงสุด">${g.maxVotes}</span>
+                        <b class="small">${reportEsc(label)}</b>
+                        <span class="small text-muted">${reportEsc(fromList.join(', '))}</span>
+                        <span class="badge bg-light text-dark border ms-auto">${g.reports.length} reports</span>
                     </div>
-                    <div class="small text-muted mb-1">
-                        ${d.tickets.length} reports · top ${d.topVotes} votes${d.tickets.length > 1 ? ` (รวม ${d.totalVotes})` : ''}
-                    </div>
-                    <ul class="small mb-2 ps-3">${details}</ul>
-                    <button class="btn btn-success btn-sm w-100" onclick="openEditReportModal('${reportEsc(d.tickets[0]['Time'])}')">
-                        <i class="fas fa-edit"></i> Edit & Approve
-                    </button>
-                </div>`;
-            }).join('');
-
-            let card = `
-            <div class="card report-group mb-4 shadow-sm border-0 bg-white" data-gi="${index}" style="border-left: 4px solid #4e73df !important;">
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-8 border-end">
-                            <h5 class="text-primary fw-bold">
-                                <input type="checkbox" class="form-check-input report-select me-2" onchange="updateReportBatchUI()" title="เลือกเพื่อ Batch Reject">
-                                <i class="fas fa-hashtag me-1"></i> ${reportEsc(r['Category']) || 'Unknown Category'}
-                                <span class="badge bg-danger ms-2">${g.reports.length} reports</span>
-                                ${g.totalVotes > 0 ? `<span class="badge bg-secondary ms-1"><i class="fas fa-users"></i> top ${g.maxVotes} · รวม ${g.totalVotes} votes</span>` : ''}
-                                <small class="text-muted fs-6 float-end"><i class="far fa-clock"></i> ${formatDate(r['Time'])}</small>
-                            </h5>
-                            ${g.qid ? `<div class="small text-muted mb-2">QuestionID: ${reportEsc(g.qid)}</div>` : ''}
-
-                            <div class="p-3 bg-light rounded mb-2">
-                                <p class="mb-2"><strong>Question:</strong> ${reportEsc(r['Question'])}</p>
-                                ${imgHtml}
-                                <p class="mb-2 small text-secondary"><strong>Choices:</strong><br><pre style="white-space: pre-wrap; margin:0; font-family:inherit;">${choicesStr}</pre></p>
-                            </div>
-
-                            <div class="mt-2 small text-muted"><strong>Explanation:</strong> ${explanation}</div>
-                            <p class="small text-muted mb-0">Reported by: ${reportEsc(fromList.join(', '))}</p>
-                        </div>
-
-                        <div class="col-md-4">
-                             <div class="diff-box diff-suggest h-100 d-flex flex-column">
-                                <div class="diff-label text-danger fw-bold border-bottom pb-2 mb-2">
-                                    <i class="fas fa-exclamation-circle"></i> ReportDetail
-                                </div>
-
-                                ${disputesHtml}
-
-                                <div class="mt-auto">
-                                    <label class="small fw-bold mb-1">Admin Note (บันทึกการแก้ไข):</label>
-                                    <textarea id="admin-note-${index}" class="form-control form-control-sm mb-2" rows="2"
-                                        placeholder="เช่น แก้ไขแล้ว, หรือ ปฏิเสธเนื่องจาก...">${reportEsc(r['AdminNote'])}</textarea>
-
-                                    <button class="btn btn-outline-primary btn-sm w-100 mb-2" onclick="copyReportQuestion(${index})" title="คัดลอกโจทย์และตัวเลือกไปถาม AI">
-                                        <i class="fas fa-copy"></i> คัดลอกคำถาม
-                                    </button>
-
-                                    <button class="btn btn-outline-secondary btn-sm w-100" onclick="rejectReportGroup(${index})">
-                                        <i class="fas fa-times"></i> Reject ทั้งข้อ (${g.reports.length})
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <div class="rp-diff small">${curLabel} ➔ ${top ? reportAnsLabel(top.suggested) : '-'}</div>
+                    <div class="small text-muted">${reportEsc(formatDate(g.newest ? new Date(g.newest) : r['Time']))}</div>
                 </div>
             </div>`;
-            container.append(card);
         });
-        window.renderAllMath(container);
+        container.html(rows.join(''));
+
+        reportSelectedKey = prevSelectedKey;
+        updateReportTabCounts();
         applyReportSearch();
     }
 
-// ── ค้นหา: ซ่อน/แสดงการ์ดที่ render ไว้แล้ว (ไม่ render ใหม่ — Admin Note ที่พิมพ์ค้างกับ checkbox จะไม่หาย) ──
+function clearReportDetail() {
+    reportSelectedKey = null;
+    $('#report-detail-pane').html('<div class="text-muted">เลือกรายการทางซ้าย</div>');
+}
+
+function selectReportGroup(i) {
+    const g = reportGroups[i];
+    if (!g || g.removed) return;
+    reportSelectedKey = g.key;
+    $('#report-list-container .report-group').removeClass('active');
+    $(`#report-list-container .report-group[data-gi="${i}"]`).addClass('active');
+    renderReportDetail(g, i);
+    if (window.matchMedia && window.matchMedia('(max-width: 991px)').matches) {
+        const el = $('#report-detail-pane').get(0);
+        if (el) el.scrollIntoView({ block: 'nearest' });
+    }
+}
+
+// สร้าง detail แบบ lazy ตอนเลือกเท่านั้น (เดิม render ทุกกลุ่มพร้อมกัน → หน้าอืด)
+function renderReportDetail(g, index) {
+    const r = g.reports[0];
+    const dbQuestion = g.dbQuestion || {};
+    const currentAnsRaw = g.currentAnsRaw;
+    const currentAns = currentAnsRaw ? reportAnsLabel(currentAnsRaw) : 'ไม่พบข้อมูลใน DB';
+    const explanation = dbQuestion.explain ? window.renderMarkdownSafe(dbQuestion.explain) : '(ไม่มีคำอธิบาย)';
+
+    // ตัวเลือกใน DB คั่นด้วย '///' ส่วนที่มากับ report คั่นด้วยขึ้นบรรทัดใหม่ — ใช้ของ DB ก่อนถ้าหาเจอ
+    // (ของ DB แอดมินเป็นคนใส่ จึง render รูป/SVG ได้; ของ report เป็นข้อความจากผู้ใช้ ⇒ escape ทั้งก้อน)
+    const dbChoices = String(dbQuestion.choices || '').trim()
+        ? String(dbQuestion.choices).split('///').map(s => s.trim()).filter(Boolean)
+        : null;
+    let choicesStr;
+    if (dbChoices) {
+        choicesStr = dbChoices.map((c, i) => {
+            let body = reportEsc(c);
+            if (c.startsWith('http')) {
+                body = `<img src="${reportEsc(transformUrl(c))}" style="max-height:60px;" alt="choice">`;
+            } else if (c.startsWith('<svg')) {
+                body = `<div style="width:40px; height:40px; display:inline-block; vertical-align:middle;">${c}</div>`;
+            }
+            return `<b>${String.fromCharCode(65 + i)}.</b> ${body}`;
+        }).join('<br>');
+    } else {
+        choicesStr = r['Choices'] ? reportEsc(r['Choices']).replace(/\n/g, '<br>') : '-';
+    }
+
+    let imgHtml = '';
+    const rawImg = String(r['Image'] || "").trim();
+    if (rawImg && (rawImg.startsWith('http') || rawImg.startsWith('https'))) {
+        let url = (rawImg.match(/"([^"]+)"/) && rawImg.match(/"([^"]+)"/)[1]) ? rawImg.match(/"([^"]+)"/)[1] : rawImg;
+        url = reportEsc(transformUrl(url));
+        imgHtml = `<div class="my-2 text-center">
+                    <a href="${url}" target="_blank">
+                        <img src="${url}" class="img-thumbnail" style="max-height: 200px;" alt="Q Img">
+                    </a>
+                </div>`;
+    } else if (rawImg.length > 0) {
+        imgHtml = `<div class="alert alert-warning py-1 small"><i class="fas fa-exclamation-triangle"></i> ข้อมูลรูปภาพ: ${reportEsc(rawImg)}</div>`;
+    }
+
+    const fromList = Array.from(new Set(g.reports.map(rep => String(rep['From'] || '').trim()).filter(Boolean)));
+
+    const disputesHtml = g.disputes.map((d, di) => {
+        const details = d.tickets.map(t => `
+            <li>${reportEsc(t['ReportDetail']) || '-'}
+                <span class="text-muted">— ${reportEsc(formatDate(t['Time']))}${reportVotes(t) > 0 ? `, ${reportVotes(t)} votes` : ''}${t['From'] ? `, ${reportEsc(t['From'])}` : ''}</span>
+            </li>`).join('');
+        const quickBtn = d.quickApplyOk
+            ? `<button class="btn btn-warning btn-sm" onclick="quickApplyReport(${index}, ${di})"><i class="fas fa-bolt"></i> Quick Apply</button>`
+            : `<button class="btn btn-warning btn-sm" disabled title="${g.dbQuestion ? 'คำตอบที่เสนอไม่ตรงกับตัวเลือกใด ๆ หรือเหมือนเฉลยเดิม' : 'ไม่พบข้อสอบนี้ใน Database'}"><i class="fas fa-bolt"></i> Quick Apply</button>`;
+        return `
+        <div class="border rounded p-2 mb-2 bg-white">
+            <div class="d-flex flex-wrap align-items-center gap-1 mb-1">
+                <span class="badge bg-secondary text-wrap text-start">Current: ${currentAns}</span>
+                <i class="fas fa-arrow-right text-muted small"></i>
+                <span class="badge bg-warning text-dark text-wrap text-start">Suggested: ${reportAnsLabel(d.suggested)}</span>
+                ${d.sameAsCurrent ? '<span class="badge bg-light text-muted border">เหมือนเฉลยปัจจุบัน</span>' : ''}
+            </div>
+            <div class="small text-muted mb-1">
+                ${d.tickets.length} reports · top ${d.topVotes} votes${d.tickets.length > 1 ? ` (รวม ${d.totalVotes})` : ''}
+            </div>
+            <ul class="small mb-2 ps-3">${details}</ul>
+            <div class="d-flex gap-2">
+                <button class="btn btn-success btn-sm flex-fill rp-edit-btn" data-time="${reportEsc(d.tickets[0]['Time'])}">
+                    <i class="fas fa-edit"></i> Edit & Approve
+                </button>
+                ${quickBtn}
+            </div>
+        </div>`;
+    }).join('');
+
+    const $pane = $('#report-detail-pane');
+    $pane.html(`
+    <div class="card shadow-sm border-0 bg-white rp-detail-body">
+        <div class="card-body">
+            <h6 class="text-primary fw-bold mb-1">
+                <i class="fas fa-hashtag me-1"></i> ${reportEsc(g.qid) || 'ไม่ทราบ QuestionID'}
+                <span class="badge bg-danger ms-2">${g.reports.length} reports</span>
+                ${g.totalVotes > 0 ? `<span class="badge bg-secondary ms-1"><i class="fas fa-users"></i> top ${g.maxVotes} · รวม ${g.totalVotes} votes</span>` : ''}
+            </h6>
+            <p class="small text-muted mb-2">Reported by: ${reportEsc(fromList.join(', '))}</p>
+
+            <div class="p-3 bg-light rounded mb-2">
+                <p class="mb-2"><strong>Question:</strong> ${reportEsc(r['Question'])}</p>
+                ${imgHtml}
+                <div class="mb-0 small text-secondary"><strong>Choices:</strong><br><pre style="white-space: pre-wrap; margin:0; font-family:inherit;">${choicesStr}</pre></div>
+            </div>
+            <div class="mb-3 small text-muted"><strong>Explanation:</strong> ${explanation}</div>
+
+            <div class="diff-label text-danger fw-bold border-bottom pb-2 mb-2">
+                <i class="fas fa-exclamation-circle"></i> ReportDetail
+            </div>
+            ${disputesHtml}
+
+            <label class="small fw-bold mb-1">Admin Note (บันทึกการแก้ไข):</label>
+            <textarea id="admin-note-${index}" class="form-control form-control-sm mb-2" rows="2"
+                placeholder="เช่น แก้ไขแล้ว, หรือ ปฏิเสธเนื่องจาก..." oninput="setReportNote(${index}, this.value)">${reportEsc(getReportNote(g))}</textarea>
+
+            <button class="btn btn-outline-primary btn-sm w-100 mb-2" onclick="copyReportQuestion(${index})" title="คัดลอกโจทย์และตัวเลือกไปถาม AI">
+                <i class="fas fa-copy"></i> คัดลอกคำถาม
+            </button>
+            <button class="btn btn-outline-secondary btn-sm w-100" onclick="rejectReportGroup(${index})">
+                <i class="fas fa-times"></i> Reject ทั้งข้อ (${g.reports.length})
+            </button>
+        </div>
+    </div>`);
+    $pane.find('.rp-edit-btn').on('click', function () {
+        openEditReportModal(String($(this).attr('data-time')));
+    });
+    window.renderAllMath($pane);
+}
+
+// ── แท็บ (ไม่ exclusive: กลุ่มเดียวอยู่ได้หลายแท็บ) ──
+function reportTabMatch(g, tab) {
+    if (tab === 'urgent') return g.isUrgent;
+    if (tab === 'discrepancy') return g.hasDiscrepancy;
+    if (tab === 'comment') return g.isComment;
+    if (tab === 'missingimg') return g.isMissingImg;
+    return true;
+}
+
+function setReportTabState(name) {
+    reportActiveTab = name;
+    $('#report-tabs [data-tab]').each(function () {
+        $(this).toggleClass('active', $(this).attr('data-tab') === name);
+    });
+    $('#report-dismiss-same-btn').toggleClass('d-none', name !== 'comment');
+}
+
+function setReportTab(name) {
+    setReportTabState(name);
+    applyReportSearch();
+}
+
+function updateReportTabCounts() {
+    const live = reportGroups.filter(g => !g.removed);
+    ['all', 'urgent', 'discrepancy', 'comment', 'missingimg'].forEach(t => {
+        $('#report-tab-count-' + t).text(live.filter(g => reportTabMatch(g, t)).length);
+    });
+    $('#report-tabs [data-tab="all"]').attr('title', live.reduce((s, g) => s + g.reports.length, 0) + ' reports');
+}
+
+// ── ค้นหา/แท็บ: ซ่อน/แสดงแถวที่ render ไว้แล้ว (ไม่ render ใหม่ — Admin Note ที่พิมพ์ค้างกับ checkbox จะไม่หาย) ──
 function onReportSearchInput() {
     clearTimeout(reportSearchTimer);
     reportSearchTimer = setTimeout(applyReportSearch, 200);
@@ -255,11 +382,33 @@ function onReportSearchInput() {
 
 function applyReportSearch() {
     const term = String($('#report-search-input').val() || '').trim().toLowerCase();
-    $('#report-list-container .report-group').each(function () {
-        const g = reportGroups[Number($(this).attr('data-gi'))];
-        // ใช้คลาส d-none แทน .toggle() — ตอน render ทั้ง section อาจยังซ่อนอยู่
-        $(this).toggleClass('d-none', !!term && !g.searchText.includes(term));
-    });
+    const run = function () {
+        let visible = 0;
+        $('#report-list-container .report-group').each(function () {
+            const g = reportGroups[Number($(this).attr('data-gi'))];
+            const hide = !g || g.removed || (!!term && !g.searchText.includes(term)) || !reportTabMatch(g, reportActiveTab);
+            // ใช้คลาส d-none แทน .toggle() — ตอน render ทั้ง section อาจยังซ่อนอยู่
+            $(this).toggleClass('d-none', hide);
+            if (!hide) visible++;
+        });
+        return visible;
+    };
+    let visible = run();
+    // เข้ามาจาก badge REPORT ขณะที่แท็บอื่นเปิดอยู่ ต้องไม่ซ่อนข้อที่ค้นหา
+    if (term && visible === 0 && reportActiveTab !== 'all') {
+        setReportTabState('all');
+        visible = run();
+    }
+
+    const selIdx = reportGroups.findIndex(g => g.key === reportSelectedKey && !g.removed);
+    const $sel = selIdx === -1 ? $() : $(`#report-list-container .report-group[data-gi="${selIdx}"]`);
+    if (selIdx !== -1 && !$sel.hasClass('d-none')) {
+        if (!$('#report-detail-pane .rp-detail-body').length) selectReportGroup(selIdx);
+    } else {
+        const $first = $('#report-list-container .report-group:not(.d-none)').first();
+        if ($first.length) selectReportGroup(Number($first.attr('data-gi')));
+        else clearReportDetail();
+    }
     updateReportBatchUI();
 }
 
@@ -283,19 +432,37 @@ function toggleReportSelectAll(checked) {
 }
 
 function removeReportCards($cards) {
+    $cards.each(function () {
+        const g = reportGroups[Number($(this).attr('data-gi'))];
+        if (g) g.removed = true;
+    });
+    updateReportTabCounts();
+    if (!reportGroups.some(g => g.key === reportSelectedKey && !g.removed)) clearReportDetail();
     $cards.fadeOut(300, function () {
         $(this).remove();
     });
     setTimeout(() => {
         if ($('#report-list-container .report-group').length === 0) renderReportList();
-        else updateReportBatchUI();
+        else applyReportSearch();
     }, 350);
 }
 
-// question.js เรียกหลัง Edit & Approve สำเร็จ
+// question.js เรียกหลัง Edit & Approve สำเร็จ (ปิดเฉพาะแถวที่มี QuestionID ของตัวเอง)
+// แถวเก่าที่ไม่มี QuestionID แต่ถูกจับกลุ่มมาด้วยต้องปิดต่อด้วย timestamp
 function removeReportCardByQid(qid) {
-    const gi = reportGroups.findIndex(g => g.qid && g.qid === String(qid || '').trim());
-    if (gi !== -1) removeReportCards($(`#report-list-container .report-group[data-gi="${gi}"]`));
+    const q = String(qid || '').trim();
+    const gi = reportGroups.findIndex(g => g.qid && g.qid === q && !g.removed);
+    if (gi === -1) return;
+    const g = reportGroups[gi];
+    const pendingTs = g.tsTickets.filter(r => window.isPendingReport(r));
+    if (pendingTs.length) {
+        sendReportStatusForGroup(
+            { qid: g.qid, qidTickets: [], tsTickets: pendingTs, reports: pendingTs },
+            'Resolved',
+            getReportNote(g) || 'แก้ไขเรียบร้อยแล้ว'
+        ).catch(console.warn);
+    }
+    removeReportCards($(`#report-list-container .report-group[data-gi="${gi}"]`));
 }
 
 function openReportModal(q) {
@@ -343,39 +510,44 @@ function openReportModal(q) {
         // ... (จบโค้ด openReportModal เดิม) ...
     }
 
-// ส่ง reject ของ 1 กลุ่มไป backend แล้วค่อยแก้ state ในเครื่อง "หลัง" เซิร์ฟเวอร์ตอบสำเร็จเท่านั้น
+// ส่งสถานะของ 1 กลุ่มไป backend แล้วค่อยแก้ state ในเครื่อง "หลัง" เซิร์ฟเวอร์ตอบสำเร็จเท่านั้น
 // (ไม่ใช้ sendAdminAction: มัน optimistic ก่อนส่ง + เด้ง toast/Swal เองทุกครั้ง ซึ่งจะปิด progress ของ batch)
-async function sendReportReject(group, note) {
-    const data = { adminNote: note, status: 'Rejected', done: 'TRUE' };
-    if (group.qid) {
-        data.questionId = group.qid;
-    } else {
-        // Fallback: no QuestionID, match by timestamp only
-        data.timestamp = group.reports[0]['Time'];
-    }
-
-    const resJson = await sendWithRetry({
-        action: 'updateReportStatus',
-        username: currentUser.username,
-        adminPass: adminPass,
-        user: currentUser.displayName,
-        data: data,
-        metadata: navigator.userAgent
-    });
-    if (!resJson || resJson.result !== 'success') {
-        throw new Error((resJson && resJson.message) || 'Server error');
-    }
-
-    globalData.report.forEach(rep => {
-        const isTarget = group.qid
-            ? String(rep['QuestionID'] || "").trim() === group.qid
-            : String(rep.Time) === String(data.timestamp);
-        if (isTarget && window.isPendingReport(rep)) {
-            rep.Status = 'Rejected';
+// backend: questionId แก้เฉพาะแถวที่ col C = QID ของตัวเอง, timestamp แก้ทีละแถว ⇒ แถวเก่า (QID ว่าง) ต้องยิง timestamp ต่อแถว
+// ยิงทีละครั้งแบบ await (admin lock tier) — error ใด ๆ (รวม forbidden) throw พร้อมข้อความจาก server, ไม่ logout
+async function sendReportStatusForGroup(group, status, note) {
+    const call = async function (target) {
+        const resJson = await sendWithRetry({
+            action: 'updateReportStatus',
+            username: currentUser.username,
+            adminPass: adminPass,
+            user: currentUser.displayName,
+            data: Object.assign({ adminNote: note, status: status, done: 'TRUE' }, target),
+            metadata: navigator.userAgent
+        });
+        if (!resJson || resJson.result !== 'success') {
+            throw new Error((resJson && resJson.message) || 'Server error');
+        }
+    };
+    const mark = function (rep) {
+        if (window.isPendingReport(rep)) {
+            rep.Status = status;
             rep.AdminNote = note;
             rep.Done = 'TRUE';
         }
-    });
+    };
+
+    if (group.qid && group.qidTickets.length) {
+        await call({ questionId: group.qid });
+        group.qidTickets.forEach(mark);
+    }
+    for (const row of group.tsTickets.filter(r => window.isPendingReport(r))) {
+        await call({ timestamp: row['Time'] });
+        mark(row);
+    }
+}
+
+function sendReportReject(group, note) {
+    return sendReportStatusForGroup(group, 'Rejected', note);
 }
 
 async function rejectReportGroup(index) {
@@ -392,7 +564,7 @@ async function rejectReportGroup(index) {
         });
         if (!result.isConfirmed) return;
 
-        const note = $card.find('textarea').val();
+        const note = getReportNote(group);
         $card.css({ opacity: 0.5, pointerEvents: 'none' });
         try {
             await sendReportReject(group, note);
@@ -405,34 +577,15 @@ async function rejectReportGroup(index) {
             Swal.fire({
                 icon: 'error',
                 title: 'บันทึกสถานะ Report ไม่สำเร็จ',
-                text: 'กรุณาลองใหม่อีกครั้งในภายหลัง',
+                text: (e && e.message) || 'กรุณาลองใหม่อีกครั้งในภายหลัง',
                 toast: true, position: 'bottom-end', showConfirmButton: false, timer: 5000
             });
         }
     }
 
-// Batch Reject เท่านั้น — ไม่มี Batch Approve โดยตั้งใจ (การแก้เฉลยต้องตรวจทีละข้อ)
-// ยิงทีละข้อแบบ await: updateReportStatus อยู่ใน admin lock tier ยิงขนานกันจะแย่ง lock กันเอง
-async function batchRejectReports() {
-    if (!confirmAdmin()) return;
-
-    const cards = getSelectedReportCards().toArray();
-    if (cards.length === 0) return;
-    const items = cards.map(el => ({
-        $card: $(el),
-        group: reportGroups[Number($(el).attr('data-gi'))],
-        note: $(el).find('textarea').val()
-    }));
-    const totalReports = items.reduce((s, it) => s + it.group.reports.length, 0);
-
-    const result = await Swal.fire({
-        title: `Reject ${items.length} ข้อ?`,
-        text: `ปฏิเสธรายงานที่รอตรวจทั้งหมดของข้อที่เลือก (${totalReports} รายการ) — ใช้ Admin Note ของแต่ละการ์ด`,
-        icon: 'warning',
-        showCancelButton: true
-    });
-    if (!result.isConfirmed) return;
-
+// ยิง reject ทีละข้อพร้อม progress — ใช้ร่วมกันระหว่าง Batch Reject และ Batch Dismiss
+// items = [{ $card, group, note }]
+async function runReportRejectBatch(items) {
     Swal.fire({
         title: 'กำลัง Reject...',
         html: `0 / ${items.length}`,
@@ -471,6 +624,198 @@ async function batchRejectReports() {
     }
 }
 
+// Batch Reject เท่านั้น — ไม่มี Batch Approve โดยตั้งใจ (การแก้เฉลยต้องตรวจทีละข้อ)
+// ยิงทีละข้อแบบ await: updateReportStatus อยู่ใน admin lock tier ยิงขนานกันจะแย่ง lock กันเอง
+async function batchRejectReports() {
+    if (!confirmAdmin()) return;
+
+    const cards = getSelectedReportCards().toArray();
+    if (cards.length === 0) return;
+    const items = cards.map(el => {
+        const group = reportGroups[Number($(el).attr('data-gi'))];
+        return { $card: $(el), group: group, note: getReportNote(group) };
+    });
+    const totalReports = items.reduce((s, it) => s + it.group.reports.length, 0);
+
+    const result = await Swal.fire({
+        title: `Reject ${items.length} ข้อ?`,
+        text: `ปฏิเสธรายงานที่รอตรวจทั้งหมดของข้อที่เลือก (${totalReports} รายการ) — ใช้ Admin Note ของแต่ละข้อ`,
+        icon: 'warning',
+        showCancelButton: true
+    });
+    if (!result.isConfirmed) return;
+
+    await runReportRejectBatch(items);
+}
+
+// Batch Dismiss: เฉพาะแท็บ Comments / Same Key (ไม่มีข้อเสนอที่ขัดกับเฉลยปัจจุบัน) — ไม่แตะกลุ่มที่มี discrepancy
+async function dismissSameKeyReports() {
+    if (reportActiveTab !== 'comment') return;
+    if (!confirmAdmin()) return;
+
+    const items = $('#report-list-container .report-group:not(.d-none)').toArray().map(el => {
+        const group = reportGroups[Number($(el).attr('data-gi'))];
+        return { $card: $(el), group: group };
+    }).filter(it => it.group && it.group.isComment && !it.group.hasDiscrepancy)
+      .map(it => Object.assign(it, { note: getReportNote(it.group) || 'ปิดรายการ: ความเห็นเฉลยตรงกับเฉลยปัจจุบัน' }));
+    if (items.length === 0) return;
+    const totalReports = items.reduce((s, it) => s + it.group.reports.length, 0);
+
+    const result = await Swal.fire({
+        title: `Dismiss ${items.length} ข้อ?`,
+        text: `เปลี่ยนสถานะเป็น Rejected ให้รายงานที่รอตรวจของ ${items.length} ข้อที่เห็นอยู่ (${totalReports} รายการ) — ทุกข้อไม่มีข้อเสนอที่ขัดกับเฉลยปัจจุบัน`,
+        icon: 'warning',
+        showCancelButton: true
+    });
+    if (!result.isConfirmed) return;
+
+    await runReportRejectBatch(items);
+}
+
+// ── Quick Apply ──
+// ส่วน core ไม่แตะ DOM: (ถ้าเลือก) ให้ AI เขียนคำอธิบายใหม่ → editQuestion ทั้งแถวด้วยค่าเดิมทุกช่อง ยกเว้น answer/explain
+// deps = { sendWithRetry, user, pass }
+async function reportQuickApplyCore(q, suggested, regenExplain, deps) {
+    let newExplain = String(q.explain || '');
+    if (regenExplain) {
+        const images = String(q.img || '').split('///').map(s => s.trim()).filter(s => s.startsWith('http'));
+        const show = c => (c.startsWith('http') || c.startsWith('<svg')) ? '[รูปภาพ]' : c;
+        const choiceLines = String(q.choices || '').split('///').map(s => s.trim()).filter(Boolean)
+            .map(c => '- ' + show(c)).join('\n');
+        const prompt = `คุณคือผู้เชี่ยวชาญด้านการแพทย์และอาจารย์ผู้เขียนเฉลยข้อสอบ MCQ แพทย์ กรุณาเขียนคำอธิบายเฉลยของข้อสอบข้างล่าง
+[กฎ]
+- เขียนเป็นย่อหน้าเดียว 4-6 ประโยค ไม่ต้องมีคำนำหรือประโยคสรุปขึ้นต้น
+- ห้ามใช้ ** (bold), bullet, ขึ้นบรรทัดใหม่ และห้ามใส่ ///
+- อธิบายว่าทำไม "${show(suggested)}" จึงเป็นคำตอบที่ถูก และทำไมตัวเลือกอื่นผิด โดยอ้างอิงจากข้อความของตัวเลือก ไม่ใช้ตัวอักษร A/B/C
+
+[โจทย์]
+${q.problem}
+
+[ตัวเลือก]
+${choiceLines}
+
+[เฉลยที่ถูกต้อง]
+${show(suggested)}`;
+
+        const res = await deps.sendWithRetry({
+            action: 'askAIExpert',
+            prompt: prompt,
+            provider: 'Gemini',
+            images: images,
+            username: deps.user,
+            adminPass: deps.pass
+        }, 1);
+        const ans = res && res.answer ? String(res.answer) : '';
+        if (!res || res.result !== 'success' || !ans.trim() || ans.includes('⚠️')) {
+            throw new Error('AI_FAILED:' + ((res && res.message) || ans || 'empty'));
+        }
+        const text = ans.replace(/\r?\n/g, ' ').replace(/\/\/\//g, '').replace(/\*\*/g, '').trim();
+        if (!text) throw new Error('AI_FAILED:empty');
+        newExplain = window.serializeExplain(text, String(q.explain || '').split('///').slice(1));
+    }
+
+    const editRes = await deps.sendWithRetry({
+        action: 'editQuestion',
+        username: deps.user,
+        adminPass: deps.pass,
+        data: {
+            id: q.questionId,
+            problem: q.problem,
+            img: q.img || '',
+            choices: q.choices || '',
+            answer: suggested,
+            explain: newExplain,
+            category: q.category
+        }
+    });
+    if (!editRes || editRes.result !== 'success') {
+        throw new Error((editRes && editRes.message) || 'Server error');
+    }
+    return { newExplain: newExplain };
+}
+
+// แก้เฉลยเป็นข้อเสนอของ dispute นี้ (ต้องเป็นตัวเลือกที่มีอยู่จริง) — 3 call ไม่ atomic:
+// askAIExpert → editQuestion → updateReportStatus(Resolved) ถ้า call สุดท้ายพังหลังแก้เฉลยแล้วจะเตือนแต่ไม่ rollback
+async function quickApplyReport(gi, di) {
+    if (!confirmAdmin()) return;
+    const g = reportGroups[gi];
+    const d = g && g.disputes[di];
+    if (!d || !d.quickApplyOk) return;
+    const q = g.dbQuestion;
+
+    const res = await Swal.fire({
+        title: 'Quick Apply?',
+        html: `เปลี่ยนเฉลยของข้อ <b>${reportEsc(q.questionId)}</b><br>
+               ${reportAnsLabel(g.currentAnsRaw)} ➔ ${reportAnsLabel(d.suggested)}<br>
+               <small>จะแก้เฉลยในฐานข้อมูลทันที และปิดรายงานที่รอตรวจทั้งหมดของข้อนี้ (${g.reports.length} รายการ) เป็น Resolved</small>`,
+        input: 'checkbox',
+        inputValue: 1,
+        inputPlaceholder: 'สร้างคำอธิบายใหม่ด้วย AI (Gemini) — เขียนทับคำอธิบายเดิม',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Apply'
+    });
+    if (!res.isConfirmed) return;
+
+    const note = getReportNote(g) || 'Quick Apply: เปลี่ยนเฉลยเป็น ' + d.suggested;
+    const deps = { sendWithRetry: sendWithRetry, user: currentUser.username, pass: adminPass };
+    const $pane = $('#report-detail-pane');
+    $pane.css('pointer-events', 'none');
+    Swal.fire({
+        title: 'กำลัง Quick Apply...',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    try {
+        let out;
+        try {
+            out = await reportQuickApplyCore(q, d.suggested, !!res.value, deps);
+        } catch (e) {
+            if (!(res.value && String(e.message).startsWith('AI_FAILED:'))) throw e;
+            const c = await Swal.fire({
+                icon: 'warning',
+                title: 'AI สร้างคำอธิบายไม่สำเร็จ',
+                text: 'แก้เฉลยอย่างเดียวและคงคำอธิบายเดิมไว้?',
+                showCancelButton: true
+            });
+            if (!c.isConfirmed) return;
+            out = await reportQuickApplyCore(q, d.suggested, false, deps);
+        }
+
+        q.answer = d.suggested;
+        q.explain = out.newExplain;
+
+        let resolveErr = null;
+        try {
+            await sendReportStatusForGroup(g, 'Resolved', note);
+        } catch (e) {
+            resolveErr = e;
+        }
+        await setCacheDB('global_admin_data', globalData);
+        updateQuestionRowInTables(q.questionId);
+        updateDashboard();
+
+        if (resolveErr) {
+            await Swal.fire({
+                icon: 'warning',
+                title: 'แก้เฉลยแล้ว แต่ปิด report ไม่สำเร็จ',
+                text: (resolveErr.message || 'Server error') + ' — รายงานยังค้างอยู่ ลอง Reject/Resolve ซ้ำภายหลัง'
+            });
+            renderReportList();
+        } else {
+            removeReportCards($(`#report-list-container .report-group[data-gi="${gi}"]`));
+            Swal.fire({ icon: 'success', title: 'Quick Apply สำเร็จ', timer: 2000, showConfirmButton: false });
+        }
+    } catch (e) {
+        console.error('Quick Apply Failed:', e);
+        Swal.fire({ icon: 'error', title: 'Quick Apply ไม่สำเร็จ', text: (e && e.message) || 'Server error' });
+    } finally {
+        $pane.css('pointer-events', '');
+    }
+}
+
 function openEditReportModal(reportTime) {
         const pending = globalData.report.filter(r => window.isPendingReport(r));
         const r = pending.find(report => report.Time.toString() === reportTime);
@@ -489,7 +834,8 @@ function openEditReportModal(reportTime) {
 
         // ดึง Suggested Answer จาก Report
         const suggestedAnswer = r['SuggestedAnswer'];
-        const note = $(`button[onclick*="${reportTime}"]`).closest('.card').find('textarea').val();
+        const noteGroup = reportGroups.find(g => g.reports.some(x => String(x.Time) === reportTime));
+        const note = noteGroup ? getReportNote(noteGroup) : '';
 
         // เก็บข้อมูลไว้ทำ Auto-Resolve ตอน Save
         $('#editQuestionModal').data('reportData', {

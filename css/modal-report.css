@@ -174,3 +174,21 @@
             border-color: #e74a3b;
             box-shadow: 0 0 0 0.25rem rgba(231, 74, 59, 0.25);
         }
+
+/* ── Report Inbox: tabs + master-detail ── */
+.rp-tabs { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: 1rem; }
+.rp-tab { border: 1px solid #d1d3e2; background: #fff; border-radius: 999px; padding: .25rem .8rem; font-size: .85rem; cursor: pointer; }
+.rp-tab.active { background: #4e73df; border-color: #4e73df; color: #fff; }
+.rp-tab .badge { background: rgba(0,0,0,.15); color: inherit; }
+.rp-list { max-height: calc(100vh - 260px); overflow-y: auto; }
+.rp-row { display: flex; gap: .5rem; align-items: flex-start; padding: .5rem .6rem; margin-bottom: .35rem; background: #fff; border: 1px solid #e3e6f0; border-left: 4px solid #4e73df; border-radius: .35rem; cursor: pointer; }
+.rp-row:hover { background: #f8f9fc; }
+.rp-row.active { background: #eaf0ff; border-color: #4e73df; }
+.rp-row.rp-urgent { border-left-color: #e74a3b; }
+.rp-main { flex: 1; min-width: 0; }
+.rp-diff { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rp-detail { position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow-y: auto; }
+@media (max-width: 991px) {
+    .rp-list { max-height: 50vh; }
+    .rp-detail { position: static; max-height: none; }
+}

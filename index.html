@@ -391,17 +391,39 @@
                             onclick="batchRejectReports()" disabled>
                             <i class="fas fa-times"></i> Batch Reject (<span id="report-batch-count">0</span>)
                         </button>
+                        <button class="btn btn-outline-secondary d-none" id="report-dismiss-same-btn"
+                            onclick="dismissSameKeyReports()">
+                            Dismiss ทั้งหมดที่เห็น (เฉลยตรง)
+                        </button>
                     </div>
+                </div>
+                <div id="report-tabs" class="rp-tabs">
+                    <button type="button" class="rp-tab active" data-tab="all" onclick="setReportTab('all')">All <span class="badge" id="report-tab-count-all">0</span></button>
+                    <button type="button" class="rp-tab" data-tab="urgent" onclick="setReportTab('urgent')">🔥 Urgent <span class="badge" id="report-tab-count-urgent">0</span></button>
+                    <button type="button" class="rp-tab" data-tab="discrepancy" onclick="setReportTab('discrepancy')">⚠️ Discrepancy <span class="badge" id="report-tab-count-discrepancy">0</span></button>
+                    <button type="button" class="rp-tab" data-tab="comment" onclick="setReportTab('comment')">💬 Comments / Same Key <span class="badge" id="report-tab-count-comment">0</span></button>
+                    <button type="button" class="rp-tab" data-tab="missingimg" onclick="setReportTab('missingimg')">📷 Missing Image <span class="badge" id="report-tab-count-missingimg">0</span></button>
                 </div>
                 <div class="card card-dashboard border-left-danger">
                     <div class="card-header-custom">
                         <span class="text-danger"><i class="fas fa-inbox me-2"></i>
                             รายการแจ้งปัญหาที่รอการตรวจสอบ</span>
                     </div>
-                    <div class="card-body" id="report-list-container">
-                        <!-- Loading State -->
-                        <div class="text-center text-muted py-5">
-                            <i class="fas fa-spinner fa-spin fa-2x"></i> กำลังโหลดข้อมูล...
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-lg-5">
+                                <div id="report-list-container" class="rp-list">
+                                    <!-- Loading State -->
+                                    <div class="text-center text-muted py-5">
+                                        <i class="fas fa-spinner fa-spin fa-2x"></i> กำลังโหลดข้อมูล...
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-7">
+                                <div id="report-detail-pane" class="rp-detail">
+                                    <div class="text-muted">เลือกรายการทางซ้าย</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
