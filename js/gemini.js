@@ -236,7 +236,7 @@ let convDiagnostics = [];
 // คืน json ของ backend เมื่อ success หรือ error จริง (เช่น session_expired) — ที่ไม่ใช่ not_found
 // backend เก่า (ไม่มี action) ตอบ "Action not defined" → เลิก poll ทันที
 const CONV_RECOVER_POLL_MS = 10000;
-const CONV_RECOVER_MAX_POLLS = 12;
+const CONV_RECOVER_MAX_POLLS = 36;
 async function recoverConvertedResult(requestId, authFields) {
     const pollBody = JSON.stringify(Object.assign({ action: 'getConvertedResult', requestId: requestId }, authFields));
     for (let i = 0; i < CONV_RECOVER_MAX_POLLS; i++) {
