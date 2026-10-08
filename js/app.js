@@ -544,6 +544,18 @@ async function fetchData(forceRefresh = false, isAutoPoll = false) {
         finalizeDataLoading();
     }
 
+    // ยังไม่ล็อกอิน: ไม่ยิง getAllData 26MB (GAS ตอบไม่ทัน → 404 ที่ 45-90s ทุกครั้ง) — โชว์ cache เดิม (ถ้ามี) แล้วให้ล็อกอิน
+    // หลังล็อกอิน auth-google.js / ui.js เรียก fetchData() ซ้ำเอง ซึ่งจะไปทาง Supabase
+    if (USE_SUPABASE_QUESTIONS && !hasAdminAuth()) {
+        isFetching = false;
+        $('#loading-overlay').hide();
+        if (!isAutoPoll) {
+            if (!sessionToken) $('#loginModal').modal('show');
+            bgToast.fire({ icon: 'info', title: 'กรุณาเข้าสู่ระบบเพื่อโหลดข้อมูลล่าสุด' });
+        }
+        return;
+    }
+
     try {
         // Phase 1: questions มาจาก Supabase, slice เล็กอีก 7 ตัวยังมาจาก GAS
         // เงื่อนไข hasAdminAuth() ไม่ใช่เรื่อง security แต่เป็นเรื่อง egress: getAdminSync (ทางเดียวที่ได้
