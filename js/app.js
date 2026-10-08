@@ -556,11 +556,12 @@ async function fetchData(forceRefresh = false, isAutoPoll = false) {
         return;
     }
 
+    let reconcile = false;
     try {
-        // Phase 1: questions มาจาก Supabase, slice เล็กอีก 7 ตัวยังมาจาก GAS
-        // เงื่อนไข hasAdminAuth() ไม่ใช่เรื่อง security แต่เป็นเรื่อง egress: getAdminSync (ทางเดียวที่ได้
-        // slice เล็กโดยไม่ลาก questions มาด้วย) ต้อง auth — ถ้าปล่อยให้ผู้ที่ยังไม่ล็อกอินมาทางนี้
-        // จะกลายเป็น getAllData 26MB + Supabase 27.7MB ในโหลดเดียว แย่กว่าเส้นทางเดิมสองเท่า
+        // questions + slice เล็ก (structure/category/report/votes/announcements) มาจาก Supabase ทั้งหมด
+        // GAS getAdminSync reconcile เบื้องหลังหลังโหลด (ดู finally) — GAS คือตัวจริง Postgres อาจตามหลังชีท
+        // เงื่อนไข hasAdminAuth() ไม่ใช่เรื่อง security แต่เป็นเรื่อง egress: ถ้าปล่อยให้ผู้ที่ยังไม่ล็อกอินมาทางนี้
+        // แล้วตกไป getAllData 26MB + Supabase 27.7MB ในโหลดเดียว แย่กว่าเส้นทางเดิมสองเท่า
         const loaded = (USE_SUPABASE_QUESTIONS && hasAdminAuth())
             ? await loadFullFromSupabase(isAutoPoll)
             : await loadFullFromGAS(forceRefresh, localData, localVer, isAutoPoll);
@@ -590,6 +591,7 @@ async function fetchData(forceRefresh = false, isAutoPoll = false) {
         // cursor ของ questions แยกจาก GAS โดยเจตนา — คนละแหล่ง คนละนาฬิกา
         // ค่านี้มาจาก data_version() ของ DB เท่านั้น ห้าม fallback เป็น Date.now() ของเครื่อง client
         if (loaded.questionsCursor) await setCacheDB('global_questions_ts', loaded.questionsCursor);
+        reconcile = !!loaded.reconcileWithGAS;
 
             // 3. ตรวจสอบว่าแอดมินกำลังยุ่งอยู่หรือไม่ (เปิด Modal ใดๆ อยู่)
             const isUserBusy = $('.modal.show').length > 0 ||
@@ -626,6 +628,7 @@ async function fetchData(forceRefresh = false, isAutoPoll = false) {
         } finally {
             isFetching = false;
             $('#loading-overlay').hide(); // เผื่อกรณีค้าง
+            if (reconcile) setTimeout(function () { syncData(false); }, 1500); // GAS = authoritative; พังก็แค่ log, poll 60s ลองใหม่
         }
     }
 
@@ -717,35 +720,11 @@ async function loadFullFromGAS(forceRefresh, localData, localVer, isAutoPoll) {
     };
 }
 
-// เส้นทางใหม่: questions จาก Supabase (PostgREST, anon key) + slice เล็กจาก GAS getAdminSync
+// เส้นทางใหม่: questions + slice เล็กจาก Supabase (PostgREST, anon key) — GAS ไม่อยู่ใน blocking path
 async function loadFullFromSupabase(isAutoPoll) {
-    // ลำดับสำคัญ: ยิง GAS (ถูก) ก่อน Supabase (27.7MB) เสมอ
-    // sendWithRetry "throw" เมื่อเจอ 4xx หรือ retry หมด — ถ้าดึง Supabase ก่อน ค่า egress ก้อนใหญ่
-    // จะถูกจ่ายไปแล้วทั้งที่รอบนี้ล้มแน่นอน auth หลุด/GAS ล่ม ⇒ ต้องไม่เสีย byte สักก้อน
-    //
-    // slice เล็ก: ไม่ส่ง clientVer เพื่อบังคับให้ได้ทั้งก้อน (โหลดเต็มไม่ต้องการ NOT_MODIFIED)
-    // since = เวลาปัจจุบัน ⇒ changedQuestions ว่างเสมอ (getChangedSinceTimestamp ใช้ parseInt มิลลิวินาที)
-    // ตั้งใจทิ้ง question delta ของ GAS ทั้งก้อน — questions มาจาก Supabase แล้ว
-    const resJson = await sendWithRetry({
-        action: 'getAdminSync',
-        username: currentUser.username,
-        adminPass: adminPass,
-        since: Date.now(),
-        skipQuestionDelta: true
-    });
-
-    if (resJson.result !== 'success') {
-        console.warn('[fetchData] getAdminSync error:', resJson.message);
-        if (!isAutoPoll) {
-            Swal.fire({
-                icon: 'warning', title: 'โหลดข้อมูลไม่สำเร็จ', text: resJson.message,
-                toast: true, position: 'top-end', showConfirmButton: false, timer: 4000
-            });
-        }
-        return null;
-    }
-
-    const { rows, dataVersion } = await fetchSupabaseQuestionsFull();
+    // dataVersion ถูกอ่านก่อนเดินหน้า pagination (ใน fetchSupabaseQuestionsFull)
+    // Postgres ตามหลังชีท ⇒ ผลนี้เป็นแค่ first paint; GAS getAdminSync reconcile เบื้องหลังใน fetchData.finally
+    const [{ rows, dataVersion }, slices] = await Promise.all([fetchSupabaseQuestionsFull(), fetchSupabaseAdminSlices()]);
 
     // §8.7(2): หน้าที่หายไปหนึ่งหน้าจะ "เร็วและดูถูกต้อง" ทุกประการ — นับเทียบกับ DB คือทางเดียวที่จับได้
     const expected = Number(dataVersion && dataVersion.questionCount);
@@ -761,20 +740,30 @@ async function loadFullFromSupabase(isAutoPoll) {
         return null;
     }
 
+    // structure/category ว่าง = อ่านพลาด: openEditModal บล็อกเมื่อ category ว่าง และเขียนทับ cache จะล้างของเดิม
+    if (!slices.structure.length || !slices.category.length) {
+        console.warn('[fetchData] Supabase structure/category ว่าง — ไม่เขียนทับ cache');
+        if (!isAutoPoll) {
+            Swal.fire({
+                icon: 'warning', title: 'โหลดโครงสร้างไม่สำเร็จ',
+                text: 'โครงสร้างวิชา/หมวดว่าง — ระบบคงข้อมูลเดิมไว้',
+                toast: true, position: 'top-end', showConfirmButton: false, timer: 4000
+            });
+        }
+        return null;
+    }
+
     // §9.9: v_questions คืน category เป็น JSON array จริงอยู่แล้ว — ไม่ต้องผ่าน processedQuestions
     return {
-        serverVersion: resJson.v,
-        syncTs: resJson.serverTime,
+        serverVersion: 'sb-pending',            // sentinel: syncData(background) แทนด้วย v จริงของ GAS
+        syncTs: Date.parse(dataVersion && dataVersion.serverTime) || Date.now(),
         questionsCursor: sbCursorFrom(dataVersion),
+        reconcileWithGAS: true,
         newData: {
             questions: rows,
-            report: resJson.report || [],
-            structure: resJson.structure || [],
-            category: resJson.category || [],
-            votes: resJson.votes || [],
-            logs: keepDevSlice(resJson.logs, 'logs'),
-            admins: keepDevSlice(resJson.admins, 'admins'),
-            announcements: resJson.announcements || []
+            report: slices.report, structure: slices.structure, category: slices.category,
+            votes: slices.votes, announcements: slices.announcements,
+            logs: keepDevSlice(null, 'logs'), admins: keepDevSlice(null, 'admins')
         }
     };
 }

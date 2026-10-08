@@ -266,9 +266,9 @@ async function hashPassword(password) {
 // ─────────────────────────────────────────────────────
 // SUPABASE READ LAYER — Phase 1, slice `questions` เท่านั้น
 //
-// slice เล็กอีก 7 ตัว (structure/category/report/votes/logs/admins/announcements) ยังอยู่บน GAS
-// ตาม sequencing constraint ใน §9.11: write surface ไหนที่ยังไม่ถูก mirror จะค้างให้เห็นในแดชบอร์ด
-// ทันทีที่แอดมินแตะ — และ `admins` ต้องอยู่บน GAS ตลอดไป (§2 ชั้น "never")
+// slice เล็ก structure/category/report/votes/announcements อ่านจาก Supabase ในโหลดแรกด้วย (fetchSupabaseAdminSlices)
+// แต่ Postgres ตามหลังชีท ⇒ GAS getAdminSync ยัง reconcile เบื้องหลัง (syncData) เป็นตัวจริง
+// logs/admins ยังอยู่บน GAS — และ `admins` ต้องอยู่บน GAS ตลอดไป (§2 ชั้น "never")
 //
 // ทุกฟังก์ชันในบล็อกนี้เป็น no-op ถ้า window.USE_SUPABASE_QUESTIONS = false
 // ─────────────────────────────────────────────────────
@@ -354,6 +354,19 @@ async function fetchSupabaseQuestionsFull() {
     const dataVersion = await fetchSupabaseDataVersion();
     const rows = await sbFetchPaged('v_questions?select=*&order=questionId');
     return { rows, dataVersion };
+}
+
+// slice เล็กของแดชบอร์ด: ชื่อคอลัมน์ = header ชีท (PascalCase) — consumer อ่านดิบ ห้าม remap
+// Status=eq.live ตัดหมวด auto_created (ไม่มีแถวในชีท Category); order ต้อง unique ให้ offset เดินได้
+async function fetchSupabaseAdminSlices() {
+    const r = await Promise.all([
+        sbFetchPaged('v_structure?select=*&order=SheetOrder,SubjectID,AccordionGroup'),
+        sbFetchPaged('v_categories?select=*&Status=eq.live&order=SheetOrder,CategoryID'),
+        sbFetchPaged('v_announcements?select=*&order=Id'),
+        sbFetchPaged('v_reports?select=*&order=id'),
+        sbFetchPaged('v_votes?select=*&order=id')
+    ]);
+    return { structure: r[0], category: r[1], announcements: r[2], report: r[3], votes: r[4] };
 }
 
 // delta ตั้งแต่ cursor — ใช้ v_questions_delta เพราะ view นี้ "ไม่กรอง" แถวที่ถูกลบอ่อน (D16)
