@@ -106,8 +106,8 @@ async function sendWithRetry(payload, retries = 3, signal = null) {
                 throw new Error('Client error ' + status);
             }
             if (i === retries - 1) throw new Error('Server error ' + status + ' after ' + retries + ' attempts');
-            // ยอม retry 404 ครั้งแรกแม้ช้า (Google echo ทิ้ง response ที่ Completed แล้วที่ 25-45s) เฉพาะ action อ่าน/AI ใน allowlist — action เขียน/ไม่รู้จัก bail เหมือนเดิม
-            const slow404RetryOk = i === 0 && status === 404 && SAFE_SLOW404_RETRY_ACTIONS.has(payload && payload.action);
+            // ยอม retry 404 ช้าทุกครั้งที่ไม่ใช่ครั้งสุดท้าย (Google echo ทิ้ง response ที่ Completed แล้วที่ 25-45s; cold start อาจ 404 ช้าซ้ำสองรอบ) เฉพาะ action อ่าน/AI ใน allowlist — action เขียน/ไม่รู้จัก bail เหมือนเดิม
+            const slow404RetryOk = status === 404 && SAFE_SLOW404_RETRY_ACTIONS.has(payload && payload.action);
             if (status === 404 && !slow404RetryOk && Date.now() - attemptStart > GAS_SLOW_FAIL_MS) {
                 throw new Error('Server error 404 after ' + Math.round((Date.now() - attemptStart) / 1000) + 's — GAS execution likely timed out/died (ไม่ retry)');
             }
