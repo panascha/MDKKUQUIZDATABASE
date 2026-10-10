@@ -1856,6 +1856,8 @@ function renderMultiAIResult(v, choices, rowIndexes) {
     // arbiter ล่ม/หมดโควต้า → backend ส่งเฉลยเดิมใน DB กลับมาเป็น placeholder ไม่ใช่ผลตรวจ
     // ต้องกันทุกจุดที่สื่อว่า "ยืนยันแล้ว": badge เขียว, การ์ด Arbiter, ปุ่ม Apply
     const judgeFailed = v.confidence === 'judge-failed-fallback';
+    // A===B ≠ DB + judge ล่ม → backend เชื่อ solver consensus (เปิด Apply ได้ แต่ยังไม่ใช่ arbiter-verified)
+    const solverConsensusUnjudged = v.confidence === 'solver-consensus-unjudged';
     // สีการ์ด: A=ฟ้า, B=ม่วง (ลำดับตาม solvers ที่ backend ส่งมา)
     const tints = [
         { bg: '#eef5ff', border: '#5b8def', label: 'Model A' },
@@ -1883,9 +1885,10 @@ function renderMultiAIResult(v, choices, rowIndexes) {
 
     // tri-state: A===B คือเห็นตรงกัน แม้ judge จะทำงาน (กรณี A===B แต่ต่างจาก DB)
     let verdictBadge;
-    if (judgeFailed) {
-        // ต้องเป็นสาขาแรก — กรณี A===B แต่ต่างจาก DB แล้ว judge ล่ม จะตกเข้า solvers.length>=2
-        // แล้วขึ้น "✅ 100% Consensus" คู่กับเฉลย DB ที่โมเดลทั้งสองปฏิเสธ
+    if (solverConsensusUnjudged) {
+        verdictBadge = '<span class="badge bg-info text-dark">🤝 Solver Consensus (ต่างจาก DB) — Arbiter ล่ม ใช้ความเห็นโมเดล</span>';
+    } else if (judgeFailed) {
+        // ต้องเป็นสาขาแรกของ disagreement path — กรณี A≠B แล้ว judge ล่ม
         verdictBadge = '<span class="badge bg-warning text-dark">⚠️ Arbiter ตัดสินไม่สำเร็จ — ยังไม่ยืนยัน (แสดงเฉลยเดิมใน DB)</span>';
     } else if (solvers.length === 1 || solverErrors.length > 0) {
         // โมเดลเดียวตอบสำเร็จ = ไม่มีสัญญาณ consensus เลย ห้ามขึ้น badge เขียวเด็ดขาด
@@ -1899,24 +1902,31 @@ function renderMultiAIResult(v, choices, rowIndexes) {
             ? '<span class="badge bg-warning text-dark">⚠️ Disagreement → Escalated to Arbiter</span>'
             : '<span class="badge bg-success">✅ 100% Consensus</span>';
     }
-    // judgeFailed ก็มี judgeUsed=false + solvers 2 ตัว — แต่ "ตรงกับเฉลยใน DB" ที่นั่นเป็นเท็จ
-    if (!judgeFailed && !v.judgeUsed && solvers.length >= 2) {
+    // "ตรงกับเฉลยใน DB" เฉพาะ consensus-verified เท่านั้น (A===B===DB)
+    if (!judgeFailed && !solverConsensusUnjudged && !v.judgeUsed && solvers.length >= 2 &&
+        solvers[0].choice === solvers[1].choice) {
         verdictBadge += ' <span class="badge bg-secondary ms-1">ตรงกับเฉลยใน DB</span>';
     }
 
     // arbiter ล่ม — บอกสาเหตุตรงๆ แทนการ์ดคำตัดสินที่ไม่มีอยู่จริง
-    const judgeFailCard = judgeFailed ? `
+    let judgeFailCard = '';
+    if (judgeFailed || solverConsensusUnjudged) {
+        const tip = solverConsensusUnjudged
+            ? 'ทั้งสองโมเดลเห็นตรงกันต่างจาก DB — แสดง<strong>คำตอบของโมเดล</strong> (ยังไม่ผ่าน Arbiter) กด Apply ได้ถ้าเห็นด้วย หรือกด Verify ใหม่'
+            : 'เฉลยที่แสดงด้านล่างคือ<strong>เฉลยเดิมใน DB</strong> ยังไม่ผ่านการตรวจสอบ — กรุณาตัดสินเอง หรือกด Verify ใหม่';
+        judgeFailCard = `
         <div class="mb-2 p-2 rounded" style="background:#fff4e5; border-left:4px solid #f0ad4e;">
             <div class="fw-bold small mb-1" style="color:#a1670a;">
                 <i class="fas fa-gavel me-1"></i>Arbiter — ${escapeHtml(String(v.judgeModel || 'judge'))} ตัดสินไม่สำเร็จ
             </div>
             <div class="small text-muted">${escapeHtml(String(v.judgeError || 'ไม่ทราบสาเหตุ'))}</div>
-            <div class="small mt-1">เฉลยที่แสดงด้านล่างคือ<strong>เฉลยเดิมใน DB</strong> ยังไม่ผ่านการตรวจสอบ — กรุณาตัดสินเอง หรือกด Verify ใหม่</div>
-        </div>` : '';
+            <div class="small mt-1">${tip}</div>
+        </div>`;
+    }
 
     // Arbiter card — มีเฉพาะตอน judge ตัดสินสำเร็จจริง
     let arbiterCard = '';
-    if (v.judgeUsed && !judgeFailed) {
+    if (v.judgeUsed && !judgeFailed && !solverConsensusUnjudged) {
         const rawConf = String(v.judgeConfidence || v.confidence || '').toLowerCase();
         const confBadge = (rawConf === 'high')
             ? '<span class="badge bg-success">Confidence: High</span>'
@@ -1946,14 +1956,19 @@ function renderMultiAIResult(v, choices, rowIndexes) {
 
     // judge อาจคืน index นอกช่วง — ปิดปุ่ม Apply แทนที่จะติ๊กผิดข้อ
     // judgeFailed: targetRow มีค่าจริง (เฉลย DB อยู่ในช่วงเสมอ) เช็ค undefined อย่างเดียวไม่พอ
+    // solverConsensusUnjudged: เปิด Apply ได้ (admin ยังต้องกดยืนยัน) เพราะทั้งสองโมเดลเห็นตรงกัน
     const targetRow = rowIndexes[v.verifiedAnswer];
     const applyBtn = judgeFailed
         ? '<span class="text-danger small"><i class="fas fa-triangle-exclamation me-1"></i>ยังไม่ยืนยัน — ไม่มีปุ่ม Apply กรุณาตรวจสอบเอง</span>'
         : (targetRow === undefined)
             ? '<span class="text-danger small">AI คืนหมายเลขตัวเลือกนอกช่วง — ตรวจสอบเอง</span>'
             : `<button type="button" class="btn btn-sm btn-primary" id="btn-apply-multiai">
-            <i class="fas fa-magic me-1"></i> Apply to Form
+            <i class="fas fa-magic me-1"></i> Apply to Form${solverConsensusUnjudged ? ' (จาก Solver Consensus)' : ''}
         </button>`;
+
+    const answerLabel = judgeFailed
+        ? 'เฉลยเดิมใน DB (ยังไม่ยืนยัน)'
+        : (solverConsensusUnjudged ? 'Solver Consensus Answer (ยังไม่ผ่าน Arbiter)' : 'Verified Answer');
 
     const html = `
     <div class="alert alert-light border mt-3" id="multiverify-result">
@@ -1964,7 +1979,7 @@ function renderMultiAIResult(v, choices, rowIndexes) {
         ${judgeFailCard}
         ${arbiterCard}
         ${legacyRationale}
-        <div class="mb-2 small"><strong>${judgeFailed ? 'เฉลยเดิมใน DB (ยังไม่ยืนยัน)' : 'Verified Answer'}:</strong> ${choiceLabel(v.verifiedAnswer)}</div>
+        <div class="mb-2 small"><strong>${answerLabel}:</strong> ${choiceLabel(v.verifiedAnswer)}</div>
         ${applyBtn}
     </div>`;
 
