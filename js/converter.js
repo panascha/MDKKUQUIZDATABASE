@@ -1501,6 +1501,14 @@ async function handlePDFFile(file) {
         if (!result.isConfirmed) return;
     }
 
+    // T2.4: >25MB blocks load (Gemini rejects large PDFs) — compress first
+    if (file.size > 25 * 1024 * 1024) {
+        statusEl.textContent = '';
+        Swal.fire('ไฟล์ใหญ่เกินไป',
+            `PDF ขนาด ${(file.size / 1024 / 1024).toFixed(1)}MB — เกิน 25MB กรุณาบีบอัดไฟล์ก่อนอัปโหลด (ดูคู่มือผู้อัปโหลด หรือใช้ tools/pdf-compress/compress_pdf.py)`, 'warning');
+        return;
+    }
+
     btn.disabled = true;
 
     // Edit 4: 50MB hard cap
