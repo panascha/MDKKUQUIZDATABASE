@@ -1267,6 +1267,11 @@ function updateConvGroupReadout() {
     let warn = subjId ? '' : ' <span class="text-warning">— เลือกวิชาก่อนเพื่อได้รหัสเต็ม</span>';
     // ไม่มีเลขรุ่นนำหน้ากลุ่ม = ข้อสอบคนละปีจะไปกองรวมกัน
     if (group && !/^\d/.test(group)) warn += ' <span class="text-warning">— ยังไม่ได้ใส่รุ่น/ปีข้อสอบ</span>';
+    // ชื่อไฟล์ clinic/NL ที่แกะไม่ครบ (ROTX / xx) → ต้องให้คนตรวจก่อนนำเข้า
+    const rawClinic = (!picked && typeof parseExamFilename === 'function') ? parseExamFilename(filename, { subjectHint: subjId }) : null;
+    if (rawClinic && rawClinic.needsReview) {
+        warn += ` <span class="text-warning">— ต้องตรวจ: ${_convEsc(rawClinic.reasons.join('; '))}</span>`;
+    }
 
     // แสดงตัวอย่างรหัสหมวดหมู่จริง
     const examples = '<span class="text-muted small ms-2">(ตัวอย่างรหัสหมวดหมู่: GI_51MCQ1, CVS_50FMT, RESP_52QUIZ2, NS_51LAB, HEMATO_51MCQ1)</span>';
@@ -1336,11 +1341,24 @@ function guessBatchFromFilename(filename) {
     return g ? g[1] : null;
 }
 
+// ผล parseExamFilename ที่ใช้ได้กับวิชาที่เลือกอยู่ — null ถ้าไม่ใช่ไฟล์ clinic/NL/compre หรือวิชาไม่ตรง
+function getClinicParse(filename) {
+    if (typeof parseExamFilename !== 'function' || !filename) return null;
+    const subjId = (document.getElementById('subjID').value || '').trim().toUpperCase();
+    const r = parseExamFilename(filename, { subjectHint: subjId });
+    if (!r || !r.categoryId) return null;
+    return (!subjId || subjId === r.subject) ? r : null;
+}
+
 // กลุ่มข้อสอบที่จะบันทึกจริง: ชิปที่เลือกมาก่อน ถ้าไม่ได้เลือกก็เดาจากชื่อไฟล์ แล้วเติมเลขรุ่นให้ถ้ายังไม่มี
 // คืน { group, forced } — forced=true คือให้ทับ category[0] ที่ Gemini เขียนมา
 function getEffectiveExamGroup(filename) {
     const picked = (typeof getPickedExamGroup === 'function') ? getPickedExamGroup() : '';
     if (picked) return { group: picked, forced: true };
+
+    // ไฟล์ Clinic/NL/Compre → กลุ่มจาก clinic-ids.js (รุ่น+tier+rotation) — ใช้เมื่อวิชาตรงกับที่เลือกไว้เท่านั้น
+    const clinic = getClinicParse(filename);
+    if (clinic) return { group: clinic.group, forced: true, clinic };
 
     const guessed = (typeof parseFilenameMetadata === 'function' && filename)
         ? (parseFilenameMetadata(filename).examGroup || '') : '';
@@ -1432,6 +1450,12 @@ function checkFilenameConflict() {
     const meta = parseFilenameMetadata(filename);
     const subjSel = (document.getElementById('subjID').value || '').trim().toUpperCase();
     const batchSel = (document.getElementById('conv-group-batch').value || '').trim();
+    // ไฟล์ clinic/NL: ตัวเดาเดิมอ่าน MD49_ABCD_MED4 ว่าวิชา "ABCD" → ใช้ผลจาก clinic-ids.js แทน
+    const clinic = (typeof parseExamFilename === 'function') ? parseExamFilename(filename, { subjectHint: subjSel }) : null;
+    if (clinic) {
+        meta.subjectCode = clinic.subject || '';
+        meta.batch = (clinic.batch && clinic.batch !== 'xx') ? clinic.batch : '';
+    }
 
     const subjectConflict = subjSel && meta.subjectCode && subjSel !== meta.subjectCode;
     const batchConflict = batchSel && meta.batch && batchSel !== meta.batch;
@@ -1537,8 +1561,15 @@ async function handlePDFFile(file) {
     btn.dataset.filename = file.name;
     applyDetectedBatch(guessBatchFromFilename(file.name), 'ชื่อไฟล์'); // เดารุ่นจากชื่อไฟล์ทันที
 
-    // เดาวิชา + กลุ่มข้อสอบ + ครั้งที่ จากชื่อไฟล์ทันที เช่น MD52_SKIN_MCQ1.pdf -> SKIN / MCQ / ครั้งที่ 1
-    if (typeof parseFilenameMetadata === 'function') {
+    // ไฟล์ Clinic/NL/Compre (MD49_ABCD_MED4_MCQ, NL2_2025-1) → เติมวิชาจาก clinic-ids.js
+    // ข้ามตัวเดาแบบเดิม: มันจะอ่าน "ABCD" เป็นวิชา และ "MED4" เป็นครั้งที่ 4
+    const clinicMeta = (typeof parseExamFilename === 'function')
+        ? parseExamFilename(file.name, { subjectHint: (document.getElementById('subjID').value || '').trim().toUpperCase() })
+        : null;
+    if (clinicMeta && clinicMeta.subject) {
+        applyDetectedSubject(clinicMeta.subject, 'ชื่อไฟล์');
+    } else if (typeof parseFilenameMetadata === 'function') {
+        // เดาวิชา + กลุ่มข้อสอบ + ครั้งที่ จากชื่อไฟล์ทันที เช่น MD52_SKIN_MCQ1.pdf -> SKIN / MCQ / ครั้งที่ 1
         const meta = parseFilenameMetadata(file.name);
         applyDetectedSubject(meta.subjectCode, 'ชื่อไฟล์');
         const groupType = classifyExamGroupPrefix(meta.examGroup);
@@ -1702,6 +1733,17 @@ async function startPDFConversion() {
     // subjId สำหรับหน้าทบทวน: ช่อง Subject ID > เดาจากชื่อไฟล์ (ตรงกับที่ runGeminiConversion ใช้)
     const subjId = (document.getElementById('subjID').value.trim() ||
         parseFilenameMetadata(filename).subjectCode).trim();
+
+    // ไฟล์ clinic/NL ที่ยังแกะรหัสไม่ได้ (วิชาไม่รู้ชั้นปี / ปี พ.ศ.) หรือวิชาที่เลือกไม่ตรงชื่อไฟล์ → ห้ามแปลง
+    // ไม่งั้น gemini.js จะเอาคำในชื่อไฟล์ (เช่น "FM") ไปเป็นรหัสวิชาที่ไม่มีอยู่จริง — เลือกชิปกลุ่มเองได้เพื่อข้าม
+    if (!getPickedExamGroup()) {
+        const cp = parseExamFilename(filename, { subjectHint: document.getElementById('subjID').value.trim().toUpperCase() });
+        const selSubj = document.getElementById('subjID').value.trim().toUpperCase();
+        if (cp && (!cp.categoryId || (selSubj && cp.subject && cp.subject !== selSubj))) {
+            Swal.fire('เลือกวิชาก่อน', `ชื่อไฟล์นี้เป็นข้อสอบ clinic/NL แต่ยังสร้างรหัสหมวดหมู่ไม่ได้: ${_convEsc(cp.reasons.join('; ') || ('วิชาในไฟล์ ' + cp.subject + ' ≠ ที่เลือก ' + selSubj))}<br>เลือกวิชาให้ตรง หรือเลือกกลุ่มข้อสอบเอง`, 'warning');
+            return;
+        }
+    }
 
     // category[0] ต้องมีเลขรุ่นนำหน้า (CVS_52MCQ1) — ไม่มีแล้วข้อสอบหลายรุ่นปนกลุ่มเดียวกัน
     // เตือนเฉย ๆ ให้แอดมินข้ามได้ (ข้อสอบ NL/legacy ไม่มีรุ่น) — "xx" = รุ่นไม่ทราบ ถือว่าตั้งใจแล้ว
