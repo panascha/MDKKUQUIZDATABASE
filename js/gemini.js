@@ -1087,6 +1087,9 @@ async function runGeminiConversionInner(file, filename) {
         if (clinicalOpts && clinicalOpts.mode === 'nl2') q.category = mapNl2Specialty(q.category, subjId); // T2.3: นอก 12 สาขา → Uncategorized
         q.category = enforceKnownTopic(q.category, subjId, allowedIds); // Task 1: block invented topic IDs
         if (forcedCat0) q.category[0] = forcedCat0; // ชิปผู้ใช้ = เด็ดขาด แม้ Gemini เขียนมาอย่างอื่น
+        // ข้อสอบ clinic/Compre (Y4–Y6) = category[0] อย่างเดียว — ไม่มีหัวข้อบรรยาย ห้ามให้ AI ตั้งหัวข้อเอง (กลุ่มผี "RADIO and CLINICAL")
+        const ck = effGroup.clinic && effGroup.clinic.kind;
+        if (forcedCat0 && (ck === 'clinic' || ck === 'compre')) q.category = [forcedCat0];
     });
 
     // Autonomous AI Self-Correction Loop — ลองให้ Gemini แก้ข้อที่ยัง Uncategorized เองก่อน
