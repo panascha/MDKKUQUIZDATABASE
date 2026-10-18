@@ -166,10 +166,40 @@ ${lines}
 //   keyTier 'faculty' = เฉลยอาจารย์/Formative (ล็อก), 'recall' = เฉลยรุ่นพี่ (baseline), '' = ไม่มีไฟล์เฉลย
 // ไม่ส่ง opts และ forcedCat0 ไม่เข้ารูป clinic/NL2 → คืน '' (prompt เดิมไม่เปลี่ยน)
 const NL2_SPECIALTIES = ['Internal Medicine', 'Pediatrics', 'Obstetrics and Gynecology', 'Surgery', 'Psychiatry', 'Emergency Medicine', 'Forensic Medicine', 'Orthopedics and Rehabilitation Medicine', 'Otolaryngology', 'Ophthalmology', 'Preventive Medicine and Family Medicine', 'Ethics'];
+// T2.3: enum → suffix ของ CategoryID `<NL2>_SPEC_<suffix>` (กลุ่ม AccordionGroup "NL2 Specialty")
+const NL2_SPEC_SUFFIX = {
+    'Internal Medicine': 'IM', 'Pediatrics': 'PED', 'Obstetrics and Gynecology': 'OBGYN', 'Surgery': 'SURG',
+    'Psychiatry': 'PSYCH', 'Emergency Medicine': 'ER', 'Forensic Medicine': 'FORENSIC',
+    'Orthopedics and Rehabilitation Medicine': 'ORTHO', 'Otolaryngology': 'ENT', 'Ophthalmology': 'EYE',
+    'Preventive Medicine and Family Medicine': 'PREVMED', 'Ethics': 'ETHICS'
+};
+
+// T2.3: NL2 — category[1] ต้องเป็นหนึ่งใน 12 สาขา (ชื่อ enum หรือ ID `<SUBJ>_SPEC_<suffix>` ที่ถูกต้อง) → แปลงเป็น CategoryID
+// นอก enum → `<SUBJ>_Uncategorized` (ป้าย fallback เดียวกับ enforceKnownTopic)
+function mapNl2Specialty(cats, subjId) {
+    const subj = String(subjId).trim().toUpperCase();
+    const raw = String(cats[1] == null ? '' : cats[1]).trim();
+    const enumName = NL2_SPECIALTIES.find(s => s.toLowerCase() === raw.toLowerCase());
+    if (enumName) { cats[1] = `${subj}_SPEC_${NL2_SPEC_SUFFIX[enumName]}`; return cats; }
+    const isSpecId = Object.values(NL2_SPEC_SUFFIX).some(sfx => raw.toUpperCase() === `${subj}_SPEC_${sfx}`);
+    cats[1] = isSpecId ? raw.toUpperCase() : `${subj}_Uncategorized`;
+    return cats;
+}
+
+// T2.3: เลือก clinicalOpts จากผล parseExamFilename (effGroup.clinic) — ไม่ใช่ไฟล์ clinic/NL → undefined (prompt เดิมทุกตัวอักษร)
+// Compre/NL1 ได้ mode 'none' กันการเดาจาก forcedCat0 (COMPRE1_49MCQ_SET1 เข้ารูป clinic regex)
+function buildClinicalOpts(effGroup) {
+    const c = effGroup && effGroup.clinic;
+    if (!c) return undefined;
+    if (c.kind === 'clinic') return { mode: 'clinic' };
+    if (c.kind === 'nl' && c.subject === 'NL2') return { mode: 'nl2' };
+    return { mode: 'none' };
+}
+
 function buildClinicalBlock(opts, forcedCat0) {
     opts = opts || {};
-    let mode = opts.mode || '';
-    if (!mode && forcedCat0) {
+    let mode = opts.mode === 'none' ? '' : (opts.mode || '');
+    if (!mode && opts.mode !== 'none' && forcedCat0) {
         if (/^NL2_/.test(forcedCat0)) mode = 'nl2';
         else if (/^[A-Z]+\d_\d{2}MCQ(MID|FIN)?_[A-Z0-9]+/.test(forcedCat0)) mode = 'clinic';
     }
@@ -732,7 +762,7 @@ const CONV_FATAL_BATCH_ERROR = /session_expired|token_expired|แปลง PDF �
 // แปลงแบบชุดรูปหน้ากระดาษหลายชุด — ทน RECITATION และ error รายชุด (503/timeout): ชุดที่พังตายชุดเดียว ชุดอื่นรอด
 // error ที่ชุดถัดไปพังเหมือนกันแน่ (CONV_FATAL_BATCH_ERROR) หยุดทันที — ไม่เผา quota กับชุดที่เหลือ
 // detected: ผลจาก detectQuestionCount — ใช้บอกโมเดลว่าชุดนี้ควรได้กี่ข้อ + ตรวจชุดที่ได้ไม่ครบ
-async function convertImageBatches(batches, additionalPrompt, statusEl, allowedCats, forcedCat0, detected) {
+async function convertImageBatches(batches, additionalPrompt, statusEl, allowedCats, forcedCat0, detected, clinicalOpts) {
     const questions = [];
     const failed = [];
     const errored = []; // ชุดที่พังด้วย error เฉพาะชุด (503/timeout) — ข้ามแล้วทำต่อ ผู้ใช้แปลงซ้ำเฉพาะช่วงนี้ได้
@@ -748,7 +778,7 @@ async function convertImageBatches(batches, additionalPrompt, statusEl, allowedC
         const pageNote = `หมายเหตุ: รูปที่แนบมาคือหน้า ${batch.start} ถึง ${batch.end} ของ PDF (เรียงตามลำดับ) — pageHint ต้องใช้เลขหน้าจริงเหล่านี้`;
         statusEl.textContent = `ชุดที่ ${b + 1}/${batches.length} — กำลังส่งให้ระบบแปลง…`;
         try {
-            const raw = await convertBatchViaGAS(buildConverterPrompt(additionalPrompt, pageNote, allowedCats, forcedCat0, expect, firstQuestionForBatch(detected, batch)), {
+            const raw = await convertBatchViaGAS(buildConverterPrompt(additionalPrompt, pageNote, allowedCats, forcedCat0, expect, firstQuestionForBatch(detected, batch), clinicalOpts), {
                 images: pages.map(p => p.dataUrl)
             });
             const parsed = parseGeminiResponse(raw);
@@ -927,6 +957,7 @@ async function runGeminiConversionInner(file, filename) {
     const effGroup = (typeof getEffectiveExamGroup === 'function')
         ? getEffectiveExamGroup(filename) : { group: '', forced: false };
     const forcedCat0 = effGroup.forced ? `${subjId.toUpperCase()}_${effGroup.group}` : '';
+    const clinicalOpts = buildClinicalOpts(effGroup);
     const fileStem = forcedCat0 || `${subjectCode}_${examGroup}`;
     // หัวข้อที่ผู้ใช้ทบทวน/ยืนยันแล้วในหน้าทบทวน (reviewCategoriesBeforeConvert) — ไม่ต้อง toast ซ้ำ
     const allowedCats = getExistingCategoriesForSubject(subjId);
@@ -963,7 +994,7 @@ async function runGeminiConversionInner(file, filename) {
             });
             statusEl.textContent = 'กำลังส่ง PDF ให้ระบบแปลง (key กลาง)…';
             try {
-                const raw = await convertBatchViaGAS(buildConverterPrompt(additionalPrompt, '', allowedCats, forcedCat0, detected.expected, 1), { pdfB64 });
+                const raw = await convertBatchViaGAS(buildConverterPrompt(additionalPrompt, '', allowedCats, forcedCat0, detected.expected, 1, clinicalOpts), { pdfB64 });
                 const parsed = parseGeminiResponse(raw);
                 if (parsed.meta && parsed.meta.source === 'partial') {
                     truncated = true;
@@ -977,7 +1008,7 @@ async function runGeminiConversionInner(file, filename) {
                 const total = currentPdfDoc.numPages;
                 const small = [];
                 for (let s = 1; s <= total; s += 4) small.push({ start: s, end: Math.min(s + 3, total) });
-                const res = await convertImageBatches(small, additionalPrompt, statusEl, allowedCats, forcedCat0, detected);
+                const res = await convertImageBatches(small, additionalPrompt, statusEl, allowedCats, forcedCat0, detected, clinicalOpts);
                 allQuestions.push(...res.questions);
                 failedBatches = res.failed;
                 erroredBatches = res.errored;
@@ -999,7 +1030,7 @@ async function runGeminiConversionInner(file, filename) {
                     imgBatches.push({ start: s, end: Math.min(s + MAX_PAGES_PER_POST - 1, b.end) });
                 }
             });
-            const res = await convertImageBatches(imgBatches, additionalPrompt, statusEl, allowedCats, forcedCat0, detected);
+            const res = await convertImageBatches(imgBatches, additionalPrompt, statusEl, allowedCats, forcedCat0, detected, clinicalOpts);
             allQuestions.push(...res.questions);
             failedBatches = res.failed;
             erroredBatches = res.errored;
@@ -1028,6 +1059,7 @@ async function runGeminiConversionInner(file, filename) {
         q.answer = sanitizeAnswer(q.answer, q.choices);
         q.explain = stripExplainIntro(q.explain);
         q.category = sanitizeCategory(q.category, fileStem, allowedIds);
+        if (clinicalOpts && clinicalOpts.mode === 'nl2') q.category = mapNl2Specialty(q.category, subjId); // T2.3: นอก 12 สาขา → Uncategorized
         q.category = enforceKnownTopic(q.category, subjId, allowedIds); // Task 1: block invented topic IDs
         if (forcedCat0) q.category[0] = forcedCat0; // ชิปผู้ใช้ = เด็ดขาด แม้ Gemini เขียนมาอย่างอื่น
     });
