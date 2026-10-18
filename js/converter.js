@@ -53,6 +53,8 @@ function resetConverter() {
                 // รีเซ็ตฝั่ง AI panel: prompt, ช่องเลือกไฟล์, สถานะ/แถบความคืบหน้า, คำเตือนชื่อไฟล์
                 $('#extra-prompt').val('');
                 $('#pdf-file-input').val(''); // ต้องล้าง ไม่งั้นเลือกไฟล์เดิมซ้ำแล้ว onchange ไม่ยิง
+                $('#key-pdf-input').val('');
+                $('#key-tier-select').val('');
                 $('#pdf-status').text('');
                 $('#pdf-progress').addClass('d-none').val(0);
                 $('#pdf-conflict-warning').addClass('d-none');

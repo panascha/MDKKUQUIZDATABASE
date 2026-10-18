@@ -933,6 +933,27 @@ async function runGeminiConversion(file, filename) {
     }
 }
 
+// T2.6: อ่านไฟล์เฉลย [KEY].pdf (ถ้ามี) → ข้อความ + keyTier. ไม่มีไฟล์ → null (prompt เดิม). มีไฟล์แต่ไม่เลือก Tier / ไม่มี text layer → throw
+const KEY_TEXT_MAX_CHARS = 40000;
+async function readKeyPdfInput() {
+    const f = (document.getElementById('key-pdf-input') || {}).files;
+    const keyFile = f && f[0];
+    if (!keyFile) return null;
+    const keyTier = (document.getElementById('key-tier-select') || {}).value || '';
+    if (keyTier !== 'faculty' && keyTier !== 'recall') {
+        throw new Error('แนบไฟล์เฉลย [KEY] แล้ว — กรุณาเลือกระดับเฉลย (Tier 1 / Tier 2) ก่อนแปลง');
+    }
+    const doc = await pdfjsLib.getDocument({ data: await keyFile.arrayBuffer() }).promise;
+    let text = '';
+    for (let p = 1; p <= doc.numPages; p++) {
+        const tc = await (await doc.getPage(p)).getTextContent();
+        text += tc.items.map(it => it.str).join(' ') + '\n';
+    }
+    text = text.trim();
+    if (!text) throw new Error('ไฟล์เฉลย [KEY] ไม่มี text layer (อาจเป็นไฟล์สแกน) — อ่านเฉลยไม่ได้');
+    return { keyTier, text: text.slice(0, KEY_TEXT_MAX_CHARS) };
+}
+
 async function runGeminiConversionInner(file, filename) {
     const statusEl = document.getElementById('pdf-status');
 
@@ -957,13 +978,16 @@ async function runGeminiConversionInner(file, filename) {
     const effGroup = (typeof getEffectiveExamGroup === 'function')
         ? getEffectiveExamGroup(filename) : { group: '', forced: false };
     const forcedCat0 = effGroup.forced ? `${subjId.toUpperCase()}_${effGroup.group}` : '';
-    const clinicalOpts = buildClinicalOpts(effGroup);
+    let clinicalOpts = buildClinicalOpts(effGroup);
+    const keyInfo = await readKeyPdfInput();
+    if (keyInfo) clinicalOpts = Object.assign({}, clinicalOpts, { keyTier: keyInfo.keyTier });
     const fileStem = forcedCat0 || `${subjectCode}_${examGroup}`;
     // หัวข้อที่ผู้ใช้ทบทวน/ยืนยันแล้วในหน้าทบทวน (reviewCategoriesBeforeConvert) — ไม่ต้อง toast ซ้ำ
     const allowedCats = getExistingCategoriesForSubject(subjId);
     const allowedIds = new Set(allowedCats.map(c => String(c.CategoryID)));
 
-    const additionalPrompt = (document.getElementById('extra-prompt') || {}).value || '';
+    const additionalPrompt = ((document.getElementById('extra-prompt') || {}).value || '')
+        + (keyInfo ? `\n\n[KEY] เนื้อหาไฟล์เฉลย (ข้อความที่อ่านได้จาก [KEY].pdf):\n${keyInfo.text}` : '');
 
     convDiagnostics = []; // เริ่มรอบใหม่ — ทิ้ง breadcrumb ของรอบก่อน
 
