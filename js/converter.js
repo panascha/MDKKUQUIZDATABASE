@@ -1501,12 +1501,20 @@ async function handlePDFFile(file) {
         if (!result.isConfirmed) return;
     }
 
-    // T2.4: >25MB blocks load (Gemini rejects large PDFs) — compress first
+    // T2.4: >25MB warns (may lag browser / Gemini may reject) — user may continue
     if (file.size > 25 * 1024 * 1024) {
-        statusEl.textContent = '';
-        Swal.fire('ไฟล์ใหญ่เกินไป',
-            `PDF ขนาด ${(file.size / 1024 / 1024).toFixed(1)}MB — เกิน 25MB กรุณาบีบอัดไฟล์ก่อนอัปโหลด (ดูคู่มือผู้อัปโหลด หรือใช้ tools/pdf-compress/compress_pdf.py)`, 'warning');
-        return;
+        const result = await Swal.fire({
+            icon: 'warning',
+            title: 'ไฟล์ใหญ่เกิน 25MB',
+            text: `PDF ขนาด ${(file.size / 1024 / 1024).toFixed(1)}MB — อาจทำให้เบราว์เซอร์ช้าหรือค้าง แนะนำบีบอัดไฟล์ก่อน (ดูคู่มือผู้อัปโหลด หรือใช้ tools/pdf-compress/compress_pdf.py)`,
+            confirmButtonText: 'ดำเนินการต่อด้วยไฟล์นี้',
+            showCancelButton: true,
+            cancelButtonText: 'บีบอัดไฟล์ก่อน (แนะนำ)'
+        });
+        if (!result.isConfirmed) {
+            statusEl.textContent = '';
+            return;
+        }
     }
 
     btn.disabled = true;
