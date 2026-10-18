@@ -161,7 +161,55 @@ ${lines}
 // forcedCat0: examGroup ที่ผู้ใช้เลือกจากชิป (edit 3) — บังคับ category[0] ชนะการเดาจากชื่อไฟล์
 // expectCount: จำนวนข้อที่นับได้จาก text layer ของชุดนี้ — บอกโมเดลตรง ๆ ว่าต้องได้กี่ข้อ
 // qFrom: เลขข้อแรกของชุดนี้ (จาก detectQuestionCount) — ใส่ช่วง "ข้อ X ถึงอย่างน้อยข้อ Y" ให้โมเดลไล่ครบ
-function buildConverterPrompt(additionalPrompt, pageNote, allowedCats, forcedCat0, expectCount, qFrom) {
+// ── T2.2: บล็อกกฎเสริมสำหรับข้อสอบ clinic rotation / NL2 / นโยบายเฉลย [KEY] (#11, #19) ──
+// opts = { mode: 'clinic' | 'nl2' | '' (เดาจาก forcedCat0 ถ้าว่าง), keyTier: 'faculty' | 'recall' | '' }
+//   keyTier 'faculty' = เฉลยอาจารย์/Formative (ล็อก), 'recall' = เฉลยรุ่นพี่ (baseline), '' = ไม่มีไฟล์เฉลย
+// ไม่ส่ง opts และ forcedCat0 ไม่เข้ารูป clinic/NL2 → คืน '' (prompt เดิมไม่เปลี่ยน)
+const NL2_SPECIALTIES = ['Internal Medicine', 'Pediatrics', 'Obstetrics and Gynecology', 'Surgery', 'Psychiatry', 'Emergency Medicine', 'Forensic Medicine', 'Orthopedics and Rehabilitation Medicine', 'Otolaryngology', 'Ophthalmology', 'Preventive Medicine and Family Medicine', 'Ethics'];
+function buildClinicalBlock(opts, forcedCat0) {
+    opts = opts || {};
+    let mode = opts.mode || '';
+    if (!mode && forcedCat0) {
+        if (/^NL2_/.test(forcedCat0)) mode = 'nl2';
+        else if (/^[A-Z]+\d_\d{2}MCQ(MID|FIN)?_[A-Z0-9]+/.test(forcedCat0)) mode = 'clinic';
+    }
+    const keyTier = opts.keyTier;
+    const hasKeyOpt = 'keyTier' in opts;
+    if (!mode && !hasKeyOpt) return '';
+    let out = '';
+    if (mode === 'clinic') {
+        out += `\n\n**ข้อสอบ Clinical Rotation (บังคับใช้แทนกฎข้อ 5-6):**
+- มีเฉพาะข้อสอบ MCQ — ข้ามส่วน MEQ/CRQ/SAQ/Essay ทั้งหมด ไม่ต้องแปลง
+- category[0] รูปแบบ <SUBJ>_<batch>MCQ[MID|FIN]_<ROT> เช่น "SX4_46MCQFIN_ROTCD", "MED4_49MCQ_ROTA" (MID = กลางภาค, FIN = ปลายภาค, ไม่มี = ไม่แยก)
+  ห้ามเดาหรือสร้างรหัส rotation/ระดับ (MID/FIN) เอง — ใช้ค่าที่ระบบบังคับไว้เท่านั้น ถ้าไม่มีให้ใช้ตามชื่อไฟล์ที่เห็นตรงๆ
+- category[1] รูปแบบ "<SUBJ>_CLINICAL_<หัวข้อ>" (กลุ่มวิชาย่อย = CLINICAL เสมอ)`;
+    } else if (mode === 'nl2') {
+        out += `\n\n**ข้อสอบ NL2 (บังคับใช้แทนกฎข้อ 6):** category[1] ต้องเลือกจาก 12 สาขาต่อไปนี้เท่านั้น — คัดลอกชื่อตรงเป๊ะ ห้ามสร้างชื่ออื่น ห้ามแปล ห้ามใช้ ANA/BIOCHEM/PHYSIO ฯลฯ:
+${NL2_SPECIALTIES.map(s => `- ${s}`).join('\n')}
+เลือกสาขาที่ตรงกับแก่นของโจทย์มากที่สุดเพียงหนึ่งสาขา`;
+    }
+    if (hasKeyOpt || mode) {
+        if (keyTier === 'faculty') {
+            out += `\n\n**นโยบายเฉลย (Tier 1 — เฉลยอาจารย์/Formative):** ไฟล์เฉลย [KEY] ที่แนบมาคือคำตอบที่ถูกต้อง — answer ต้องตรงตามเฉลยเท่านั้น ห้ามเปลี่ยนแม้คิดว่าผิด
+ให้ explain อธิบายกลไก/พยาธิสภาพที่สนับสนุนคำตอบตามเฉลย`;
+        } else if (keyTier === 'recall') {
+            out += `\n\n**นโยบายเฉลย (Tier 2 — เฉลยรุ่นพี่/Recall):** ไฟล์เฉลย [KEY] ที่แนบมาจัดทำโดยรุ่นพี่ ถือเป็นคำตอบตั้งต้น ไม่ใช่คำตอบที่ล็อก
+ให้ตรวจสอบกับ Guideline ปัจจุบัน (CPG, Harrison, Nelson, UpToDate ฯลฯ):
+- ถ้าเฉลยสอดคล้อง → ใช้ตามเฉลย อธิบายตามปกติ
+- ถ้าขัดกับ Guideline → คง answer เป็นคำตอบของรุ่นพี่ไว้เป็นค่าเริ่มต้น แต่ให้ explain ขึ้นต้นด้วยแท็ก
+  "[⚠️ ข้อสังเกตเฉลยรุ่นพี่: เฉลยเดิมระบุข้อ X แต่ตาม Guideline ปัจจุบันของ <แหล่งอ้างอิง> คำตอบที่ถูกต้องควรเป็นข้อ Y เนื่องจาก <เหตุผล>]" แล้วจึงอธิบายต่อในย่อหน้าเดียวกัน`;
+        }
+        out += `\n\n**ข้อที่ไม่มีเฉลย หรือตัวเลือกเป็น "xx" (ข้อสอบ Recall):**
+- ถ้าข้อใดไม่มีในไฟล์เฉลย หรือไม่มีเฉลยเลย หรือมีตัวเลือกเป็น "xx" ให้วิเคราะห์โจทย์ทางคลินิกเพื่อหาคำตอบเอง และสร้างตัวเลือกลวงที่สมเหตุสมผลแทนทุก "xx" ให้ครบ 5 ตัวเลือก (A-E)
+- ห้ามระบุว่าตัวเลือกใดสร้างโดย AI — ให้ต่อท้าย problem ด้วยหมายเหตุรวมเพียงแท็กเดียวต่อข้อ ตรงเป๊ะ:
+  " [⚠️ ข้อสอบ Recall: มีบางตัวเลือกและคำอธิบายที่เสริมความสมบูรณ์โดย AI]"
+  ใช้แทนแท็กเพิ่มตัวเลือกในกฎข้อ 9 สำหรับข้อกลุ่มนี้ และห้ามใส่หมายเหตุรายตัวเลือกใน explain
+- ประเด็นสุดท้ายของ explain (Clinical Pearl / Reference) ต้องอ้างอิงแหล่งที่เป็นทางการระบุชื่อชัดเจน เช่น Thai CPG, Nelson, Harrison's, Sabiston/Schwartz, Williams Obstetrics, UpToDate`;
+    }
+    return out;
+}
+
+function buildConverterPrompt(additionalPrompt, pageNote, allowedCats, forcedCat0, expectCount, qFrom, clinicalOpts) {
     const rangeNote = (expectCount > 0 && qFrom > 0)
         ? `\n   ชุดนี้เริ่มที่ข้อ ${qFrom} และไปถึงอย่างน้อยข้อ ${qFrom + expectCount - 1} — ต้องสกัดให้ครบทุกข้อตามลำดับ ห้ามข้ามข้อโดยเด็ดขาด`
         : '';
@@ -217,8 +265,11 @@ function buildConverterPrompt(additionalPrompt, pageNote, allowedCats, forcedCat
    เขียน explain ให้กระชับได้ แต่ต้องครบทุกข้อ — "ครบทุกข้อ" สำคัญกว่า "อธิบายยาว"
 9. ถ้าโจทย์ต้นฉบับไม่สมบูรณ์ (ประโยคขาดหาย/พิมพ์ตกหล่น/อ่านไม่ครบ) และคุณต้องเติมข้อความให้สมบูรณ์เพื่อให้อ่านเข้าใจได้
    ให้ต่อท้าย problem ด้วย " [⚠️ เพิ่มเติมเพื่อความสมบูรณ์: <สรุปสั้นๆ ว่าเติมอะไรไป>]" เพื่อให้ผู้ตรวจทานรู้ว่าส่วนนั้น AI เติมเอง ไม่ใช่ต้นฉบับ
+   ยกเว้นกรณีที่สิ่งที่เติมคือ "ตัวเลือก" ให้ครบ 5 — ให้ต่อท้าย problem ด้วยแท็กนี้ตรงเป๊ะทุกตัวอักษร ห้ามดัดแปลงหรือใส่ชื่อตัวเลือกในแท็ก:
+   " [⚠️ เพิ่มเติมเพื่อความสมบูรณ์: เพิ่มตัวเลือกเพื่อให้ตัวเลือกครบ 5 ตัวเลือก]"
+   แล้วระบุตัวเลือกที่เติมไว้เป็นย่อหน้าสุดท้ายของ explain ในรูปแบบ "*(หมายเหตุ: ตัวเลือกที่สร้างเสริมคือ <ตัวเลือกที่เติม เช่น E. Tamsulosin>)*"
    ข้อความ [⚠️ ...] นี้ใช้ได้เฉพาะต่อท้าย problem เท่านั้น ห้ามใส่ลงใน choices เด็ดขาด — ถ้าตัวเลือกขาดหายให้เว้นไว้ตามกฎข้อ 1${expectCount > 0 ? `\n\n**จำนวนข้อขั้นต่ำ:** ชุดนี้นับได้ "อย่างน้อย" ${expectCount} ข้อ (อาจมีมากกว่านี้)
-   ต้องคืน questions ไม่น้อยกว่า ${expectCount} รายการ และถ้าเห็นข้อมากกว่านั้น ให้คืนมาให้ครบทุกข้อที่เห็น — ห้ามหยุดที่ ${expectCount}${rangeNote}` : ''}${forcedCat0 ? `\n\n**บังคับใช้แทนกฎข้อ 5:** category[0] ของทุกข้อต้องเป็น "${forcedCat0}" เท่านั้น — คัดลอกตรงเป๊ะ ห้ามเปลี่ยน` : ''}${buildAllowedTopicsBlock(allowedCats)}${pageNote ? '\n' + pageNote : ''}${additionalPrompt ? '\n' + additionalPrompt : ''}`;
+   ต้องคืน questions ไม่น้อยกว่า ${expectCount} รายการ และถ้าเห็นข้อมากกว่านั้น ให้คืนมาให้ครบทุกข้อที่เห็น — ห้ามหยุดที่ ${expectCount}${rangeNote}` : ''}${forcedCat0 ? `\n\n**บังคับใช้แทนกฎข้อ 5:** category[0] ของทุกข้อต้องเป็น "${forcedCat0}" เท่านั้น — คัดลอกตรงเป๊ะ ห้ามเปลี่ยน` : ''}${buildClinicalBlock(clinicalOpts, forcedCat0)}${buildAllowedTopicsBlock(allowedCats)}${pageNote ? '\n' + pageNote : ''}${additionalPrompt ? '\n' + additionalPrompt : ''}`;
 
     return prompt;
 }
