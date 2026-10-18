@@ -2250,44 +2250,37 @@ async function addVectorFallbackImages() {
 
 function autoMatchByPage() {
     const requireImgRows = converterStorage.ques
-        .map((row, i) => ({ rowIndex: i, pageHint: pageHintMap.get(i) || null, problem: row[1] }))
+        .map((row, i) => ({ rowIndex: i, pageHint: pageHintMap.get(i) || null, problem: row[1], figureNum: extractFigureNumber(row[1]) }))
         .filter(q => {
             const row = converterStorage.ques[q.rowIndex];
-            return row && String(row[2]).trim() === 'require_img';
+            return row && String(row[2]).trim() === 'require_img' && !imgAssignments.has(q.rowIndex);
         });
 
-    if (requireImgRows.length === 0 || extractedImages.length === 0) return;
-
-    requireImgRows.forEach(q => {
-        if (imgAssignments.has(q.rowIndex)) return; // already assigned
-        // Edit 5: รูปประดับ (โผล่หลายหน้า) ไม่ถูก auto-match — ผู้ใช้ยังเลือกเองได้จากถาดรูปประดับ
-        const unassigned = extractedImages.filter(img => img.assignedTo == null && !img.decorative);
-        if (unassigned.length === 0) return;
-
-        let match = null;
-        const figNum = extractFigureNumber(q.problem);
-        if (figNum != null && q.pageHint != null) {
-            match = unassigned.find(img => img.page === q.pageHint && img.figureOrdinal === figNum);
-        }
-        if (!match) match = unassigned.find(img => img.page === q.pageHint);
-        if (!match && q.pageHint != null) {
-            match = unassigned.sort((a, b) =>
-                Math.abs(a.page - q.pageHint) - Math.abs(b.page - q.pageHint)
-            )[0];
-        }
-        if (!match) match = unassigned[0];
-
-        if (match) {
-            match.assignedTo = q.rowIndex;
-            const arr = imgAssignments.get(q.rowIndex) || [];
-            arr.push({ base64: match.base64, fileId: null, url: null, status: 'Waiting', page: match.page });
-            imgAssignments.set(q.rowIndex, arr);
-        }
+    // T2.5: auto เฉพาะ 1 รูป ↔ 1 แถวต่อหน้า — กรณีกำกวมไม่ assign, ส่งเข้า imageMatchManifest ให้คนตรวจ
+    const plan = planImageMatches(requireImgRows, extractedImages, window._pdfFile && window._pdfFile.name);
+    imageMatchManifest = plan.manifest;
+    plan.auto.forEach(({ rowIndex, imgIndex }) => {
+        const match = extractedImages[imgIndex];
+        match.assignedTo = rowIndex;
+        const arr = imgAssignments.get(rowIndex) || [];
+        arr.push({ base64: match.base64, fileId: null, url: null, status: 'Waiting', page: match.page });
+        imgAssignments.set(rowIndex, arr);
     });
 
     renderImageTray();
     renderPreviewWithBadges();
     updateSaveButtonState();
+}
+
+// Phase 5 manifest (เคสกำกวมจาก autoMatchByPage) — runner/ผู้ใช้เรียกดาวน์โหลดเป็น manifest.jsonl
+let imageMatchManifest = [];
+function downloadImageManifest() {
+    const blob = new Blob([imageMatchManifest.map(c => JSON.stringify(c)).join('\n') + '\n'], { type: 'application/x-ndjson' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'manifest.jsonl';
+    a.click();
+    URL.revokeObjectURL(a.href);
 }
 
 // ─── renderPreview with require_img badges ────────────────────────────────
