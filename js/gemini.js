@@ -665,7 +665,8 @@ function stripExplainIntro(explain) {
 // "xx" แทนปีที่ไม่ทราบ (เช่น COMMED2_xxMCQ1) — ถือว่าถูกรูปแบบ ไม่ต้องเตือน
 function validateCategoryFormat(questions) {
     if (!Array.isArray(questions) || questions.length === 0) return;
-    const pattern = /^\w+_(?:\d{2}|xx)[A-Z]+\d*$/; // SubjectCode_YearGroup format
+    // + clinic MED4_49MCQ_ROTE / compre COMPRE1_49MCQ_SET1 / NL NL2_2009R1
+    const pattern = /^(?:\w+_(?:\d{2}|xx)[A-Z]+\d*(?:_(?:ROT[A-Z]+|SET\d+))?|NL\d_\d{4}R\d)$/;
     const malformed = [];
     questions.forEach((q, i) => {
         if (Array.isArray(q.category) && q.category[0] && !pattern.test(q.category[0])) {

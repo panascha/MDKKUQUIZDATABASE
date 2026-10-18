@@ -520,6 +520,9 @@ function processAll(idMode) {
                 // ห้ามสร้างแถว Category/Structure ให้ ไม่งั้นได้กลุ่ม "SUBJ Uncategorized" ค้างในตาราง Structure
                 if (/_Uncategorized$/.test(String(catKey))) return;
                 if (categoryRows.some(row => row[0] === catKey)) return;
+                // มีหมวดนี้ในระบบแล้ว (เช่นแถว clinic/NL ที่ T0.3 สร้างไว้) → ห้ามสร้างแถวซ้ำ
+                // ไม่งั้น MED4_49MCQ_ROTE ถูกแยกตามกฎข้อ 2 ได้กลุ่มผี "MED4 49MCQ"
+                if (Array.isArray(globalData.category) && globalData.category.some(c => String(c.CategoryID) === catKey)) return;
 
                 const parts = catKey.split('_');
                 let groupName = "";
@@ -1356,10 +1359,11 @@ function getClinicParse(filename) {
 // คืน { group, forced } — forced=true คือให้ทับ category[0] ที่ Gemini เขียนมา
 function getEffectiveExamGroup(filename) {
     const picked = (typeof getPickedExamGroup === 'function') ? getPickedExamGroup() : '';
-    if (picked) return { group: picked, forced: true };
-
     // ไฟล์ Clinic/NL/Compre → กลุ่มจาก clinic-ids.js (รุ่น+tier+rotation) — ใช้เมื่อวิชาตรงกับที่เลือกไว้เท่านั้น
     const clinic = getClinicParse(filename);
+    // ชิปที่ระบบเดาเอง (.suggested จากข้อความ PDF เช่น "MCQ"/"LAB") ห้ามทับชื่อไฟล์ clinic/NL — ไม่งั้น rotation/ปีหาย
+    const autoPicked = picked && !!document.querySelector('#conv-group-picker .conv-chip.active.suggested');
+    if (picked && !(clinic && autoPicked)) return { group: picked, forced: true };
     if (clinic) return { group: clinic.group, forced: true, clinic };
 
     const guessed = (typeof parseFilenameMetadata === 'function' && filename)
@@ -1601,7 +1605,8 @@ async function handlePDFFile(file) {
     checkFilenameConflict();
 
     // Edit 3: auto-detect กลุ่มข้อสอบ + รุ่น จากข้อความหน้าแรกๆ (suggest-only, ไม่บล็อกการโหลด)
-    detectExamMeta(currentPdfDoc).then(meta => {
+    // ไฟล์ clinic/NL ที่แกะรหัสได้ครบ → ชื่อไฟล์ชนะเสมอ ข้ามการเดากลุ่มจากข้อความ
+    if (!(clinicMeta && clinicMeta.categoryId)) detectExamMeta(currentPdfDoc).then(meta => {
         if (meta.type) applyDetectedGroup(meta.type);
         applyDetectedBatch(meta.batch, 'เนื้อหาในไฟล์'); // ช่องว่างอยู่เท่านั้นถึงจะเติม
     });
