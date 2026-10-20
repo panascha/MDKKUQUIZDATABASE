@@ -44,7 +44,10 @@ async function extractPageText(pdfDoc, pageNum) {
 // จึงแยกเป็นหลาย run: เลข 1 เปิด run ใหม่ เลขที่ต่อได้ให้ run ล่าสุดที่รอเลขนั้นอยู่
 // นับเฉพาะ run ที่ยาว ≥ CONV_MIN_SECTION_Q — กันรายการ 1-5 ในตัวเลือก/ข้อย่อยถูกนับเป็นตอนใหม่
 // ไม่มี run ไหนถึงเกณฑ์ → ใช้ run ที่ยาวสุด (พฤติกรรมเดิมของไฟล์ตอนเดียว)
+// ต่อ run ได้เฉพาะเลขที่อยู่ห่างจากข้อล่าสุดของ run ≤ CONV_SECTION_MAX_PAGE_GAP หน้า — กันเลขขยะ ("2." ในบรรทัด Ans)
+// ร้อยข้ามไฟล์ 9-34 หน้าจนกลายเป็นตอนปลอม (เคส MD49 ENT Spot/OSCE); ข้อจริงห่างกันได้ถึง 4 หน้า (หน้ารูปคั่น, Research MD50)
 const CONV_MIN_SECTION_Q = 10;
+const CONV_SECTION_MAX_PAGE_GAP = 5;
 
 // คืน { expected, contentPages, perPage, items, sections } — expected = 0 แปลว่านับไม่ได้ ให้ข้ามการตรวจไปเลย
 // items: [{ n, page, section }] เลขข้อที่นับ ตามลำดับการอ่าน (ใช้หาเลขข้อแรกของแต่ละชุด)
@@ -61,7 +64,10 @@ async function detectQuestionCount(pdfDoc) {
     const runs = [];
     for (const c of candidates) {
         let run = null;
-        for (let r = runs.length - 1; r >= 0; r--) if (runs[r].expect === c.n) { run = runs[r]; break; }
+        for (let r = runs.length - 1; r >= 0; r--) {
+            const rr = runs[r];
+            if (rr.expect === c.n && c.page - rr.items[rr.items.length - 1].page <= CONV_SECTION_MAX_PAGE_GAP) { run = rr; break; }
+        }
         if (!run && c.n === 1) { run = { expect: 1, items: [] }; runs.push(run); }
         if (!run) continue;
         run.items.push(c);
