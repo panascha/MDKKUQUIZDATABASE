@@ -38,7 +38,16 @@ async function extractPageText(pdfDoc, pageNum) {
 // ยอมให้นับขาดดีกว่านับเกิน เพราะนับเกิน = เตือน "ข้อหาย" ทั้งที่ครบ (false alarm) ซึ่งแย่กว่า
 // จงใจไม่ใส่ gap tolerance ด้วยเหตุผลเดียวกัน — เลขขยะอาจกระโดดข้าม counter ไปทำให้นับเกินได้
 //
-// คืน { expected, contentPages, perPage } — expected = 0 แปลว่านับไม่ได้ ให้ข้ามการตรวจไปเลย
+// ไฟล์หลายตอน (Spot 1-29 แล้ว MCQ 1-74, หรือข้อสอบหลายชุดในไฟล์เดียว) เลขข้อเริ่ม 1 ใหม่ — เดิมนับแค่ run แรก
+// ตอนหลังถูกนับเป็น 0 ข้อ/หน้า → ถูกยัดรวมชุดเดียวกับหน้าอื่นพร้อม prompt "เริ่มข้อ 26 อย่างน้อย 4 ข้อ" โมเดลจึงคืนแค่นั้น
+// (เคสจริง 2026-10-20: MD50_C_ENT_MCQ ข้อ MCQ 1-23 หายทั้งช่วง)
+// จึงแยกเป็นหลาย run: เลข 1 เปิด run ใหม่ เลขที่ต่อได้ให้ run ล่าสุดที่รอเลขนั้นอยู่
+// นับเฉพาะ run ที่ยาว ≥ CONV_MIN_SECTION_Q — กันรายการ 1-5 ในตัวเลือก/ข้อย่อยถูกนับเป็นตอนใหม่
+// ไม่มี run ไหนถึงเกณฑ์ → ใช้ run ที่ยาวสุด (พฤติกรรมเดิมของไฟล์ตอนเดียว)
+const CONV_MIN_SECTION_Q = 10;
+
+// คืน { expected, contentPages, perPage, items, sections } — expected = 0 แปลว่านับไม่ได้ ให้ข้ามการตรวจไปเลย
+// items: [{ n, page, section }] เลขข้อที่นับ ตามลำดับการอ่าน (ใช้หาเลขข้อแรกของแต่ละชุด)
 async function detectQuestionCount(pdfDoc) {
     const candidates = [];
     for (let p = 1; p <= pdfDoc.numPages; p++) {
@@ -49,15 +58,27 @@ async function detectQuestionCount(pdfDoc) {
         while ((m = re.exec(text)) !== null) candidates.push({ n: parseInt(m[1], 10), page: p });
     }
 
-    let expect = 1;
-    const perPage = new Map();
+    const runs = [];
     for (const c of candidates) {
-        if (c.n !== expect) continue;
-        perPage.set(c.page, (perPage.get(c.page) || 0) + 1);
-        expect++;
+        let run = null;
+        for (let r = runs.length - 1; r >= 0; r--) if (runs[r].expect === c.n) { run = runs[r]; break; }
+        if (!run && c.n === 1) { run = { expect: 1, items: [] }; runs.push(run); }
+        if (!run) continue;
+        run.items.push(c);
+        run.expect++;
     }
+    let counted = runs.filter(r => r.items.length >= CONV_MIN_SECTION_Q);
+    if (counted.length === 0 && runs.length > 0) counted = [runs.reduce((a, b) => (b.items.length > a.items.length ? b : a))];
 
-    return { expected: expect - 1, contentPages: perPage.size, perPage };
+    // เรียงตามลำดับการอ่าน — run ต่างตอนอาจสลับหน้ากันได้ (ไฟล์ Spot/OSCE ปนกัน)
+    const order = new Map(candidates.map((c, i) => [c, i]));
+    const items = [];
+    counted.forEach((r, s) => r.items.forEach(c => items.push({ n: c.n, page: c.page, section: s, at: order.get(c) })));
+    items.sort((a, b) => a.at - b.at);
+    const perPage = new Map();
+    items.forEach(it => perPage.set(it.page, (perPage.get(it.page) || 0) + 1));
+
+    return { expected: items.length, contentPages: perPage.size, perPage, items, sections: counted.length };
 }
 
 // Returns an array of batch descriptors [{start, end}].

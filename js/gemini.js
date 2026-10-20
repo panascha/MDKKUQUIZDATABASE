@@ -761,13 +761,14 @@ function expectedForBatch(detected, batch) {
     return n;
 }
 
-// เลขข้อแรกของชุดนี้ — detectQuestionCount รับเฉพาะเลขที่ไล่ 1,2,3,… จึงเท่ากับ 1 + จำนวนข้อในหน้าก่อนหน้า
-// 0 = นับไม่ได้ (ไม่ใส่ช่วงเลขข้อใน prompt)
+// เลขข้อแรก (ตามที่พิมพ์ใน PDF) ของชุดนี้ — ใช้ใน prompt "ชุดนี้เริ่มที่ข้อ X ไปถึงอย่างน้อย X+N-1"
+// 0 = นับไม่ได้ หรือชุดคร่อมหลายตอน (เลขเริ่ม 1 ใหม่กลางชุด) — ช่วงเลขต่อเนื่องใช้ไม่ได้ ไม่ใส่ช่วงเลขข้อใน prompt
 function firstQuestionForBatch(detected, batch) {
-    if (!detected || !detected.perPage || detected.expected <= 0) return 0;
-    let before = 0;
-    for (let p = 1; p < batch.start; p++) before += (detected.perPage.get(p) || 0);
-    return before + 1;
+    if (!detected || !detected.items || detected.expected <= 0) return 0;
+    const inBatch = detected.items.filter(it => it.page >= batch.start && it.page <= batch.end);
+    if (inBatch.length === 0) return 0;
+    if (inBatch.some(it => it.section !== inBatch[0].section)) return 0;
+    return inBatch[0].n;
 }
 
 // error ที่ทำชุดถัดไปต่อไม่มีประโยชน์ — ข้อความจาก router-doPost.gs convertPdfBatch (session / rate limit / ไม่มี key)
@@ -1123,7 +1124,8 @@ async function runGeminiConversionInner(file, filename) {
     // ถ้ายังขาด แปลว่าโมเดลออกข้อไม่ครบ (ไม่ใช่แค่ถูกตัด) — ต้องบอกผู้ใช้ ห้ามรายงานว่าสำเร็จเฉย ๆ
     const missing = detected.expected > 0 ? Math.max(0, detected.expected - allQuestions.length) : 0;
     // เลขข้อขาดช่วง — จับเคสที่ "จำนวนรวมถึงเกณฑ์" แต่ข้อตรงกลางหาย (โมเดลข้ามข้อ/ออกซ้ำ)
-    const numberGaps = findQuestionNumberGaps(allQuestions, detected.expected);
+    // หลายตอน: expected เป็นผลรวมทุกตอน ไม่ใช่เลขข้อสูงสุด — ห้ามใช้ขยายขอบบน (จะได้ช่องโหว่ปลอมท้ายไฟล์)
+    const numberGaps = findQuestionNumberGaps(allQuestions, detected.sections > 1 ? 0 : detected.expected);
     if (numberGaps.length > 0) {
         convDiagnostics.push({ label: 'number-gaps', missingNumbers: numberGaps });
         console.warn(`⚠️ ตรวจพบข้อสอบตกหล่น: ข้อ ${numberGaps.join(', ')} หายไป`);
