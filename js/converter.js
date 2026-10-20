@@ -1069,6 +1069,7 @@ async function importConvertedData() {
             let totalNew = 0;
             let totalSkipped = 0;
             let importLog = "";
+            const failedSheets = []; // adminImport ที่ตอบไม่ success
             const sheetStats = {}; // key -> { added, updated, count, skipped }
 
             // ข้อที่ยัง Uncategorized — หมวดนี้ไม่ถูกสร้างใน Category/Structure (registerCategoryAndStructure)
@@ -1120,12 +1121,28 @@ async function importConvertedData() {
                                 importLog += `• ${sheet.name}: ${addedLine}\n`;
                             } else {
                                 console.error(`Error importing ${sheet.name}:`, resJson.message);
+                                failedSheets.push(`${sheet.name}: ${resJson.message || 'ไม่ทราบสาเหตุ'}`);
                             }
                         } catch (fetchErr) {
                             console.error(`Error importing ${sheet.name}:`, fetchErr);
                             throw fetchErr;
                         }
                     }
+                }
+
+                // import ล้ม/ไม่มีแถวเข้า sheet → ห้ามโชว์ "นำเข้าข้อมูลเสร็จสิ้น" และไม่ล้าง storage (ให้กดนำเข้าใหม่ได้)
+                if (failedSheets.length || totalNew === 0) {
+                    $('#loading-overlay').hide();
+                    Swal.fire({
+                        icon: failedSheets.length ? 'error' : 'warning',
+                        title: failedSheets.length ? 'นำเข้าข้อมูลไม่สำเร็จ' : 'ไม่มีข้อมูลถูกนำเข้า',
+                        html: `<div style="text-align:left; white-space:pre-line;">${
+                            failedSheets.length
+                                ? 'Sheet ที่ล้มเหลว:\n' + failedSheets.map(s => '• ' + s).join('\n')
+                                : 'ระบบตอบกลับ 0 แถว'
+                        }${importLog ? '\n\nสำเร็จบางส่วน:\n' + importLog : ''}</div>`
+                    });
+                    return;
                 }
 
                 // Task 6: ข้อที่ยังต้องมีรูปแต่ไม่มีอยู่ดี — เก็บไว้ก่อน storage จะถูกล้างใน handleSaveResult
