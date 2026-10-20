@@ -145,6 +145,7 @@ function saveConverterEdit() {
     row[4] = answer;
     row[5] = stripDelimiter(document.getElementById('conv-edit-explain').value.trim());
     row[6] = JSON.stringify(cats);
+    spRefreshConverterFields(); // จำนวนหัวข้อเปลี่ยน → เปิด/ปิดช่องลิงก์ PDF ต้นฉบับ
 
     _convEditModal().hide();
     renderPreview();      // สถานะ EXISTING→UPDATED คำนวณใหม่ทันที

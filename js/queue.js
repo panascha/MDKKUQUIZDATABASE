@@ -200,6 +200,7 @@ async function startUploadQueue(onProgress) {
 function updateSaveButtonState() {
     const btn = document.getElementById('btn-upload-and-save');
     if (!btn) return;
+    spRefreshConverterFields(); // ช่องลิงก์ PDF ต้นฉบับ (source-pdf.js) ตามจำนวนหัวข้อปัจจุบัน
 
     // ไม่มีข้อมูลที่แปลง/พาสต์ไว้เลย — ล็อกปุ่มเสมอ ไม่ว่าจะอยู่ state อื่นยังไง (item 1)
     if (!converterStorage.ques || converterStorage.ques.length === 0) {

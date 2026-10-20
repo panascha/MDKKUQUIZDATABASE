@@ -737,6 +737,7 @@ function applyCatSuggestion(i, newCatId) {
     while (cats.length < 2) cats.push(cats[0] || '');
     cats[1] = newCatId;
     row[6] = JSON.stringify(cats);
+    spRefreshConverterFields(); // จำนวนหัวข้อเปลี่ยน → เปิด/ปิดช่องลิงก์ PDF ต้นฉบับ
     saveCheckpoint();
 }
 
@@ -1144,6 +1145,8 @@ async function importConvertedData() {
                     });
                     return;
                 }
+
+                await spSaveConverterLinks(); // D9: ลิงก์ PDF ต้นฉบับ — ส่งหลัง adminImport สำเร็จ ก่อน storage ถูกล้าง
 
                 // Task 6: ข้อที่ยังต้องมีรูปแต่ไม่มีอยู่ดี — เก็บไว้ก่อน storage จะถูกล้างใน handleSaveResult
                 const requireImgRemaining = (converterStorage.ques || [])

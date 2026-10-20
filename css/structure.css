@@ -139,6 +139,13 @@
             box-shadow: 0 2px 8px rgba(46, 125, 50, 0.2);
         }
 
+        .btn-src { background: #f1f3f9; color: #555; position: relative; }
+        .btn-src.has-files { background: #fff3cd; }
+        .btn-src .src-badge {
+            position: absolute; top: -5px; right: -5px; min-width: 14px; height: 14px; padding: 0 3px;
+            border-radius: 7px; background: #2e7d32; color: #fff; font-size: 0.6rem; line-height: 14px; text-align: center;
+        }
+
         .btn-edit {
             background: #e3f2fd;
             color: #1565c0;

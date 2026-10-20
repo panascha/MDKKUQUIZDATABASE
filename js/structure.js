@@ -234,7 +234,7 @@ function renderSubjectDetail(subjectID) {
                     <th style="width:165px">Category ID</th>
                     <th>ชื่อหัวข้อ</th>
                     <th style="width:64px" class="text-end">ข้อ</th>
-                    <th style="width:72px" class="text-end">จัดการ</th>
+                    <th style="width:110px" class="text-end">จัดการ</th>
                 </tr></thead>
                 <tbody>`;
 
@@ -247,8 +247,11 @@ function renderSubjectDetail(subjectID) {
                     <td class="struct-cat-name">${escapeHtml(cat.CategoryName)}</td>
                     <td class="text-end"><span class="struct-q-count${n ? '' : ' zero'}">${n}</span></td>
                     <td class="text-end" style="white-space:nowrap">
+                        <div class="d-inline-flex align-items-center gap-1">
+                        <button class="btn-node btn-src${spCount(cat) ? ' has-files' : ''}" data-crud="srcPdf" data-id1="${escapeHtml(cat.CategoryID)}" title="PDF ต้นฉบับ (ข้อสอบ/เฉลย)">📎${spCount(cat) ? `<span class="src-badge">${spCount(cat)}</span>` : ''}</button>
                         <button class="btn-node btn-edit" data-crud="editCat" data-id1="${escapeHtml(cat.CategoryID)}" title="แก้ไข"><i class="fas fa-pen"></i></button>
                         <button class="btn-node btn-delete" data-crud="deleteCat" data-id1="${escapeHtml(cat.CategoryID)}" title="ลบ"><i class="fas fa-trash"></i></button>
+                        </div>
                     </td>
                 </tr>`;
         });
@@ -476,6 +479,10 @@ async function crudAction(type, id1, id2) {
                     payload.action = 'deleteCategory';
                     payload.data = { CategoryID: id1 };
                 }
+                break;
+
+            case 'srcPdf':
+                await openSourcePdfModal(id1); // บันทึกเองใน source-pdf.js (ไม่ผ่าน payload ด้านล่าง)
                 break;
 
             case 'editCat':
