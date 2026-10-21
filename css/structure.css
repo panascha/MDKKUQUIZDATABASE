@@ -600,6 +600,18 @@
         .struct-pdf-badge.off { background: #f1f3f9; color: #adb5bd; }
         tr.struct-row-empty td { background: #fff8e6; }
 
+        /* Tab 3: Category Health & Audit */
+        .health-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 12px 0; }
+        .health-kpi { background: #f8f9fc; border: 1px solid #e3e6f0; border-radius: 8px; padding: 10px 14px; }
+        .health-kpi.warn { background: #fff8e6; border-color: #f6d98a; }
+        .health-kpi-label { font-size: 0.78rem; color: #6c757d; }
+        .health-kpi-num { font-size: 1.6rem; font-weight: 700; color: #3a3b45; line-height: 1.2; }
+        .health-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+        .health-toolbar .form-select { width: auto; max-width: 220px; }
+        .health-pdf-badge { border: none; cursor: pointer; }
+        .health-pdf-badge.off { background: #fde8e8; color: #b02a37; }
+        .health-table td { vertical-align: middle; }
+
         @media (max-width: 767px) {
             .struct-year-group { display: flex; flex: 0 0 auto; }
             .struct-year-header { position: static; flex: 0 0 auto; border-bottom: none; border-right: 1px solid #e3e6f0; }

@@ -211,7 +211,142 @@ function renderStructureTree(filterSubjectID = "") {
     </div>`);
     initStructureResize();
     if (term) { $('#struct-cat-search').val(term); applyStructSearch(); }
+    renderHealthAudit(); // จุดเดียวที่ refresh แท็บ Health — ลบ/บันทึก PDF/sync ล้วนผ่านฟังก์ชันนี้
 }
+
+// ── Tab 3: Category Health & Audit ───────────────────
+let _healthFilter = 'all'; // all | empty | nopdf | ai
+let _healthYear = '';
+let _healthSubject = '';
+let _healthLimit = 200;
+const HEALTH_PAGE = 200;
+
+// กฎเดียวกับ categorizer.js (หัวข้อที่ไม่ใช่ข้อสอบจริง — ไม่ต้องมี PDF ต้นฉบับ)
+function healthIsExamType(cat) {
+    const group = String(cat.AccordionGroup || '').toUpperCase();
+    const name = String(cat.CategoryName || '').toUpperCase();
+    return !(group.includes('LEC') || group.includes('BY AI') || group.includes('(EXTRACTED)') ||
+        name.includes('MODULE') || name.includes('COMMED'));
+}
+function healthIsAi(cat) {
+    return /BY AI|EXTRACTED/i.test(`${cat.AccordionGroup || ''} ${cat.CategoryID || ''}`);
+}
+
+function healthCollect(qCounts) {
+    const subjMap = new Map();
+    (globalData.structure || []).forEach(s => { if (!subjMap.has(s.SubjectID)) subjMap.set(s.SubjectID, s); });
+    const seen = new Set();
+    const rows = [];
+    (globalData.category || []).forEach(c => {
+        if (!c.CategoryID || seen.has(c.CategoryID)) return;
+        seen.add(c.CategoryID);
+        const subj = subjMap.get(c.SubjectRef);
+        const n = qCounts.get(c.CategoryID) || 0;
+        const hasExam = spGetIds(c, 'exam').length > 0;
+        const hasKey = spGetIds(c, 'key').length > 0;
+        rows.push({
+            cat: c, subj, n, hasExam, hasKey,
+            yk: structYearKey(subj ? subj.Year : ''),
+            empty: n === 0,
+            nopdf: healthIsExamType(c) && !(hasExam && hasKey),
+            ai: healthIsAi(c)
+        });
+    });
+    return { rows, subjMap };
+}
+
+function renderHealthAudit() {
+    const box = document.getElementById('struct-health-body');
+    if (!box) return;
+    const { rows, subjMap } = healthCollect(structCategoryCounts());
+
+    // KPI (นับทั้งหมด ไม่ขึ้นกับตัวกรอง)
+    $('#health-kpi-total').text(rows.length);
+    $('#health-kpi-empty').text(rows.filter(r => r.empty).length);
+    $('#health-kpi-nopdf').text(rows.filter(r => r.nopdf).length);
+    $('#health-kpi-ai').text(rows.filter(r => r.ai).length);
+
+    // ตัวเลือกปี/วิชา (วิชาแคบตามปีที่เลือก)
+    const yearKeys = [...new Set(rows.map(r => r.yk))].sort((a, b) => structYearOrder(a) - structYearOrder(b));
+    if (_healthYear && !yearKeys.includes(_healthYear)) _healthYear = '';
+    $('#health-year').html('<option value="">ทุกชั้นปี</option>' +
+        yearKeys.map(k => `<option value="${escapeHtml(k)}">${escapeHtml(structYearLabel(k))}</option>`).join('')).val(_healthYear);
+    const subjIds = [...new Set(rows.filter(r => !_healthYear || r.yk === _healthYear).map(r => r.cat.SubjectRef))].sort();
+    if (_healthSubject && !subjIds.includes(_healthSubject)) _healthSubject = '';
+    $('#health-subject').html('<option value="">ทุกวิชา</option>' +
+        subjIds.map(id => {
+            const s = subjMap.get(id);
+            return `<option value="${escapeHtml(id)}">${escapeHtml(id)}${s && s.SubjectName ? ' — ' + escapeHtml(s.SubjectName) : ''}</option>`;
+        }).join('')).val(_healthSubject);
+    $('#health-filter-btns [data-hfilter]').each(function () {
+        $(this).toggleClass('active', $(this).attr('data-hfilter') === _healthFilter);
+    });
+
+    // กรอง + เรียง: ว่างก่อน → ขาด PDF → ที่เหลือ
+    const rank = r => r.empty ? 0 : r.nopdf ? 1 : 2;
+    const list = rows.filter(r =>
+        (_healthFilter === 'all' || r[_healthFilter]) &&
+        (!_healthYear || r.yk === _healthYear) &&
+        (!_healthSubject || r.cat.SubjectRef === _healthSubject)
+    ).sort((a, b) => rank(a) - rank(b) ||
+        String(a.cat.SubjectRef).localeCompare(String(b.cat.SubjectRef)) ||
+        String(a.cat.CategoryID).localeCompare(String(b.cat.CategoryID)));
+
+    const shown = list.slice(0, _healthLimit);
+    const badge = (on, cls, icon, txt, id) =>
+        `<button type="button" class="struct-pdf-badge ${cls} ${on ? 'on' : 'off'} health-pdf-badge" data-crud="srcPdf" data-id1="${id}" title="${on ? 'แก้ไขลิงก์ PDF' : 'วางลิงก์ Drive'}"><i class="fas ${icon}"></i> ${txt}</button>`;
+    let html = shown.length ? `<div class="table-responsive"><table class="table table-sm align-middle health-table">
+        <thead><tr><th>วิชา</th><th>กลุ่ม</th><th>หัวข้อ / ID</th><th class="text-end">ข้อ</th><th>PDF</th><th class="text-end">จัดการ</th></tr></thead><tbody>` : '';
+    shown.forEach(r => {
+        const id = escapeHtml(r.cat.CategoryID);
+        html += `<tr${r.empty ? ' class="struct-row-empty"' : ''}>
+            <td><span class="struct-subj-badge">${escapeHtml(r.cat.SubjectRef)}</span></td>
+            <td>${escapeHtml(r.cat.AccordionGroup) || 'GENERAL'}</td>
+            <td><div class="struct-cat-name">${escapeHtml(r.cat.CategoryName)}</div><span class="struct-cat-id">${id}</span></td>
+            <td class="text-end"><span class="struct-q-count${r.empty ? ' zero' : ''}">${r.n}</span>${r.empty ? ' <span class="badge bg-warning text-dark"><i class="fas fa-triangle-exclamation"></i> 0 ข้อ</span>' : ''}</td>
+            <td style="white-space:nowrap">${badge(r.hasExam, 'exam', 'fa-file-pdf', 'Exam', id)} ${badge(r.hasKey, 'key', 'fa-key', 'Key', id)}</td>
+            <td class="text-end" style="white-space:nowrap"><div class="d-inline-flex gap-1">
+                <button class="btn-node btn-src" data-crud="srcPdf" data-id1="${id}" title="PDF ต้นฉบับ (ข้อสอบ/เฉลย)"><i class="fas fa-paperclip"></i></button>
+                ${r.empty ? `<button class="btn btn-sm btn-outline-danger" data-crud="deleteCat" data-id1="${id}" title="ลบหัวข้อ"><i class="fas fa-trash"></i> Delete Category</button>` : ''}
+            </div></td></tr>`;
+    });
+    if (shown.length) html += `</tbody></table></div>`;
+    else html = `<div class="struct-empty text-muted small py-3 text-center">ไม่พบหัวข้อตามตัวกรองนี้</div>`;
+    if (list.length > shown.length) {
+        html += `<div class="text-center my-2"><button type="button" class="btn btn-sm btn-outline-secondary" id="health-more">แสดงเพิ่ม (${shown.length} / ${list.length})</button></div>`;
+    }
+    $('#health-count').text(`${list.length} หัวข้อ`);
+    box.innerHTML = html;
+}
+
+$(document).on('click', '#health-filter-btns [data-hfilter]', function () {
+    _healthFilter = $(this).attr('data-hfilter');
+    _healthLimit = HEALTH_PAGE;
+    renderHealthAudit();
+});
+$(document).on('change', '#health-year', function () {
+    _healthYear = this.value; _healthSubject = ''; _healthLimit = HEALTH_PAGE;
+    renderHealthAudit();
+});
+$(document).on('change', '#health-subject', function () {
+    _healthSubject = this.value; _healthLimit = HEALTH_PAGE;
+    renderHealthAudit();
+});
+$(document).on('click', '#health-more', function () {
+    _healthLimit += HEALTH_PAGE;
+    renderHealthAudit();
+});
+// ปุ่มในตาราง Health: ค่าจากชีตอยู่ใน data-* → crudAction (ลบ: นับซ้ำก่อน ถ้าไม่ว่างแล้วให้ปฏิเสธ)
+$(document).on('click', '#struct-pane-health [data-crud]', async function () {
+    const type = $(this).attr('data-crud');
+    const id = $(this).attr('data-id1');
+    if (type === 'deleteCat' && (structCategoryCounts().get(id) || 0) > 0) {
+        Swal.fire('ลบไม่ได้', `หัวข้อ ${id} มีข้อสอบแล้ว — ไม่ใช่หัวข้อว่าง`, 'warning');
+        renderHealthAudit();
+        return;
+    }
+    await crudAction(type, id);
+});
 
 function initStructureResize() {
     if (window.innerWidth < 1024) return;
