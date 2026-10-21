@@ -589,14 +589,17 @@
                             <button class="btn btn-primary btn-sm" onclick="crudAction('addCat')">
                                 <i class="fas fa-plus"></i> Add Category
                             </button>
-                            <button class="btn btn-outline-success btn-sm ms-1" onclick="toggleBulkImport()">
-                                <i class="fas fa-file-import"></i> Bulk Import Topics
-                            </button>
                         </div>
                     </div>
+                    <div class="struct-tabs" role="tablist">
+                        <button type="button" class="struct-tab active" data-struct-tab="explorer" role="tab"><i class="fas fa-map me-1"></i>Curriculum Explorer</button>
+                        <button type="button" class="struct-tab" data-struct-tab="import" role="tab"><i class="fas fa-file-import me-1"></i>Bulk Import Topics</button>
+                        <button type="button" class="struct-tab" data-struct-tab="health" role="tab"><i class="fas fa-stethoscope me-1"></i>Category Health &amp; Audit</button>
+                    </div>
                     <div class="card-body">
+                    <div id="struct-pane-import" class="struct-pane" hidden>
                         <!-- Bulk Import Panel -->
-                        <div id="bulk-import-panel" style="display:none;" class="border rounded p-3 mb-4 bg-light">
+                        <div id="bulk-import-panel" class="border rounded p-3 mb-4 bg-light">
                             <h6 class="fw-bold mb-3"><i class="fas fa-file-import me-2 text-success"></i>Bulk Import Lecture Topics</h6>
                             <div class="row g-2 mb-2">
                                 <div class="col-md-3">
@@ -626,6 +629,20 @@
                             </div>
                             <div id="bulk-preview-area" class="mt-3"></div>
                         </div>
+                    </div>
+                    <div id="struct-pane-explorer" class="struct-pane">
+                        <div id="struct-year-chips" class="struct-chips">
+                            <button type="button" class="chip active" data-year="all">ทั้งหมด</button>
+                            <button type="button" class="chip" data-year="1">ปี 1</button>
+                            <button type="button" class="chip" data-year="2">ปี 2</button>
+                            <button type="button" class="chip" data-year="3">ปี 3</button>
+                            <button type="button" class="chip" data-year="4">ปี 4</button>
+                            <button type="button" class="chip" data-year="5">ปี 5</button>
+                            <button type="button" class="chip" data-year="6">ปี 6</button>
+                            <button type="button" class="chip" data-year="NL">NL</button>
+                            <button type="button" class="chip" data-year="123">KKUDQ</button>
+                        </div>
+                        <input type="search" id="struct-global-search" class="form-control form-control-sm mb-2" placeholder="ค้นหา วิชา / กลุ่ม / หัวข้อ..." autocomplete="off">
 
                         <!-- Hidden filter — kept for app.js state management -->
                         <select id="struct-subject-filter" class="d-none" onchange="renderStructureTree(this.value)">
@@ -639,7 +656,7 @@
                             </div>
                         </div>
                     </div>
-                </div>
+                    <div id="struct-pane-health" class="struct-pane" hidden>
                 <!-- CARD: AI Categorize (แยกหัวข้อเลคเชอร์) -->
                 <div class="card card-dashboard mt-3">
                     <div class="card-header-custom">
@@ -727,6 +744,9 @@
                     </div>
                 </div>
                 </details>
+                    </div>
+                    </div>
+                </div>
             </div>
 
             <!-- SECTION: Converter Tool -->

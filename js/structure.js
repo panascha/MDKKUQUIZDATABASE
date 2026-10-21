@@ -58,22 +58,95 @@ function applyStructSearch() {
     $('#struct-search-info').text(term ? `พบ ${shown} / ${total} หัวข้อ` : '');
 }
 
+let _structYearFilter = 'all';
+let _structGlobalTerm = '';
+let _structSearchTimer = null;
+const _collapsedYears = new Set();
+
+function structYearKey(y) {
+    const s = String(y ?? '').trim();
+    if (/^[1-6]$/.test(s)) return s;
+    if (/^nl$/i.test(s)) return 'NL';
+    if (s === '123') return '123';
+    return 'other';
+}
+function structYearLabel(key) {
+    if (/^[1-6]$/.test(key)) return `ปี ${key}`;
+    if (key === 'NL') return 'NL & Compre';
+    if (key === '123') return 'KKUDQ';
+    return 'อื่นๆ';
+}
+function structYearOrder(key) {
+    if (/^[1-6]$/.test(key)) return Number(key);
+    return key === 'NL' ? 7 : key === '123' ? 8 : 9;
+}
+
+function switchStructTab(name) {
+    $('#sec-structure .struct-tab').each(function () {
+        $(this).toggleClass('active', $(this).attr('data-struct-tab') === name);
+    });
+    ['explorer', 'import', 'health'].forEach(n => {
+        const pane = document.getElementById('struct-pane-' + n);
+        if (pane) pane.hidden = n !== name;
+    });
+}
+$(document).on('click', '#sec-structure .struct-tab', function () {
+    switchStructTab($(this).attr('data-struct-tab'));
+});
+$(document).on('click', '#struct-year-chips [data-year]', function () {
+    _structYearFilter = $(this).attr('data-year');
+    $('#struct-year-chips [data-year]').removeClass('active');
+    $(this).addClass('active');
+    renderStructureTree($('#struct-subject-filter').val());
+});
+$(document).on('input', '#struct-global-search', function () {
+    const v = this.value;
+    clearTimeout(_structSearchTimer);
+    _structSearchTimer = setTimeout(() => {
+        _structGlobalTerm = String(v || '').trim().toLowerCase();
+        renderStructureTree($('#struct-subject-filter').val());
+    }, 150);
+});
+$(document).on('click', '#structure-tree-view .struct-year-header', function () {
+    const yk = $(this).attr('data-yk');
+    const grp = $(this).closest('.struct-year-group');
+    if (grp.toggleClass('collapsed').hasClass('collapsed')) _collapsedYears.add(yk); else _collapsedYears.delete(yk);
+});
+
 function renderStructureTree(filterSubjectID = "") {
     const container = $('#structure-tree-view');
     container.empty();
 
     // Deduplicate subjects
-    const uniqueSubjects = [];
+    const allSubjects = [];
     const seenIDs = new Set();
     (globalData.structure || []).forEach(s => {
-        if (!seenIDs.has(s.SubjectID)) { uniqueSubjects.push(s); seenIDs.add(s.SubjectID); }
+        if (!seenIDs.has(s.SubjectID)) { allSubjects.push(s); seenIDs.add(s.SubjectID); }
     });
-    uniqueSubjects.sort((a, b) => {
-        const yr = (a.Year || 0) - (b.Year || 0);
-        return yr !== 0 ? yr : a.SubjectID.localeCompare(b.SubjectID);
+    allSubjects.sort((a, b) => {
+        const yr = structYearOrder(structYearKey(a.Year)) - structYearOrder(structYearKey(b.Year));
+        return yr !== 0 ? yr : String(a.SubjectID).localeCompare(String(b.SubjectID));
     });
 
-    // Resolve which subject to show — explicit param wins, else remember last, else first
+    const qCounts = structCategoryCounts();
+    const term = _structGlobalTerm;
+    const info = new Map(); // SubjectID -> { yk, qTotal }
+    const uniqueSubjects = allSubjects.filter(subj => {
+        const seen = new Set();
+        const cats = (globalData.category || []).filter(c => {
+            if (c.SubjectRef !== subj.SubjectID || seen.has(c.CategoryID)) return false;
+            seen.add(c.CategoryID);
+            return true;
+        });
+        const yk = structYearKey(subj.Year);
+        info.set(subj.SubjectID, { yk, qTotal: cats.reduce((n, c) => n + (qCounts.get(c.CategoryID) || 0), 0) });
+        if (_structYearFilter !== 'all' && yk !== _structYearFilter) return false;
+        if (!term) return true;
+        return `${subj.SubjectID} ${subj.SubjectName || ''}`.toLowerCase().includes(term) ||
+            cats.some(c => `${c.CategoryID} ${c.CategoryName || ''} ${c.AccordionGroup || ''}`.toLowerCase().includes(term));
+    });
+
+    // Resolve which subject to show — explicit param wins, else remember last, else first visible
     let toSelect = filterSubjectID;
     if (!toSelect) toSelect = _selectedSubjectID;
     if (!toSelect || !uniqueSubjects.find(s => s.SubjectID === toSelect)) {
@@ -81,9 +154,21 @@ function renderStructureTree(filterSubjectID = "") {
     }
     _selectedSubjectID = toSelect;
 
-    // ── Left panel: subject list ──────────────────────
+    // ── Left panel: subject list (grouped by year) ────
     let subjectListHTML = '';
+    let curYK = null;
+    const closeGroup = () => { if (curYK !== null) subjectListHTML += `</div>`; };
     uniqueSubjects.forEach(subj => {
+        const yk = info.get(subj.SubjectID).yk;
+        if (yk !== curYK) {
+            closeGroup();
+            curYK = yk;
+            const qSum = uniqueSubjects.filter(s => info.get(s.SubjectID).yk === yk)
+                .reduce((n, s) => n + info.get(s.SubjectID).qTotal, 0);
+            const collapsed = !term && _collapsedYears.has(yk);
+            subjectListHTML += `<div class="struct-year-group${collapsed ? ' collapsed' : ''}">
+            <div class="struct-year-header" data-yk="${escapeHtml(yk)}"><i class="fas fa-chevron-down me-1"></i>${escapeHtml(structYearLabel(yk))} <span class="struct-year-qbadge">${qSum}</span></div>`;
+        }
         const catCount = (globalData.category || []).filter(c => c.SubjectRef === subj.SubjectID).length;
         const isActive = toSelect === subj.SubjectID;
         subjectListHTML += `
@@ -103,9 +188,10 @@ function renderStructureTree(filterSubjectID = "") {
             </div>
         </div>`;
     });
+    closeGroup();
 
     // ── Right panel: detail ───────────────────────────
-    const detailHTML = toSelect ? renderSubjectDetail(toSelect) : `
+    const detailHTML = toSelect ? renderSubjectDetail(toSelect, qCounts) : `
         <div class="struct-empty">
             <i class="fas fa-sitemap fa-2x text-muted mb-3"></i>
             <p class="text-muted">เลือกวิชาทางด้านซ้าย</p>
@@ -124,6 +210,7 @@ function renderStructureTree(filterSubjectID = "") {
         <div class="struct-detail" id="struct-detail-panel">${detailHTML}</div>
     </div>`);
     initStructureResize();
+    if (term) { $('#struct-cat-search').val(term); applyStructSearch(); }
 }
 
 function initStructureResize() {
@@ -167,21 +254,31 @@ function selectSubject(subjectID) {
     $('.struct-subj-item').removeClass('active');
     $('.struct-subj-item').filter(function () { return $(this).attr('data-sid') === String(subjectID); }).addClass('active');
     $('#struct-detail-panel').html(renderSubjectDetail(subjectID));
+    if (_structGlobalTerm) { $('#struct-cat-search').val(_structGlobalTerm); applyStructSearch(); }
 }
 
-function renderSubjectDetail(subjectID) {
+function renderSubjectDetail(subjectID, qCounts = structCategoryCounts()) {
     const subj = (globalData.structure || []).find(s => s.SubjectID === subjectID);
     const groups = [...new Set((globalData.category || [])
         .filter(c => c.SubjectRef === subjectID)
         .map(c => c.AccordionGroup)
     )].sort();
 
+    const seenAll = new Set();
+    const allCats = (globalData.category || []).filter(c => {
+        if (c.SubjectRef !== subjectID || seenAll.has(c.CategoryID)) return false;
+        seenAll.add(c.CategoryID);
+        return true;
+    });
+    const qTotal = allCats.reduce((n, c) => n + (qCounts.get(c.CategoryID) || 0), 0);
+    const pdfCats = allCats.filter(c => spCount(c) > 0).length;
+
     let html = `
     <div class="struct-detail-header">
         <div class="d-flex align-items-center flex-wrap gap-2">
             <span class="struct-detail-title">${escapeHtml(subjectID)}</span>
             ${subj?.SubjectName ? `<span class="text-muted">${escapeHtml(subj.SubjectName)}</span>` : ''}
-            ${subj?.Year ? `<span class="badge bg-light text-secondary border">ปี ${escapeHtml(subj.Year)}</span>` : ''}
+            ${subj?.Year ? `<span class="badge bg-light text-secondary border">${escapeHtml(structYearLabel(structYearKey(subj.Year)))}</span>` : ''}
         </div>
         <div class="d-flex gap-2 flex-shrink-0">
             <button class="btn btn-outline-success btn-sm" data-crud="addGroup" data-id1="${escapeHtml(subjectID)}">
@@ -192,13 +289,17 @@ function renderSubjectDetail(subjectID) {
             </button>
         </div>
     </div>
+    <div class="struct-summary">
+        <span class="struct-stat"><i class="fas fa-layer-group"></i> ${groups.length} กลุ่ม</span>
+        <span class="struct-stat"><i class="fas fa-tags"></i> ${allCats.length} หัวข้อ</span>
+        <span class="struct-stat"><i class="fas fa-circle-question"></i> ${qTotal} ข้อ</span>
+        <span class="struct-stat"><i class="fas fa-file-pdf"></i> ${pdfCats}/${allCats.length} หัวข้อมีไฟล์</span>
+    </div>
     <div class="struct-search-bar">
         <input type="search" id="struct-cat-search" class="form-control form-control-sm" placeholder="ค้นหา Category ID / ชื่อหัวข้อ..." autocomplete="off">
         <span id="struct-search-info" class="small text-muted"></span>
     </div>
     <div class="struct-groups-area">`;
-
-    const qCounts = structCategoryCounts();
 
     if (groups.length === 0) {
         html += `<div class="struct-empty"><i class="fas fa-folder-open fa-2x text-muted mb-2"></i><p class="text-muted small">ยังไม่มีกลุ่มหัวข้อในวิชานี้</p></div>`;
@@ -233,6 +334,7 @@ function renderSubjectDetail(subjectID) {
                 <thead><tr>
                     <th style="width:165px">Category ID</th>
                     <th>ชื่อหัวข้อ</th>
+                    <th style="width:120px">PDF</th>
                     <th style="width:64px" class="text-end">ข้อ</th>
                     <th style="width:110px" class="text-end">จัดการ</th>
                 </tr></thead>
@@ -240,15 +342,18 @@ function renderSubjectDetail(subjectID) {
 
         cats.forEach(cat => {
             const n = qCounts.get(cat.CategoryID) || 0;
-            const searchKey = `${cat.CategoryID} ${cat.CategoryName || ''}`.toLowerCase();
+            const searchKey = `${cat.CategoryID} ${cat.CategoryName || ''} ${groupName || ''} ${subjectID} ${subj?.SubjectName || ''}`.toLowerCase();
+            const hasExam = spGetIds(cat, 'exam').length > 0;
+            const hasKey = spGetIds(cat, 'key').length > 0;
             html += `
-                <tr data-search="${escapeHtml(searchKey)}">
+                <tr data-search="${escapeHtml(searchKey)}"${n ? '' : ' class="struct-row-empty"'}>
                     <td><span class="struct-cat-id">${escapeHtml(cat.CategoryID)}</span></td>
                     <td class="struct-cat-name">${escapeHtml(cat.CategoryName)}</td>
+                    <td style="white-space:nowrap"><span class="struct-pdf-badge exam ${hasExam ? 'on' : 'off'}" title="ข้อสอบ"><i class="fas fa-file-pdf"></i><span class="struct-pdf-txt"> Exam</span></span> <span class="struct-pdf-badge key ${hasKey ? 'on' : 'off'}" title="เฉลย"><i class="fas fa-key"></i><span class="struct-pdf-txt"> Key</span></span></td>
                     <td class="text-end"><span class="struct-q-count${n ? '' : ' zero'}">${n}</span></td>
                     <td class="text-end" style="white-space:nowrap">
                         <div class="d-inline-flex align-items-center gap-1">
-                        <button class="btn-node btn-src${spCount(cat) ? ' has-files' : ''}" data-crud="srcPdf" data-id1="${escapeHtml(cat.CategoryID)}" title="PDF ต้นฉบับ (ข้อสอบ/เฉลย)">📎${spCount(cat) ? `<span class="src-badge">${spCount(cat)}</span>` : ''}</button>
+                        <button class="btn-node btn-src${spCount(cat) ? ' has-files' : ''}" data-crud="srcPdf" data-id1="${escapeHtml(cat.CategoryID)}" title="PDF ต้นฉบับ (ข้อสอบ/เฉลย)"><i class="fas fa-paperclip"></i>${spCount(cat) ? `<span class="src-badge">${spCount(cat)}</span>` : ''}</button>
                         <button class="btn-node btn-edit" data-crud="editCat" data-id1="${escapeHtml(cat.CategoryID)}" title="แก้ไข"><i class="fas fa-pen"></i></button>
                         <button class="btn-node btn-delete" data-crud="deleteCat" data-id1="${escapeHtml(cat.CategoryID)}" title="ลบ"><i class="fas fa-trash"></i></button>
                         </div>
@@ -608,10 +713,9 @@ const BULK_GROUP_MAP = {
 };
 
 function toggleBulkImport() {
-    const panel = document.getElementById('bulk-import-panel');
-    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
     document.getElementById('bulk-preview-area').innerHTML = '';
     document.getElementById('bulk-confirm-btn').style.display = 'none';
+    switchStructTab('explorer');
 }
 
 function previewBulkImport() {
