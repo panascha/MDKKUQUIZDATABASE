@@ -1937,14 +1937,37 @@ function detectEmptyChoiceRows() {
     const rows = converterStorage.ques || [];
     const targets = [];
     rows.forEach((row, i) => {
+        if (convSkippedRows.has(i)) return; // แถวที่ข้ามแล้ว (stub/ซ้ำ) ไม่ต้องเติม
         const choices = String(row[3] || '').split('///').map(c => c.trim()).filter(c => c !== '' && c !== '-');
         if (choices.length < 5) targets.push(i);
     });
     return targets;
 }
 
+// โจทย์ว่าง/มีแค่เลขข้อ (เช่น "22", "14.") = แถวว่างในตาราง recall — ถ้าปล่อยไป auto-fill จะเติม A-E ปลอม
+// ใช้ convSkippedRows (ไม่ splice) เพื่อไม่ให้ index ของ imgAssignments/pageHintMap เลื่อน — getFilteredImportData ไม่ส่งแถวนี้
+function skipStubStemRows() {
+    const dropped = [];
+    (converterStorage.ques || []).forEach((row, i) => {
+        if (convSkippedRows.has(i)) return;
+        const stem = String(row[1] || '').replace(/\[⚠️[^\]]*\]/g, '').trim();
+        if (stem === '' || /^\d+[.)]?$/.test(stem)) { convSkippedRows.add(i); dropped.push(i + 1); }
+    });
+    return dropped;
+}
+
 // เสนอเติมตัวเลือก — เรียกหลังแปลงเสร็จ
 async function offerFillEmptyChoices() {
+    const dropped = skipStubStemRows();
+    if (dropped.length > 0) {
+        renderPreview();
+        saveCheckpoint();
+        await Swal.fire({
+            icon: 'info',
+            title: `ตัดข้อที่ไม่มีโจทย์ ${dropped.length} ข้อ`,
+            html: `<div class="small text-muted">โจทย์ว่างหรือมีแค่เลขข้อ (แถวว่างใน PDF) — จะไม่ถูกนำเข้าและไม่เติมตัวเลือก<br>ข้อที่: ${dropped.join(', ')}</div>`
+        });
+    }
     const targets = detectEmptyChoiceRows();
     if (targets.length === 0) return;
 
