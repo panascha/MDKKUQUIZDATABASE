@@ -221,12 +221,12 @@ let _healthSubject = '';
 let _healthLimit = 200;
 const HEALTH_PAGE = 200;
 
-// กฎเดียวกับ categorizer.js (หัวข้อที่ไม่ใช่ข้อสอบจริง — ไม่ต้องมี PDF ต้นฉบับ)
+// กฎเลือกเข้า (positive): CategoryID ต้องดูเป็นข้อสอบจริง แล้วตัด BY AI|EXTRACTED|MODULE (ไม่ตัด COMMED)
+const HEALTH_EXAM_ID_RE = /_(\d{2}|xx)?(MCQ|FMT|QUIZ|LAB|OSCE|MEQ|SAQ|SPOT|MOCK|ROT)|^NL[12]_\d{4}/i;
+const HEALTH_NOT_EXAM_RE = /BY AI|EXTRACTED|MODULE/i;
 function healthIsExamType(cat) {
-    const group = String(cat.AccordionGroup || '').toUpperCase();
-    const name = String(cat.CategoryName || '').toUpperCase();
-    return !(group.includes('LEC') || group.includes('BY AI') || group.includes('(EXTRACTED)') ||
-        name.includes('MODULE') || name.includes('COMMED'));
+    if (!HEALTH_EXAM_ID_RE.test(String(cat.CategoryID || ''))) return false;
+    return !HEALTH_NOT_EXAM_RE.test(`${cat.AccordionGroup || ''} ${cat.CategoryName || ''} ${cat.CategoryID || ''}`);
 }
 function healthIsAi(cat) {
     return /BY AI|EXTRACTED/i.test(`${cat.AccordionGroup || ''} ${cat.CategoryID || ''}`);
