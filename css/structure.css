@@ -574,6 +574,11 @@
             .struct-detail-header .btn { font-size: 0.75rem; padding: 4px 8px; }
             .struct-groups-area { padding: 8px; gap: 8px; }
             .struct-cat-table td, .struct-cat-table thead th { padding: 5px 8px; }
+            /* Long category IDs (LEC_ANA_Gross_Anatomy_...) are nowrap — let them wrap on
+               phone so the Health audit + Curriculum tables don't force a wide scroll. */
+            .struct-cat-id { white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
+            /* Bulk-import preview: long LEC_* CategoryIDs wrap within their cell. */
+            #bulk-preview-area td { overflow-wrap: anywhere; word-break: break-word; }
         }
 
         /* ════════════════════════════════════
