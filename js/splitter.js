@@ -53,27 +53,62 @@ const CONV_SECTION_MAX_PAGE_GAP = 5;
 // items: [{ n, page, section }] เลขข้อที่นับ ตามลำดับการอ่าน (ใช้หาเลขข้อแรกของแต่ละชุด)
 async function detectQuestionCount(pdfDoc) {
     const candidates = [];
+    const barePerPage = new Map(); // page → bare candidates (ใช้กรองเลขหน้า)
     for (let p = 1; p <= pdfDoc.numPages; p++) {
         const text = await extractPageText(pdfDoc, p);
+        const found = [];
         // เลขข้ออาจไม่มีเว้นวรรคตามหลัง (พบจริง: "2)โดน", "4)Which") — ห้ามบังคับ \s ท้าย pattern
         const re = /(?:^|[\s\n])(\d{1,3})\s*[.)]/g;
         let m;
-        while ((m = re.exec(text)) !== null) candidates.push({ n: parseInt(m[1], 10), page: p });
-    }
-
-    const runs = [];
-    for (const c of candidates) {
-        let run = null;
-        for (let r = runs.length - 1; r >= 0; r--) {
-            const rr = runs[r];
-            if (rr.expect === c.n && c.page - rr.items[rr.items.length - 1].page <= CONV_SECTION_MAX_PAGE_GAP) { run = rr; break; }
+        while ((m = re.exec(text)) !== null) found.push({ n: parseInt(m[1], 10), page: p, at0: m.index });
+        // เลขข้อเปล่า ๆ ไม่มี . หรือ ) (ตารางสรุปความจำ: เลขอยู่ลำพังในเซลล์) — ต้นบรรทัดและตามด้วยท้ายบรรทัดหรือเว้นวรรค ≥2
+        const reBare = /(?:^|\n)[ \t]*(\d{1,3})(?=[ \t]*(?:\n|$)|[ \t]{2,}\S)/g;
+        while ((m = reBare.exec(text)) !== null) {
+            const c = { n: parseInt(m[1], 10), page: p, at0: m.index, bare: true };
+            found.push(c);
+            if (!barePerPage.has(p)) barePerPage.set(p, []);
+            barePerPage.get(p).push(c);
         }
-        if (!run && c.n === 1) { run = { expect: 1, items: [] }; runs.push(run); }
-        if (!run) continue;
-        run.items.push(c);
-        run.expect++;
+        found.sort((a, b) => a.at0 - b.at0);
+        candidates.push(...found);
     }
+    // เลขหน้า (เลขเปล่าตัวเดียวต่อหน้า ที่ n−page คงที่กับหน้าข้างเคียง) ไม่ใช่เลขข้อ
+    const isPageNum = c => {
+        const here = barePerPage.get(c.page);
+        if (!here || here.length !== 1) return false;
+        return [-1, 1].some(d => {
+            const nb = barePerPage.get(c.page + d);
+            return nb && nb.length === 1 && nb[0].n - nb[0].page === c.n - c.page;
+        });
+    };
+    for (let i = candidates.length - 1; i >= 0; i--) if (candidates[i].bare && isPageNum(candidates[i])) candidates.splice(i, 1);
+
+    // ไล่ run: openAny=false → เปิด run ใหม่เฉพาะเลข 1 (เดิม); true → เปิดที่เลขใดก็ได้ (ไฟล์ที่ตัดมาเริ่มกลางเล่ม เช่น ข้อ 154)
+    const buildRuns = (list, openAny) => {
+        const out = [];
+        for (const c of list) {
+            let run = null;
+            for (let r = out.length - 1; r >= 0; r--) {
+                const rr = out[r];
+                if (rr.expect === c.n && c.page - rr.items[rr.items.length - 1].page <= CONV_SECTION_MAX_PAGE_GAP) { run = rr; break; }
+            }
+            // openAny: เลขซ้ำกับข้อล่าสุดของ run (PDF พิมพ์ข้อเดิมซ้ำ เช่น NL2 ข้อ 230) → ข้าม ไม่เปิด run ปลอม
+            if (!run && openAny && out.some(rr => rr.expect === c.n + 1 && c.page - rr.items[rr.items.length - 1].page <= CONV_SECTION_MAX_PAGE_GAP)) continue;
+            if (!run && (c.n === 1 || openAny)) { run = { expect: c.n, items: [] }; out.push(run); }
+            if (!run) continue;
+            run.items.push(c);
+            run.expect++;
+        }
+        return out;
+    };
+    const runs = buildRuns(candidates, false);
     let counted = runs.filter(r => r.items.length >= CONV_MIN_SECTION_Q);
+    // รอบสอง: เลขที่ run แรก ๆ ไม่ได้ใช้ (ตอนที่เริ่มที่ N>1 / ต่อหลังเลขข้อที่เป็นรูป) → ไล่ใหม่ เปิดที่เลขใดก็ได้
+    // ต้องยาว ≥ CONV_MIN_SECTION_Q เท่านั้น (รายการตัวเลือก 1-5 และเลขขยะไม่ถึงเกณฑ์) และไม่แตะ run รอบแรก
+    const used = new Set();
+    counted.forEach(r => r.items.forEach(c => used.add(c)));
+    const extra = buildRuns(candidates.filter(c => !used.has(c)), true).filter(r => r.items.length >= CONV_MIN_SECTION_Q);
+    counted = counted.concat(extra);
     if (counted.length === 0 && runs.length > 0) counted = [runs.reduce((a, b) => (b.items.length > a.items.length ? b : a))];
 
     // เรียงตามลำดับการอ่าน — run ต่างตอนอาจสลับหน้ากันได้ (ไฟล์ Spot/OSCE ปนกัน)
