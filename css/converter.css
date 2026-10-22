@@ -257,6 +257,52 @@
             position: sticky;
             top: 0;
             z-index: 1;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px 8px;
+        }
+
+        .pdf-viewer-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-wrap: wrap;
+            margin-left: auto;
+        }
+
+        .pdf-viewer-toolbar .btn,
+        .pdf-collapse-btn {
+            padding: 1px 8px;
+            font-size: 0.8rem;
+            line-height: 1.5;
+        }
+
+        .pdf-page-indicator {
+            font-weight: 400;
+            margin-left: 6px;
+            white-space: nowrap;
+        }
+
+        .pdf-page-indicator input {
+            width: 52px;
+            padding: 1px 4px;
+            font-size: 0.8rem;
+            text-align: center;
+        }
+
+        /* Collapsed: narrow strip with only the toggle button */
+        .pdf-viewer-panel.pdf-collapsed {
+            flex: 0 0 60px;
+            max-width: 60px;
+        }
+        .pdf-viewer-panel.pdf-collapsed .pdf-pages-container,
+        .pdf-viewer-panel.pdf-collapsed .pdf-viewer-toolbar,
+        .pdf-viewer-panel.pdf-collapsed .pdf-viewer-title {
+            display: none;
+        }
+        .pdf-viewer-panel.pdf-collapsed .pdf-collapse-btn i {
+            transform: rotate(180deg);
         }
 
         .pdf-pages-container {
@@ -272,6 +318,7 @@
             border: 1px solid #dee2e6;
             border-radius: 4px;
             display: block;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
         }
 
         /* Flash the PDF page synced to the focused question card */
@@ -300,6 +347,10 @@
                 max-width: 100%;
                 max-height: 65vh;
                 position: static;
+            }
+            .pdf-viewer-panel.pdf-collapsed {
+                flex: none;
+                max-width: 100%;
             }
             .converter-split .converter-cards-container {
                 max-height: 50vh;

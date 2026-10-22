@@ -1060,7 +1060,14 @@
                         <!-- LEFT: PDF Viewer -->
                         <div class="pdf-viewer-panel">
                             <div class="pdf-viewer-header">
-                                <i class="fas fa-file-pdf text-danger me-1"></i> PDF Preview
+                                <span class="pdf-viewer-title"><i class="fas fa-file-pdf text-danger me-1"></i> PDF Preview</span>
+                                <div class="pdf-viewer-toolbar">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="pdf-zoom-out" title="ซูมออก" onclick="pdfZoomBy(-0.25)"><i class="fas fa-minus"></i></button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="pdf-zoom-fit" title="พอดีความกว้าง (100%)" onclick="pdfZoomFit()">100%</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="pdf-zoom-in" title="ซูมเข้า" onclick="pdfZoomBy(0.25)"><i class="fas fa-plus"></i></button>
+                                    <span class="pdf-page-indicator">หน้า <input type="number" id="pdf-page-input" min="1" value="1" aria-label="ไปที่หน้า" onchange="pdfJumpToPage(this.value)" onkeydown="if(event.key==='Enter'){pdfJumpToPage(this.value)}"> / <span id="pdf-page-total">0</span></span>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-secondary pdf-collapse-btn" id="pdf-collapse-btn" title="ย่อ/ขยายแผง PDF" onclick="togglePdfPanel()"><i class="fas fa-angles-left"></i></button>
                             </div>
                             <div id="pdf-pages-container" class="pdf-pages-container">
                                 <p class="text-muted small text-center p-4">ยังไม่ได้โหลด PDF</p>

@@ -976,13 +976,9 @@ function scrollPdfToQuestion(rowIndex) {
     const container = document.getElementById('pdf-pages-container');
     const panel = document.querySelector('.pdf-viewer-panel');
     if (!container || !panel) return;
-    const canvas = container.children[page - 1]; // canvases are ordered 1:1 with PDF pages
+    if (panel.classList.contains('pdf-collapsed')) return; // hidden strip — nothing to scroll
+    const canvas = pdfScrollToPage(page, true); // canvases are ordered 1:1 with PDF pages
     if (!canvas) return; // hallucinated page number — bail safely
-
-    const header = panel.querySelector('.pdf-viewer-header');
-    const headerH = header ? header.offsetHeight : 0;
-    const delta = canvas.getBoundingClientRect().top - panel.getBoundingClientRect().top;
-    panel.scrollTo({ top: panel.scrollTop + delta - headerH - 6, behavior: 'smooth' });
 
     canvas.classList.add('pdf-page-active');
     clearTimeout(_pdfHlTimer);
@@ -1652,30 +1648,66 @@ async function handlePDFFile(file) {
     }
 }
 
-async function renderPDFViewer() {
+// PDF preview zoom: 1 = fit panel width. Canvases stay 1:1 with page numbers (extractor/image-matcher rely on it).
+let pdfZoom = 1;
+let _pdfRenderToken = 0;
+let _pdfRenderPromise = Promise.resolve();
+let _pdfZoomTimer = null;
+
+function renderPDFViewer() {
+    const token = ++_pdfRenderToken; // newer call aborts older loop
+    _pdfRenderPromise = _pdfRenderPromise.then(() => _renderPDFViewerImpl(token));
+    return _pdfRenderPromise;
+}
+
+async function _renderPDFViewerImpl(token) {
     const container = document.getElementById('pdf-pages-container');
     if (!container || !currentPdfDoc) return;
-    container.innerHTML = '';
+    if (token !== _pdfRenderToken) return;
+    const panel = document.querySelector('.pdf-viewer-panel');
+    if (panel && panel.classList.contains('pdf-collapsed')) togglePdfPanel(true); // need real width to fit
     const dpr = window.devicePixelRatio || 1;
-    const panelWidth = Math.max((container.clientWidth || container.offsetWidth) - 16, 100);
+    const fitWidth = Math.max((container.clientWidth || container.offsetWidth) - 16, 100);
+    const panelWidth = Math.round(fitWidth * pdfZoom);
     const numPages = currentPdfDoc.numPages;
     const progressEl = document.getElementById('pdf-progress');
 
-    // Pre-create canvases in order so DOM order is always correct
-    const entries = Array.from({ length: numPages }, (_, i) => {
-        const canvas = document.createElement('canvas');
-        canvas.className = 'pdf-page-canvas';
-        canvas.style.cursor = 'zoom-in';
-        canvas.title = `หน้า ${i + 1} — คลิกเพื่อดูแบบเต็มจอ`;
-        container.appendChild(canvas);
-        return { canvas, pageNum: i + 1 };
-    });
+    // Reuse existing canvases when page count matches (zoom change) so DOM order/indices never shift
+    let canvases = Array.from(container.children);
+    const reuse = canvases.length === numPages && canvases.every(c => c.tagName === 'CANVAS');
+    if (!reuse) {
+        container.innerHTML = '';
+        // Pre-create canvases in order so DOM order is always correct
+        canvases = Array.from({ length: numPages }, (_, i) => {
+            const canvas = document.createElement('canvas');
+            canvas.className = 'pdf-page-canvas';
+            canvas.style.cursor = 'zoom-in';
+            canvas.title = `หน้า ${i + 1} — คลิกเพื่อดูแบบเต็มจอ`;
+            container.appendChild(canvas);
+            return canvas;
+        });
+    }
+    const entries = canvases.map((canvas, i) => ({ canvas, pageNum: i + 1 }));
+    const totalEl = document.getElementById('pdf-page-total');
+    if (totalEl) totalEl.textContent = numPages;
+    const zoomFitBtn = document.getElementById('pdf-zoom-fit');
+    if (zoomFitBtn) zoomFitBtn.textContent = Math.round(pdfZoom * 100) + '%';
+    if (panel && !panel._pdfScrollBound) {
+        panel._pdfScrollBound = true;
+        let ticking = false;
+        panel.addEventListener('scroll', () => {
+            if (ticking) return;
+            ticking = true;
+            requestAnimationFrame(() => { ticking = false; updatePdfPageIndicator(); });
+        }, { passive: true });
+    }
 
     if (progressEl) { progressEl.classList.remove('d-none'); progressEl.max = numPages; progressEl.value = 0; }
 
     let done = 0;
     const BATCH = 4;
     for (let i = 0; i < entries.length; i += BATCH) {
+        if (token !== _pdfRenderToken) break; // superseded by a newer render
         await Promise.all(entries.slice(i, i + BATCH).map(async ({ canvas, pageNum }) => {
             try {
                 const page = await currentPdfDoc.getPage(pageNum);
@@ -1695,7 +1727,70 @@ async function renderPDFViewer() {
         }));
     }
 
-    if (progressEl) progressEl.classList.add('d-none');
+    if (token === _pdfRenderToken && progressEl) progressEl.classList.add('d-none');
+    updatePdfPageIndicator();
+}
+
+// Scroll the PDF panel so page N (1-based) sits just under the sticky header
+function pdfScrollToPage(page, smooth) {
+    const container = document.getElementById('pdf-pages-container');
+    const panel = document.querySelector('.pdf-viewer-panel');
+    if (!container || !panel) return null;
+    const canvas = container.children[page - 1]; // canvases are ordered 1:1 with PDF pages
+    if (!canvas || canvas.tagName !== 'CANVAS') return null;
+    const header = panel.querySelector('.pdf-viewer-header');
+    const headerH = header ? header.offsetHeight : 0;
+    const delta = canvas.getBoundingClientRect().top - panel.getBoundingClientRect().top;
+    panel.scrollTo({ top: panel.scrollTop + delta - headerH - 6, behavior: smooth ? 'smooth' : 'auto' });
+    return canvas;
+}
+
+function updatePdfPageIndicator() {
+    const container = document.getElementById('pdf-pages-container');
+    const panel = document.querySelector('.pdf-viewer-panel');
+    const input = document.getElementById('pdf-page-input');
+    if (!container || !panel || !input || document.activeElement === input) return;
+    const header = panel.querySelector('.pdf-viewer-header');
+    const line = panel.getBoundingClientRect().top + (header ? header.offsetHeight : 0) + 10;
+    let current = 1;
+    for (let i = 0; i < container.children.length; i++) {
+        if (container.children[i].getBoundingClientRect().top <= line) current = i + 1;
+        else break;
+    }
+    input.value = current;
+}
+
+function pdfJumpToPage(val) {
+    const total = currentPdfDoc ? currentPdfDoc.numPages : 0;
+    const n = Math.min(Math.max(parseInt(val, 10) || 1, 1), total || 1);
+    const input = document.getElementById('pdf-page-input');
+    if (input) input.value = n;
+    pdfScrollToPage(n, true);
+}
+
+function _pdfApplyZoom(z) {
+    const next = Math.min(3, Math.max(0.5, Math.round(z * 100) / 100));
+    if (next === pdfZoom) return;
+    pdfZoom = next;
+    const btn = document.getElementById('pdf-zoom-fit');
+    if (btn) btn.textContent = Math.round(pdfZoom * 100) + '%';
+    clearTimeout(_pdfZoomTimer);
+    _pdfZoomTimer = setTimeout(async () => {
+        const input = document.getElementById('pdf-page-input');
+        const page = input ? parseInt(input.value, 10) || 1 : 1;
+        await renderPDFViewer();
+        pdfScrollToPage(page, false); // keep the page the admin was reading
+    }, 250);
+}
+
+function pdfZoomBy(delta) { _pdfApplyZoom(pdfZoom + delta); }
+function pdfZoomFit() { _pdfApplyZoom(1); }
+
+// Collapse/expand the PDF panel (forceExpand === true only expands)
+function togglePdfPanel(forceExpand) {
+    const panel = document.querySelector('.pdf-viewer-panel');
+    if (!panel) return;
+    panel.classList.toggle('pdf-collapsed', forceExpand === true ? false : !panel.classList.contains('pdf-collapsed'));
 }
 
 // ─── Feature A: หน้าทบทวนหัวข้อบรรยายก่อนแปลง (แยกตามกลุ่มวิชา + คำอธิบาย) ──────
